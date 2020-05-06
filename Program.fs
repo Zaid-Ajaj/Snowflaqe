@@ -5,16 +5,29 @@ open System.Net
 open System.Text
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
+open System.IO
+open GraphQLParser
+open GraphQLParser.AST
 
 module Types =
     [<RequireQualifiedAccess>]
     type GraphqlScalar =
-        | ID
         | Int
         | String
         | Float
         | Bool
         | Custom of name:string
+
+    type GraphqlEnumValue =  {
+        name : string
+        description : string option
+    }
+
+    type GraphqlEnum = {
+        name : string
+        description : string option
+        values : GraphqlEnumValue list
+    }
 
     [<RequireQualifiedAccess>]
     type GraphqlFieldType =
@@ -31,7 +44,7 @@ module Types =
 
     type GraphqlObject = {
         name: string
-        description: string
+        description: string option
         fields : GraphqlField  list
     }
 
@@ -39,8 +52,43 @@ module Types =
     type GraphqlType =
         | Scalar of GraphqlScalar
         | Object of GraphqlObject
+        | Enum of GraphqlEnum
 
     type GraphqlSchema = { types : GraphqlType list }
+
+module Ast =
+    [<RequireQualifiedAccess>]
+    type AstNode =
+        | Name of GraphQLName
+        | SelectionSet of GraphQLSelectionSet
+        | Query of GraphQLOperationDefinition
+        | Mutation of GraphQLOperationDefinition
+        | Subscripiton of GraphQLOperationDefinition
+
+    type GraphqlQuery = { nodes : AstNode list }
+
+    let fromNode (node: ASTNode) : option<AstNode> =
+        match node.Kind with
+        | ASTNodeKind.Name -> Some (AstNode.Name (unbox<GraphQLName> node))
+        | ASTNodeKind.OperationDefinition ->
+            let operationDef = unbox<GraphQLOperationDefinition> node
+            match operationDef.Operation with
+            | OperationType.Query -> Some (AstNode.Query operationDef)
+            | OperationType.Mutation ->  Some (AstNode.Mutation operationDef)
+            | OperationType.Subscription -> Some (AstNode.Subscripiton operationDef)
+            | _ -> None
+
+        | ASTNodeKind.SelectionSet -> Some (AstNode.SelectionSet (unbox<GraphQLSelectionSet> node))
+        | _ -> None
+
+    let fromDocument (document: GraphQLDocument) : GraphqlQuery =
+        let nodes =
+            document.Definitions
+            |> Seq.choose fromNode
+            |> List.ofSeq
+
+        {  nodes = nodes }
+
 
 open Types
 
@@ -61,6 +109,23 @@ module Patterns =
             | "Float" -> Some (Scalar GraphqlScalar.Float)
             | customScalar -> Some (Scalar (GraphqlScalar.Custom customScalar))
         | _ -> None
+
+    let (|Enum|_|) (typeJson: JToken) =
+        match typeJson.["kind"].ToString() with
+        | "ENUM" ->
+            let name = typeJson.["name"].ToString()
+            let description = Option.ofObj typeJson.["description"] |> Option.map string |> Option.filter (not << String.IsNullOrWhiteSpace)
+            let values : GraphqlEnumValue list =  [
+                for enumValue in typeJson.["enumValues"] ->
+                    {
+                        name = enumValue.["name"].ToString()
+                        description = Option.ofObj enumValue.["description"] |> Option.map string |> Option.filter (not << String.IsNullOrWhiteSpace)
+                    }
+            ]
+
+            Some { name = name; description = description; values = values  }
+        | _ ->
+            None
 
     let (|ObjectRef|_|) (typeJson: JToken) =
         match typeJson.["kind"].ToString() with
@@ -100,7 +165,7 @@ module Patterns =
         match typeJson.["kind"].ToString() with
         | "OBJECT" ->
             let name = typeJson.["name"].ToString()
-            let description = typeJson.["description"].ToString()
+            let description = Option.ofObj typeJson.["description"] |> Option.map string |> Option.filter String.IsNullOrWhiteSpace
             let fields = unbox<JArray> typeJson.["fields"]
             let graphqlFields =
                 fields
@@ -130,6 +195,9 @@ module Patterns =
         | _ ->
             None
 
+let validateQuery (query: Ast.GraphqlQuery) (schema: GraphqlSchema) =
+    true
+
 let parseSchema (content: string) : Types.GraphqlSchema =
     let contentJson = JToken.Parse(content)
     let typesJson = unbox<JArray> contentJson.["data"].["__schema"].["types"]
@@ -138,22 +206,58 @@ let parseSchema (content: string) : Types.GraphqlSchema =
             match typeJson with
             | Patterns.Scalar scalar -> Some (GraphqlType.Scalar scalar)
             | Patterns.Object object -> Some (GraphqlType.Object object)
+            | Patterns.Enum enum -> Some (GraphqlType.Enum enum)
             | _ -> None
     ]
 
     { types = graphqlTypes |> List.choose id }
 
+let lexer = Lexer()
+let parser = Parser(lexer)
+
 [<EntryPoint>]
 let main argv =
-    let url = "https://graphql-pokemon.now.sh"
+    match argv with
+    | [| "--config"; configFile |] ->
+        let configFilePath =
+            if Path.IsPathRooted configFile
+            then configFile
+            else Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, configFile))
 
-    let requestBody = JObject()
-    requestBody.Add(JProperty("query", introspectionQuery))
+        if not (File.Exists configFilePath) then
+            failwithf "File %s was not found" configFilePath
+        else
 
-    let responseAsync = httpClient.PostAsync(url, new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json"))
-    let reponse = Async.RunSynchronously (Async.AwaitTask responseAsync)
-    let content = Async.RunSynchronously (Async.AwaitTask (reponse.Content.ReadAsStringAsync()))
-    let schema = parseSchema content
-    printfn "%A" schema
-    //Console.WriteLine content
-    0 // return an integer exit code
+            let configJson = JToken.Parse(File.ReadAllText configFilePath)
+            let schemaUrl = string configJson.["schema"]
+            let queriesPath = string configJson.["queries"]
+
+            let fullQueriesPath =
+                if Path.IsPathRooted queriesPath
+                then queriesPath
+                else Path.GetFullPath(Path.Combine(Directory.GetParent(configFilePath).FullName, queriesPath))
+
+            let requestBody = JObject()
+            requestBody.Add(JProperty("query", introspectionQuery))
+
+            let responseAsync = httpClient.PostAsync(schemaUrl, new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json"))
+            let reponse = Async.RunSynchronously (Async.AwaitTask responseAsync)
+            let content = Async.RunSynchronously (Async.AwaitTask (reponse.Content.ReadAsStringAsync()))
+            let schema = parseSchema content
+
+
+            let queryFiles = Directory.GetFiles(fullQueriesPath, "*.gql")
+
+            for queryFile in queryFiles do
+                let query = File.ReadAllText queryFile
+                let ast = parser.Parse(Source(query))
+                let queryAst = Ast.fromDocument ast
+
+                ()
+
+
+            printfn "Success!"
+            0 // return an integer exit code
+
+    | _ ->
+        failwith "No config provided"

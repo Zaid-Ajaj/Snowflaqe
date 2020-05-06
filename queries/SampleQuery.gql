@@ -1,0 +1,6 @@
+query {
+  artists {
+    name
+    bio
+  }
+}

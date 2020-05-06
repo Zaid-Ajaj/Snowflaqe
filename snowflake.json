@@ -1,0 +1,11 @@
+{
+    "schema": "https://metaphysics-production.artsy.net",
+    "queries": "./queries",
+    "target": "fable",
+    "options": {
+        "namespace": "Artsy.Client",
+        "customMappings": {
+            "ID": "String"
+        }
+    }
+}
