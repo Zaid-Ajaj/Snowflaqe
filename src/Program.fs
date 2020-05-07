@@ -48,9 +48,6 @@ type CommandLineArgs =
     | Validate of Config
     | Generate of Config
 
-let lexer = Lexer()
-let parser = Parser(lexer)
-
 [<EntryPoint>]
 let main argv =
     match argv with
@@ -73,8 +70,7 @@ let main argv =
 
             for queryFile in queryFiles do
                 let query = File.ReadAllText queryFile
-                let ast = parser.Parse(Source(query))
-                let queryAst = Ast.fromDocument ast
+                let queryAst = Query.parse query
 
                 ()
 
