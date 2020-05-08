@@ -4,64 +4,64 @@ open Snowflake.Types
 open GraphQLParser.AST
 open GraphQLParser
 
-let rec readNode (node: ASTNode) = 
-    match node.Kind with 
-    | ASTNodeKind.Name -> 
+let rec readNode (node: ASTNode) =
+    match node.Kind with
+    | ASTNodeKind.Name ->
         let nameNode = unbox<GraphQLName> node
         Some (GraphqlNode.Name(nameNode, nameNode.Location))
 
-    | ASTNodeKind.SelectionSet -> 
+    | ASTNodeKind.SelectionSet ->
         let selectionSet = unbox<GraphQLSelectionSet> node
         Some (GraphqlNode.SelectionSet (readSelections selectionSet))
 
-    | ASTNodeKind.Field -> 
+    | ASTNodeKind.Field ->
         let field = unbox<GraphQLFieldSelection> node
         let fieldSelection = {
             name = field.Name.Value
             arguments = listOrNone field.Arguments
-            selectionSet = if isNull field.SelectionSet then None else Some (readSelections field.SelectionSet) 
+            selectionSet = if isNull field.SelectionSet then None else Some (readSelections field.SelectionSet)
             directives = listOrNone field.Directives
             location = field.Location
         }
 
         Some (GraphqlNode.Field fieldSelection)
-    | _ -> 
-        None 
+    | _ ->
+        None
 
 and readSelections (selectionSet: GraphQLSelectionSet) : SelectionSet = {
     location = selectionSet.Location
     nodes = List.choose readNode (List.ofSeq selectionSet.Selections)
 }
 
-let parseDocument (document: GraphQLDocument) : Result<GraphqlDocument, string> = 
-    if document.Definitions.Count > 0 then 
-        match document.Definitions.[0].Kind with 
-        | ASTNodeKind.OperationDefinition -> 
+let parseDocument (document: GraphQLDocument) : Result<GraphqlDocument, string> =
+    if document.Definitions.Count > 0 then
+        match document.Definitions.[0].Kind with
+        | ASTNodeKind.OperationDefinition ->
             let operation = unbox<GraphQLOperationDefinition> document.Definitions.[0]
-            match operation.Operation with 
-            | OperationType.Query -> 
-                let name = 
-                    if isNull operation.Name 
-                    then None 
+            match operation.Operation with
+            | OperationType.Query ->
+                let name =
+                    if isNull operation.Name
+                    then None
                     else Option.ofObj operation.Name.Value
-                
+
                 let query = GraphqlDocument.Query {
-                    name = name 
-                    directives = listOrNone operation.Directives 
+                    name = name
+                    directives = listOrNone operation.Directives
                     variables = listOrNone operation.VariableDefinitions
-                    selectionSet = readSelections operation.SelectionSet 
+                    selectionSet = readSelections operation.SelectionSet
                 }
 
                 Ok query
-            | OperationType.Mutation -> 
-                let name = 
-                    if isNull operation.Name 
-                    then None 
+            | OperationType.Mutation ->
+                let name =
+                    if isNull operation.Name
+                    then None
                     else Option.ofObj operation.Name.Value
 
                 let mutation = GraphqlDocument.Mutation {
-                    name = name 
-                    directives = listOrNone operation.Directives 
+                    name = name
+                    directives = listOrNone operation.Directives
                     variables = listOrNone operation.VariableDefinitions
                     selectionSet = readSelections operation.SelectionSet
                 }
@@ -70,13 +70,22 @@ let parseDocument (document: GraphQLDocument) : Result<GraphqlDocument, string> 
 
             | otherwise -> Error "Subscription type not supported"
         | _ ->
-            Error "Expected the first to be an operation. Either starting with query { ... } or mutation { ... }" 
-    else 
+            Error "Expected the first to be an operation. Either starting with query { ... } or mutation { ... }"
+    else
         Error "This document is empty"
 
 let private lexer = Lexer()
 let private parser = Parser(lexer)
 
-let parse (content: string) = 
+let parse (content: string) =
     try parseDocument (parser.Parse(Source content))
     with ex -> Error ex.Message
+
+let findTypeByName (name: string) (schema: GraphqlSchema) =
+    schema.types
+    |> List.tryFind (function
+        | GraphqlType.Enum enumDef -> enumDef.name = name
+        | GraphqlType.Object objectDef -> objectDef.name = name
+        | GraphqlType.Scalar scalar -> false)
+
+let validate (document: GraphqlDocument) (schema: GraphqlSchema) : bool = false

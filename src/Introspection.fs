@@ -6,6 +6,8 @@ open System.Net.Http
 open Newtonsoft.Json.Linq
 open System.IO
 open GraphQL
+open GraphQL.Execution
+open GraphQL.NewtonsoftJson
 
 let private httpClient = new HttpClient()
 
@@ -33,7 +35,7 @@ let loadSchema (schema: string) =
         Schema.parse content
 
     else if schema.EndsWith ".json" && not (File.Exists (resolveFile schema)) then
-        let errorMsg = sprintf "Fiel %s was not found" (resolveFile schema)
+        let errorMsg = sprintf "File %s was not found" (resolveFile schema)
         Error errorMsg
 
     // Handle schema input as Graphql schema definition (schema-first approach)
@@ -41,7 +43,11 @@ let loadSchema (schema: string) =
         try
             let schemaContent = File.ReadAllText (resolveFile schema)
             let graphqlServer = GraphQL.Types.Schema.For(schemaContent)
-            let schemaJson = graphqlServer.Execute(fun options -> options.Query <- IntrospectionQuery)
+            let schemaJson =
+                graphqlServer.ExecuteAsync(DocumentWriter(), fun options -> options.Query <- IntrospectionQuery)
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+
             Schema.parse schemaJson
         with
         | ex -> Error ex.Message
@@ -49,6 +55,11 @@ let loadSchema (schema: string) =
     else if (schema.EndsWith ".graphql" || schema.EndsWith ".gql") && not (File.Exists (resolveFile schema)) then
         let errorMsg = sprintf "File %s was not found to load the schema from" (resolveFile schema)
         Error errorMsg
-
     else
-        Schema.parse schema
+        let graphqlServer = GraphQL.Types.Schema.For(schema)
+        let schemaJson =
+            graphqlServer.ExecuteAsync(DocumentWriter(), fun options -> options.Query <- IntrospectionQuery)
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
+        Schema.parse schemaJson

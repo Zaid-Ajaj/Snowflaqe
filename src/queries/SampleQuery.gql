@@ -1,6 +1,8 @@
-query {
+query getArtists {
   artists {
     name
-    bio
+    bio {
+      fields
+    }
   }
 }

@@ -51,8 +51,8 @@ type GraphqlType =
 type GraphqlSchema = { types : GraphqlType list }
 
 type SelectionSet = {
-    nodes : GraphqlNode list 
-    location : GraphQLLocation 
+    nodes : GraphqlNode list
+    location : GraphQLLocation
 }
 
 type GraphqlFieldSelection = {
@@ -64,21 +64,21 @@ type GraphqlFieldSelection = {
 }
 
 [<RequireQualifiedAccess>]
-type GraphqlNode = 
+type GraphqlNode =
     | Name of GraphQLName * GraphQLLocation
     | Field of GraphqlFieldSelection
     | SelectionSet of SelectionSet
 
 type GraphqlQuery = {
     name : string option
-    directives : GraphQLDirective list 
+    directives : GraphQLDirective list
     variables : GraphQLVariableDefinition list
-    selectionSet : SelectionSet 
+    selectionSet : SelectionSet
 }
 
 type GraphqlMutation = {
     name : string option
-    directives : GraphQLDirective list 
+    directives : GraphQLDirective list
     variables : GraphQLVariableDefinition list
     selectionSet : SelectionSet
 }
