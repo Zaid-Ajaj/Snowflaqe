@@ -6,39 +6,6 @@ open GraphQLParser.AST
 open Snowflake.Types
 open Snowflake
 
-module Ast =
-    [<RequireQualifiedAccess>]
-    type AstNode =
-        | Name of GraphQLName
-        | SelectionSet of GraphQLSelectionSet
-        | Query of GraphQLOperationDefinition
-        | Mutation of GraphQLOperationDefinition
-        | Subscripiton of GraphQLOperationDefinition
-
-    type GraphqlQuery = { nodes : AstNode list }
-
-    let fromNode (node: ASTNode) : option<AstNode> =
-        match node.Kind with
-        | ASTNodeKind.Name -> Some (AstNode.Name (unbox<GraphQLName> node))
-        | ASTNodeKind.OperationDefinition ->
-            let operationDef = unbox<GraphQLOperationDefinition> node
-            match operationDef.Operation with
-            | OperationType.Query -> Some (AstNode.Query operationDef)
-            | OperationType.Mutation ->  Some (AstNode.Mutation operationDef)
-            | OperationType.Subscription -> Some (AstNode.Subscripiton operationDef)
-            | _ -> None
-
-        | ASTNodeKind.SelectionSet -> Some (AstNode.SelectionSet (unbox<GraphQLSelectionSet> node))
-        | _ -> None
-
-    let fromDocument (document: GraphQLDocument) : GraphqlQuery =
-        let nodes =
-            document.Definitions
-            |> Seq.choose fromNode
-            |> List.ofSeq
-
-        {  nodes = nodes }
-
 type Config = {
     schema: string
     queries: string

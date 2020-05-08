@@ -102,5 +102,20 @@ let findTypeByName (name: string) (schema: GraphqlSchema) =
         | GraphqlType.Object objectDef -> objectDef.name = name
         | GraphqlType.Scalar scalar -> false)
 
+let findOperation (document: GraphqlDocument) = 
+    document.nodes
+    |> List.tryFind (function 
+        | GraphqlNode.Query _ -> true
+        | GraphqlNode.Mutation _ -> true
+        | _ -> false)
+    |> function 
+        | Some (GraphqlNode.Query query) -> Some (GraphqlOperation.Query query)
+        | Some (GraphqlNode.Mutation mutation) -> Some (GraphqlOperation.Mutation mutation)
+        | _ -> None 
 
-let validate (document: GraphqlDocument) (schema: GraphqlSchema) : bool = false
+
+let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
+    match findOperation document with 
+    | None -> ValidationResult.NoQueryOrMutationProvided
+    | Some (GraphqlOperation.Query query) -> ValidationResult.Success
+    | Some (GraphqlOperation.Mutation mutation) ->  ValidationResult.Success

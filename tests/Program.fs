@@ -85,6 +85,26 @@ let queryParsing =
                     failwithf "Unexpected %A" otherwise
         }
 
+        test "Query with fragments can be parsed" {
+            let query = Query.parse """
+                fragment NameParts on Person {
+                  firstName
+                  lastName
+                }
+
+                query GetPerson {
+                  people {
+                    ...NameParts
+                    phone
+                  }
+                }
+            """
+
+            match query with 
+            | Ok document -> Expect.equal 2 document.nodes.Length "There are two nodes"
+            | Error error -> failwith error
+        }
+
         test "Query can be validated against schema" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {
@@ -103,8 +123,8 @@ let queryParsing =
 
             match query, schema with
             | Ok query, Ok schema ->
-                let valid = Query.validate query schema
-                Expect.isFalse valid "Query should be valid"
+                let validationResult = Query.validate query schema
+                Expect.equal ValidationResult.Success validationResult "Query should be valid"
 
             | _ ->
                 failwith "Unexpected result"

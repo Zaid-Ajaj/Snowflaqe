@@ -95,6 +95,16 @@ type GraphqlMutation = {
     selectionSet : SelectionSet
 }
 
+[<RequireQualifiedAccess>]
+type GraphqlOperation = 
+    | Query of GraphqlQuery
+    | Mutation of GraphqlMutation
+
 type GraphqlDocument = {
     nodes : GraphqlNode list
 }
+
+[<RequireQualifiedAccess>]
+type ValidationResult = 
+    | NoQueryOrMutationProvided
+    | Success
