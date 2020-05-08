@@ -63,11 +63,23 @@ type GraphqlFieldSelection = {
     location : GraphQLLocation
 }
 
+type GraphqlFragmentDefinition = {
+    name : string 
+    typeDef : string
+    selectionSet : SelectionSet option 
+    directives: GraphQLDirective list
+    location : GraphQLLocation
+}
+
 [<RequireQualifiedAccess>]
 type GraphqlNode =
     | Name of GraphQLName * GraphQLLocation
     | Field of GraphqlFieldSelection
     | SelectionSet of SelectionSet
+    | FragmentSpread of GraphQLFragmentSpread
+    | FragmentDefinition of GraphqlFragmentDefinition
+    | Query of GraphqlQuery
+    | Mutation of GraphqlMutation
 
 type GraphqlQuery = {
     name : string option
@@ -83,7 +95,6 @@ type GraphqlMutation = {
     selectionSet : SelectionSet
 }
 
-[<RequireQualifiedAccess>]
-type GraphqlDocument =
-    | Query of GraphqlQuery
-    | Mutation of GraphqlMutation
+type GraphqlDocument = {
+    nodes : GraphqlNode list
+}

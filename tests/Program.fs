@@ -16,10 +16,13 @@ let queryParsing =
             """
 
             match query with
-            | Ok (GraphqlDocument.Query parsedQuery) ->
-                Expect.equal parsedQuery.name None "This query has no name defined"
-            | Ok (_) ->
-                failwith "Unexpected results"
+            | Ok document ->
+                Expect.equal 1 document.nodes.Length "Document has one element"
+                match document.nodes.[0] with 
+                | GraphqlNode.Query parsedQuery -> 
+                    Expect.equal parsedQuery.name None "Query name can be extracted"
+                | _ ->
+                    failwith "Unexpected node"
             | Error error ->
                 failwith error
         }
@@ -35,16 +38,19 @@ let queryParsing =
             """
 
             match query with
-            | Ok (GraphqlDocument.Query parsedQuery) ->
-                Expect.equal parsedQuery.name (Some "getArtists") "Query name can be extracted"
-            | Ok (_) ->
-                failwith "Unexpected results"
+            | Ok document ->
+                Expect.equal 1 document.nodes.Length "Document has one element"
+                match document.nodes.[0] with 
+                | GraphqlNode.Query parsedQuery -> 
+                    Expect.equal parsedQuery.name (Some "getArtists") "Query name can be extracted"
+                | _ ->
+                    failwith "Unexpected node"
             | Error error ->
                 failwith error
         }
 
         test "Schema can be parsed from GraphQL definition" {
-            let schema = Introspection.loadSchema """
+            let schema = Introspection.fromSchemaDefinition """
                 type Query {
                     composites: [Composite!]!
                 }
@@ -59,7 +65,7 @@ let queryParsing =
         }
 
         test "Query.findTypeByName works" {
-            let schema = Introspection.loadSchema """
+            let schema = Introspection.fromSchemaDefinition """
                 type Query {
                     hello: String
                 }
@@ -72,12 +78,15 @@ let queryParsing =
                 | Some (GraphqlType.Object objectDef) ->
                     Expect.equal "Query" objectDef.name "Query can queries"
                     Expect.equal 1 objectDef.fields.Length "Query only has one field"
+                    Expect.equal "hello" objectDef.fields.[0].fieldName "Field name is read correctly"
+                    Expect.isEmpty objectDef.fields.[0].args "Field has no arguments"
+                    Expect.equal (GraphqlFieldType.Scalar(GraphqlScalar.String)) objectDef.fields.[0].fieldType "Field type is correct"
                 | otherwise ->
                     failwithf "Unexpected %A" otherwise
         }
 
         test "Query can be validated against schema" {
-            let schema = Introspection.loadSchema """
+            let schema = Introspection.fromSchemaDefinition """
                 type Query {
                     hello: String
                 }
