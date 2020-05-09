@@ -126,7 +126,7 @@ let (|Object|_|)  (typeJson: JToken) =
     | _ ->
         None
 
-let (|InputObject|_|)  (typeJson: JToken) =
+let (|InputObject|_|)  (typeJson: JToken) : GraphqlInputObject option =
     match typeJson.["kind"].ToString() with
     | "INPUT_OBJECT" ->
         let name = typeJson.["name"].ToString()
@@ -138,16 +138,8 @@ let (|InputObject|_|)  (typeJson: JToken) =
             |> List.choose (fun field ->
                 let fieldName = field.["name"].ToString()
                 let parsedFieldType = tryParseFieldType field.["type"]
-                let args = List.choose id [
-                    for arg in unbox<JArray> field.["args"] do
-                        let argName = arg.["name"].ToString()
-                        match tryParseFieldType arg.["type"] with
-                        | Some argType -> Some (argName, argType)
-                        | None -> None
-                ]
-
                 match parsedFieldType with
-                | Some fieldType -> Some  { fieldName = fieldName; fieldType = fieldType; args = args }
+                | Some fieldType -> Some  { fieldName = fieldName; fieldType = fieldType }
                 | None -> None
             )
 

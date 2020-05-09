@@ -37,6 +37,17 @@ type GraphqlField = {
     args :  (string * GraphqlFieldType) list
 }
 
+type GraphqlInputField = {
+    fieldName : string
+    fieldType : GraphqlFieldType
+}
+
+type GraphqlInputObject = {
+    name: string
+    description: string option
+    fields : GraphqlInputField  list
+}
+
 type GraphqlObject = {
     name: string
     description: string option
@@ -47,7 +58,7 @@ type GraphqlObject = {
 type GraphqlType =
     | Scalar of GraphqlScalar
     | Object of GraphqlObject
-    | InputObject of GraphqlObject
+    | InputObject of GraphqlInputObject
     | Enum of GraphqlEnum
 
 type GraphqlSchema = { 
