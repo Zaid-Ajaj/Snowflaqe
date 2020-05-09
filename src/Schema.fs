@@ -1,16 +1,9 @@
-﻿module Snowflake.Schema
+﻿[<RequireQualifiedAccess>]
+module Snowflake.Schema
 
 open System
 open Newtonsoft.Json.Linq
 open Snowflake.Types
-
-let stringOrNone (json: JToken) (key: string) = 
-    if json.Type = JTokenType.Object then 
-        let dict = unbox<JObject> json 
-        if dict.ContainsKey key && not (String.IsNullOrWhiteSpace (string dict.[key]))
-        then Some (string dict.[key])
-        else None 
-    else None
 
 let (|Scalar|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
@@ -183,3 +176,27 @@ let parse (content: string) =
     
     with 
     | ex -> Error ex.Message
+
+let findTypeByName (name: string) (schema: GraphqlSchema) =
+    schema.types
+    |> List.tryFind (function
+        | GraphqlType.Enum enumDef -> enumDef.name = name
+        | GraphqlType.Object objectDef -> objectDef.name = name
+        | GraphqlType.InputObject objectDef -> objectDef.name = name
+        | GraphqlType.Scalar scalar -> false)
+
+let findQuery (schema: GraphqlSchema) = 
+    match schema.queryType with 
+    | None -> None 
+    | Some typeName -> 
+        match findTypeByName typeName schema with 
+        | Some (GraphqlType.Object queryType) -> Some queryType 
+        | _ -> None
+
+let findMutation (schema: GraphqlSchema) = 
+    match schema.mutationType with 
+    | None -> None 
+    | Some typeName -> 
+        match findTypeByName typeName schema with 
+        | Some (GraphqlType.Object queryType) -> Some queryType 
+        | _ -> None

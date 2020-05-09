@@ -74,7 +74,7 @@ let queryParsing =
             match schema with
             | Error error -> failwith error
             | Ok schema ->
-                match Query.findQueryType schema with
+                match Schema.findQuery schema with
                 | Some queryType ->
                     Expect.equal "Query" queryType.name "Query can queries"
                     Expect.equal 1 queryType.fields.Length "Query only has one field"

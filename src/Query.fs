@@ -1,4 +1,5 @@
-﻿module Snowflake.Query
+﻿[<RequireQualifiedAccess>]
+module Snowflake.Query
 
 open Snowflake.Types
 open GraphQLParser.AST
@@ -95,30 +96,7 @@ let parse (content: string) : Result<GraphqlDocument, string> =
     with 
     | ex -> Error ex.Message
 
-let findTypeByName (name: string) (schema: GraphqlSchema) =
-    schema.types
-    |> List.tryFind (function
-        | GraphqlType.Enum enumDef -> enumDef.name = name
-        | GraphqlType.Object objectDef -> objectDef.name = name
-        | GraphqlType.InputObject objectDef -> objectDef.name = name
-        | GraphqlType.Scalar scalar -> false)
-
-let findQueryType (schema: GraphqlSchema) = 
-    match schema.queryType with 
-    | None -> None 
-    | Some typeName -> 
-        match findTypeByName typeName schema with 
-        | Some (GraphqlType.Object queryType) -> Some queryType 
-        | _ -> None
-
-let findMutationType (schema: GraphqlSchema) = 
-    match schema.mutationType with 
-    | None -> None 
-    | Some typeName -> 
-        match findTypeByName typeName schema with 
-        | Some (GraphqlType.Object queryType) -> Some queryType 
-        | _ -> None
-
+/// Find the root operation of the document whether it is the root query or the root mutation
 let findOperation (document: GraphqlDocument) = 
     document.nodes
     |> List.tryFind (function 
@@ -130,15 +108,16 @@ let findOperation (document: GraphqlDocument) =
         | Some (GraphqlNode.Mutation mutation) -> Some (GraphqlOperation.Mutation mutation)
         | _ -> None 
 
+/// Validates a document against the schema
 let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
     match findOperation document with 
     | None -> ValidationResult.NoQueryOrMutationProvided
     | Some (GraphqlOperation.Query query) -> 
-        match findQueryType schema with 
+        match Schema.findQuery schema with 
         | None -> ValidationResult.SchemaDoesNotHaveQueryType
         | Some queryType -> ValidationResult.Success
 
     | Some (GraphqlOperation.Mutation mutation) ->  
-        match findMutationType schema with 
+        match Schema.findQuery schema with 
         | None -> ValidationResult.SchemaDoesNotHaveMutationType
         | Some mutationType -> ValidationResult.Success

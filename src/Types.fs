@@ -1,6 +1,5 @@
 ﻿module rec Snowflake.Types
 
-open GraphQL
 open GraphQLParser.AST
 
 [<RequireQualifiedAccess>]
