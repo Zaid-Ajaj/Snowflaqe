@@ -64,7 +64,7 @@ let queryParsing =
             Expect.isOk schema "Schema can be parsed"
         }
 
-        test "Query.findTypeByName works" {
+        test "Query.findQueryType works" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {
                     hello: String
@@ -75,12 +75,12 @@ let queryParsing =
             | Error error -> failwith error
             | Ok schema ->
                 match Query.findQueryType schema with
-                | Some (GraphqlType.Object objectDef) ->
-                    Expect.equal "Query" objectDef.name "Query can queries"
-                    Expect.equal 1 objectDef.fields.Length "Query only has one field"
-                    Expect.equal "hello" objectDef.fields.[0].fieldName "Field name is read correctly"
-                    Expect.isEmpty objectDef.fields.[0].args "Field has no arguments"
-                    Expect.equal (GraphqlFieldType.Scalar(GraphqlScalar.String)) objectDef.fields.[0].fieldType "Field type is correct"
+                | Some queryType ->
+                    Expect.equal "Query" queryType.name "Query can queries"
+                    Expect.equal 1 queryType.fields.Length "Query only has one field"
+                    Expect.equal "hello" queryType.fields.[0].fieldName "Field name is read correctly"
+                    Expect.isEmpty queryType.fields.[0].args "Field has no arguments"
+                    Expect.equal (GraphqlFieldType.Scalar(GraphqlScalar.String)) queryType.fields.[0].fieldType "Field type is correct"
                 | otherwise ->
                     failwithf "Unexpected %A" otherwise
         }

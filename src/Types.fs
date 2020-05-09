@@ -26,6 +26,7 @@ type GraphqlEnum = {
 type GraphqlFieldType =
     | Scalar of fieldType:GraphqlScalar
     | ObjectRef of referencedObject:string
+    | InputObjectRef of referencedObject:string
     | EnumRef of referencedEnum:string
     | NonNull of GraphqlFieldType
     | List of GraphqlFieldType
@@ -46,6 +47,7 @@ type GraphqlObject = {
 type GraphqlType =
     | Scalar of GraphqlScalar
     | Object of GraphqlObject
+    | InputObject of GraphqlObject
     | Enum of GraphqlEnum
 
 type GraphqlSchema = { 
@@ -111,4 +113,6 @@ type GraphqlDocument = {
 [<RequireQualifiedAccess>]
 type ValidationResult = 
     | NoQueryOrMutationProvided
+    | SchemaDoesNotHaveQueryType
+    | SchemaDoesNotHaveMutationType
     | Success

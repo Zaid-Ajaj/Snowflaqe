@@ -100,17 +100,24 @@ let findTypeByName (name: string) (schema: GraphqlSchema) =
     |> List.tryFind (function
         | GraphqlType.Enum enumDef -> enumDef.name = name
         | GraphqlType.Object objectDef -> objectDef.name = name
+        | GraphqlType.InputObject objectDef -> objectDef.name = name
         | GraphqlType.Scalar scalar -> false)
 
 let findQueryType (schema: GraphqlSchema) = 
     match schema.queryType with 
     | None -> None 
-    | Some typeName -> findTypeByName typeName schema
+    | Some typeName -> 
+        match findTypeByName typeName schema with 
+        | Some (GraphqlType.Object queryType) -> Some queryType 
+        | _ -> None
 
 let findMutationType (schema: GraphqlSchema) = 
     match schema.mutationType with 
     | None -> None 
-    | Some typeName -> findTypeByName typeName schema
+    | Some typeName -> 
+        match findTypeByName typeName schema with 
+        | Some (GraphqlType.Object queryType) -> Some queryType 
+        | _ -> None
 
 let findOperation (document: GraphqlDocument) = 
     document.nodes
@@ -123,9 +130,15 @@ let findOperation (document: GraphqlDocument) =
         | Some (GraphqlNode.Mutation mutation) -> Some (GraphqlOperation.Mutation mutation)
         | _ -> None 
 
-
 let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
     match findOperation document with 
     | None -> ValidationResult.NoQueryOrMutationProvided
-    | Some (GraphqlOperation.Query query) -> ValidationResult.Success
-    | Some (GraphqlOperation.Mutation mutation) ->  ValidationResult.Success
+    | Some (GraphqlOperation.Query query) -> 
+        match findQueryType schema with 
+        | None -> ValidationResult.SchemaDoesNotHaveQueryType
+        | Some queryType -> ValidationResult.Success
+
+    | Some (GraphqlOperation.Mutation mutation) ->  
+        match findMutationType schema with 
+        | None -> ValidationResult.SchemaDoesNotHaveMutationType
+        | Some mutationType -> ValidationResult.Success

@@ -48,6 +48,14 @@ let (|ObjectRef|_|) (typeJson: JToken) =
     | _ ->
         None
 
+let (|InputObjectRef|_|) (typeJson: JToken) =
+    match typeJson.["kind"].ToString() with
+    | "INPUT_OBJECT" ->
+        let typeName = typeJson.["name"].ToString()
+        Some typeName
+    | _ ->
+        None
+
 let (|EnumRef|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
     | "ENUM"  ->
@@ -70,6 +78,7 @@ let rec tryParseFieldType (fieldJson: JToken)  =
     match fieldJson with
     | Scalar scalar -> Some (GraphqlFieldType.Scalar scalar)
     | ObjectRef referencedObject -> Some (GraphqlFieldType.ObjectRef referencedObject)
+    | InputObjectRef referencedObject -> Some (GraphqlFieldType.InputObjectRef referencedObject)
     | EnumRef enumRef -> Some (GraphqlFieldType.EnumRef enumRef)
     | NonNull innerType ->
         match tryParseFieldType innerType with
@@ -117,6 +126,40 @@ let (|Object|_|)  (typeJson: JToken) =
     | _ ->
         None
 
+let (|InputObject|_|)  (typeJson: JToken) =
+    match typeJson.["kind"].ToString() with
+    | "INPUT_OBJECT" ->
+        let name = typeJson.["name"].ToString()
+        let description = stringOrNone typeJson "description"
+        let fields = unbox<JArray> typeJson.["inputFields"]
+        let graphqlFields =
+            fields
+            |> List.ofSeq
+            |> List.choose (fun field ->
+                let fieldName = field.["name"].ToString()
+                let parsedFieldType = tryParseFieldType field.["type"]
+                let args = List.choose id [
+                    for arg in unbox<JArray> field.["args"] do
+                        let argName = arg.["name"].ToString()
+                        match tryParseFieldType arg.["type"] with
+                        | Some argType -> Some (argName, argType)
+                        | None -> None
+                ]
+
+                match parsedFieldType with
+                | Some fieldType -> Some  { fieldName = fieldName; fieldType = fieldType; args = args }
+                | None -> None
+            )
+
+        Some {
+            name = name
+            description = description
+            fields = graphqlFields
+        }
+
+    | _ ->
+        None
+
 let parse (content: string) =
     try 
         let contentJson = JToken.Parse(content)
@@ -125,6 +168,7 @@ let parse (content: string) =
                 match typeJson with
                 | Scalar scalar -> Some (GraphqlType.Scalar scalar)
                 | Object object -> Some (GraphqlType.Object object)
+                | InputObject object -> Some (GraphqlType.InputObject object)
                 | Enum enum -> Some (GraphqlType.Enum enum)
                 | _ -> None
         ]
