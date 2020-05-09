@@ -74,7 +74,7 @@ let queryParsing =
             match schema with
             | Error error -> failwith error
             | Ok schema ->
-                match Query.findTypeByName "Query" schema with
+                match Query.findQueryType schema with
                 | Some (GraphqlType.Object objectDef) ->
                     Expect.equal "Query" objectDef.name "Query can queries"
                     Expect.equal 1 objectDef.fields.Length "Query only has one field"
@@ -101,7 +101,7 @@ let queryParsing =
             """
 
             match query with 
-            | Ok document -> Expect.equal 2 document.nodes.Length "There are two nodes"
+            | Ok document -> Expect.equal 2 document.nodes.Length "There are two nodes: query and fragment definition"
             | Error error -> failwith error
         }
 

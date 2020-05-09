@@ -102,6 +102,16 @@ let findTypeByName (name: string) (schema: GraphqlSchema) =
         | GraphqlType.Object objectDef -> objectDef.name = name
         | GraphqlType.Scalar scalar -> false)
 
+let findQueryType (schema: GraphqlSchema) = 
+    match schema.queryType with 
+    | None -> None 
+    | Some typeName -> findTypeByName typeName schema
+
+let findMutationType (schema: GraphqlSchema) = 
+    match schema.mutationType with 
+    | None -> None 
+    | Some typeName -> findTypeByName typeName schema
+
 let findOperation (document: GraphqlDocument) = 
     document.nodes
     |> List.tryFind (function 

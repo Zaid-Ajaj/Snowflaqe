@@ -129,7 +129,21 @@ let parse (content: string) =
                 | _ -> None
         ]
 
-        Ok { types = graphqlTypes |> List.choose id }
+        let query = 
+            if isNull contentJson.["data"].["__schema"].["queryType"] 
+            then None 
+            else stringOrNone contentJson.["data"].["__schema"].["queryType"] "name"
+
+        let mutation = 
+            if isNull contentJson.["data"].["__schema"].["mutationType"] 
+            then None
+            else stringOrNone contentJson.["data"].["__schema"].["mutationType"] "name"
+
+        Ok { 
+            types = graphqlTypes |> List.choose id
+            queryType = query
+            mutationType = mutation
+        }
     
     with 
     | ex -> Error ex.Message

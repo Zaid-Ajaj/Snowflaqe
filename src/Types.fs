@@ -48,7 +48,11 @@ type GraphqlType =
     | Object of GraphqlObject
     | Enum of GraphqlEnum
 
-type GraphqlSchema = { types : GraphqlType list }
+type GraphqlSchema = { 
+    types : GraphqlType list
+    queryType : string option 
+    mutationType : string option
+}
 
 type SelectionSet = {
     nodes : GraphqlNode list
