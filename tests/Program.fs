@@ -134,7 +134,7 @@ let queryParsing =
             | Error error -> failwith error
         }
 
-        test "Query can be validated against schema" {
+        test "Simple query can be validated against schema" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {
                     hello: String
@@ -155,9 +155,132 @@ let queryParsing =
                 let validationResult = Query.validate query schema
                 Expect.equal ValidationResult.Success validationResult "Query should be valid"
 
-            | _ ->
-                failwith "Unexpected result"
+            | otherResults -> failwithf "Unexpected %A" otherResults 
         }
+
+        test "Query validation: unknown fields can be detected" {
+            let schema = Introspection.fromSchemaDefinition """
+            type Query {
+                hello: String
+            }
+            """
+
+            let query = Query.parse """
+            query {
+                hello
+                whatsUp
+            }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                let validationResult = Query.validate query schema
+                match validationResult with 
+                | ValidationResult.FieldValidation [ FieldValidationError.UnknownField (unkownField, queryType) ] ->
+                    Expect.equal unkownField "whatsUp" "Unknown field is detected properly"
+                    Expect.equal queryType "Query" "Type is propagted"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            | otherResults -> failwithf "Unexpected %A" otherResults 
+        }
+
+        test "Query validation: not allowed to expland non-object fields" {
+            let schema = Introspection.fromSchemaDefinition """
+            type Query {
+                hello: String
+            }
+            """
+
+            let query = Query.parse """
+            query {
+                hello {
+                    whatsUp
+                }
+            }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                let validationResult = Query.validate query schema
+                match validationResult with 
+                | ValidationResult.FieldValidation [ FieldValidationError.ExpandedScalarField (scalarField, queryType) ] ->
+                    Expect.equal scalarField "hello" "Scalar field cannot be expanded"
+                    Expect.equal queryType "Query" "Type is propagted"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            | otherResults -> failwithf "Unexpected %A" otherResults 
+         }
+
+
+        test "Query validation: detect unknown fields within nested selections" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    composites: [Composite!]!
+                }
+
+                type Composite {
+                    id: String!
+                    values: [String!]!
+                }
+            """
+
+            let query = Query.parse """
+            query {
+                composites {
+                    whatever
+                }
+            }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                let validationResult = Query.validate query schema
+                match validationResult with 
+                | ValidationResult.FieldValidation [ FieldValidationError.UnknownField (scalarField, queryType) ] ->
+                    Expect.equal scalarField "whatever" "Scalar field cannot be expanded"
+                    Expect.equal queryType "Composite" "Type is propagted"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            | otherResults -> failwithf "Unexpected %A" otherResults 
+         }
+
+        test "Query validation: not allowed to expland non-object fields in nested selection fields" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    composites: [Composite!]!
+                }
+
+                type Composite {
+                    id: String!
+                    values: [String!]!
+                }
+            """
+
+            let query = Query.parse """
+            query {
+                composites {
+                    values {
+                        hello
+                    }
+                }
+            }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                let validationResult = Query.validate query schema
+                match validationResult with 
+                | ValidationResult.FieldValidation [ FieldValidationError.ExpandedScalarField (scalarField, queryType) ] ->
+                    Expect.equal scalarField "values" "Scalar field cannot be expanded"
+                    Expect.equal queryType "Composite" "Type is propagted"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            | otherResults -> failwithf "Unexpected %A" otherResults 
+         }
 ]
 
 

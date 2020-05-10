@@ -121,8 +121,14 @@ type GraphqlDocument = {
 }
 
 [<RequireQualifiedAccess>]
+type FieldValidationError = 
+    | UnknownField of fieldName:string * typeName:string
+    | ExpandedScalarField of fieldName:string * typeName:string 
+
+[<RequireQualifiedAccess>]
 type ValidationResult = 
     | NoQueryOrMutationProvided
     | SchemaDoesNotHaveQueryType
     | SchemaDoesNotHaveMutationType
+    | FieldValidation of FieldValidationError list
     | Success

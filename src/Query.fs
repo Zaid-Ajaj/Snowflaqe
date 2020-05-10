@@ -119,22 +119,24 @@ let rec expandFragments (nodes: GraphqlNode list) (fragments: GraphqlFragmentDef
                 | Some fragment -> 
                     match fragment.selectionSet with
                     | None -> [ ]
-                    | Some selectionSet -> selectionSet.nodes
+                    | Some selectionSet -> expandFragments selectionSet.nodes fragments
 
         | GraphqlNode.Field field -> 
             [ 
                 match field.selectionSet with 
                 | None -> GraphqlNode.Field field
                 | Some selectionSet -> 
-                    let modifiedSelections = { selectionSet with nodes = expandFragments selectionSet.nodes fragments  }
+                    let modifiedNodes = expandFragments selectionSet.nodes fragments
+                    let modifiedSelections = { selectionSet with nodes = modifiedNodes }
                     GraphqlNode.Field { field with selectionSet = Some modifiedSelections }
             ]
 
         | GraphqlNode.SelectionSet selectionSet -> 
             [
-                GraphqlNode.SelectionSet { selectionSet with nodes = expandFragments selectionSet.nodes fragments }
+                let modifiedNodes = expandFragments selectionSet.nodes fragments
+                GraphqlNode.SelectionSet { selectionSet with nodes = modifiedNodes }
             ]
-            
+
         | anyOtherNode -> [ anyOtherNode ])
 
 let expandDocumentFragments (document: GraphqlDocument) : GraphqlDocument = 
@@ -157,6 +159,64 @@ let expandDocumentFragments (document: GraphqlDocument) : GraphqlDocument =
 
     { document with nodes = List.map transformNode document.nodes }
 
+let rec fieldCanExpand (field: GraphqlFieldType) = 
+    match field with 
+    | GraphqlFieldType.ObjectRef _ -> true 
+    | GraphqlFieldType.EnumRef _ -> false 
+    | GraphqlFieldType.Scalar _ -> false 
+    | GraphqlFieldType.InputObjectRef _ -> false 
+    | GraphqlFieldType.List innerField -> fieldCanExpand innerField
+    | GraphqlFieldType.NonNull innerField -> fieldCanExpand innerField
+
+let rec findFieldExpansion (field: GraphqlFieldType) (schema: GraphqlSchema) = 
+    match field with 
+    | GraphqlFieldType.ObjectRef refType -> 
+        schema.types 
+        |> List.tryFind (function 
+            | GraphqlType.Object objectDef -> objectDef.name = refType
+            | _ -> false)
+        |> function 
+            | Some (GraphqlType.Object objectDef) -> Some objectDef
+            | _ -> None
+
+    | GraphqlFieldType.EnumRef _ -> None  
+    | GraphqlFieldType.Scalar _ -> None 
+    | GraphqlFieldType.InputObjectRef _ -> None 
+    | GraphqlFieldType.List innerField -> findFieldExpansion innerField schema
+    | GraphqlFieldType.NonNull innerField -> findFieldExpansion innerField schema
+
+let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (schema: GraphqlSchema) = 
+    let fields = selection.nodes |> List.choose (function | GraphqlNode.Field field -> Some field | _ -> None)
+    let unknownFields = 
+        fields
+        |> List.filter (fun field -> 
+            match graphqlType.fields |> List.tryFind (fun fieldType -> fieldType.fieldName = field.name) with 
+            | None -> true 
+            | Some field -> false)
+
+    [
+        for field in unknownFields 
+            do yield FieldValidationError.UnknownField (field.name, graphqlType.name)
+        
+        for selectedField in fields do  
+            yield! 
+                graphqlType.fields 
+                |> List.tryFind (fun fieldType -> fieldType.fieldName = selectedField.name)
+                |> function 
+                    | None -> [ ]
+                    | Some graphqlField -> 
+                        match selectedField.selectionSet with 
+                        | Some selection when not (fieldCanExpand graphqlField.fieldType) -> 
+                             [ FieldValidationError.ExpandedScalarField (selectedField.name, graphqlType.name) ]
+                        | Some selection -> 
+                            match findFieldExpansion graphqlField.fieldType schema with 
+                            | None -> [ ]
+                            | Some possibleExpansion -> validateFields selection possibleExpansion schema
+                                
+                        | _ -> 
+                            [ ]
+    ]
+
 /// Validates a document against the schema
 let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
     match findOperation document with 
@@ -164,9 +224,15 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
     | Some (GraphqlOperation.Query query) -> 
         match Schema.findQuery schema with 
         | None -> ValidationResult.SchemaDoesNotHaveQueryType
-        | Some queryType -> ValidationResult.Success
+        | Some queryType ->
+            match validateFields query.selectionSet queryType schema with 
+            | [ ] -> ValidationResult.Success
+            | errors -> ValidationResult.FieldValidation errors
 
     | Some (GraphqlOperation.Mutation mutation) ->  
         match Schema.findQuery schema with 
         | None -> ValidationResult.SchemaDoesNotHaveMutationType
-        | Some mutationType -> ValidationResult.Success
+        | Some mutationType -> 
+            match validateFields mutation.selectionSet mutationType schema with 
+            | [ ] -> ValidationResult.Success
+            | errors -> ValidationResult.FieldValidation errors
