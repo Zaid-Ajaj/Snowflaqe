@@ -105,6 +105,35 @@ let queryParsing =
             | Error error -> failwith error
         }
 
+        test "Query with fragments can be expanded" {
+            let queryAst = Query.parse """
+                fragment NameParts on Person {
+                  firstName
+                  lastName
+                }
+
+                query GetPerson {
+                  people {
+                    ...NameParts
+                    phone
+                  }
+                }
+            """
+
+            match queryAst with 
+            | Ok document -> 
+                let modifiedDocument = Query.expandDocumentFragments document
+                match Query.findOperation modifiedDocument with 
+                | Some (GraphqlOperation.Query query) -> 
+                    let people = query.selectionSet.nodes.[0]
+                    match people with 
+                    | GraphqlNode.Field { name = "people"; selectionSet = Some { nodes = nodes } } -> 
+                        Expect.equal 3 nodes.Length "people have selectionSet of three nodes"
+                    | otherResults -> failwithf "Unexpected %A" otherResults  
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+            | Error error -> failwith error
+        }
+
         test "Query can be validated against schema" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {

@@ -108,6 +108,55 @@ let findOperation (document: GraphqlDocument) =
         | Some (GraphqlNode.Mutation mutation) -> Some (GraphqlOperation.Mutation mutation)
         | _ -> None 
 
+let rec expandFragments (nodes: GraphqlNode list) (fragments: GraphqlFragmentDefinition list) : GraphqlNode list = 
+    nodes
+    |> List.collect (function 
+        | GraphqlNode.FragmentSpread spread -> 
+            fragments
+            |> List.tryFind (fun fragment -> fragment.name = spread.Name.Value)
+            |> function 
+                | None -> [ GraphqlNode.FragmentSpread spread ]
+                | Some fragment -> 
+                    match fragment.selectionSet with
+                    | None -> [ ]
+                    | Some selectionSet -> selectionSet.nodes
+
+        | GraphqlNode.Field field -> 
+            [ 
+                match field.selectionSet with 
+                | None -> GraphqlNode.Field field
+                | Some selectionSet -> 
+                    let modifiedSelections = { selectionSet with nodes = expandFragments selectionSet.nodes fragments  }
+                    GraphqlNode.Field { field with selectionSet = Some modifiedSelections }
+            ]
+
+        | GraphqlNode.SelectionSet selectionSet -> 
+            [
+                GraphqlNode.SelectionSet { selectionSet with nodes = expandFragments selectionSet.nodes fragments }
+            ]
+            
+        | anyOtherNode -> [ anyOtherNode ])
+
+let expandDocumentFragments (document: GraphqlDocument) : GraphqlDocument = 
+    let findFragmentDefinition = function 
+        | GraphqlNode.FragmentDefinition definition -> Some definition
+        | _ -> None 
+    
+    let fragments = List.choose findFragmentDefinition document.nodes
+
+    let transformNode = function 
+        | GraphqlNode.Query query -> 
+            let modifiedSelections = { query.selectionSet with nodes = expandFragments query.selectionSet.nodes fragments }
+            GraphqlNode.Query { query with selectionSet = modifiedSelections }
+    
+        | GraphqlNode.Mutation mutation -> 
+            let modifiedSelections = { mutation.selectionSet with nodes = expandFragments mutation.selectionSet.nodes fragments }
+            GraphqlNode.Mutation { mutation with selectionSet = modifiedSelections }
+
+        | anythingElse -> anythingElse
+
+    { document with nodes = List.map transformNode document.nodes }
+
 /// Validates a document against the schema
 let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
     match findOperation document with 
