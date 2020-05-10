@@ -219,7 +219,7 @@ let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (s
 
 /// Validates a document against the schema
 let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
-    match findOperation document with 
+    match findOperation (expandDocumentFragments document) with 
     | None -> ValidationResult.NoQueryOrMutationProvided
     | Some (GraphqlOperation.Query query) -> 
         match Schema.findQuery schema with 

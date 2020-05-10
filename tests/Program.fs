@@ -211,7 +211,7 @@ let queryParsing =
                 | otherResults -> failwithf "Unexpected %A" otherResults 
 
             | otherResults -> failwithf "Unexpected %A" otherResults 
-         }
+        }
 
 
         test "Query validation: detect unknown fields within nested selections" {
@@ -245,7 +245,7 @@ let queryParsing =
                 | otherResults -> failwithf "Unexpected %A" otherResults 
 
             | otherResults -> failwithf "Unexpected %A" otherResults 
-         }
+        }
 
         test "Query validation: not allowed to expland non-object fields in nested selection fields" {
             let schema = Introspection.fromSchemaDefinition """
@@ -280,8 +280,81 @@ let queryParsing =
                 | otherResults -> failwithf "Unexpected %A" otherResults 
 
             | otherResults -> failwithf "Unexpected %A" otherResults 
-         }
-]
+        }
+
+        test "Query validation: succeeds when the query is valid" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    composites: [Composite!]!
+                }
+
+                type Composite {
+                    id: String!
+                    values: [String!]!
+                    timestamp: Int!
+                }
+            """
+
+            let query = Query.parse """
+            query {
+                composites {
+                    id
+                    values
+                    timestamp
+                }
+            }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                let validationResult = Query.validate query schema
+                Expect.equal validationResult ValidationResult.Success "The query is valid"
+
+            | otherResults -> failwithf "Unexpected %A" otherResults 
+        }
+
+        test "Query validation with respect to fragments" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    composites: [Composite!]!
+                }
+
+                type Composite {
+                    id: String!
+                    values: [String!]!
+                    timestamp: Int!
+                }
+            """
+
+            let query = Query.parse """
+
+            fragment CompositeParts on Composite {
+                id
+                values {
+                    value
+                }
+            }
+
+            query {
+                composites {
+                    ...CompositeParts
+                    timestamp
+                }
+            }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with 
+                | ValidationResult.FieldValidation [ FieldValidationError.ExpandedScalarField (scalarField, typeName) ] ->
+                    Expect.equal scalarField "values" "Field 'values' cannot be expanded"
+                    Expect.equal typeName "Composite" "Type name is correct"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+            
+            | otherResults -> failwithf "Unexpected %A" otherResults 
+        }
+    ]
 
 
 let snowflakeTests = testList "Snowflake" [ queryParsing ]
