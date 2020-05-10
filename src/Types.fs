@@ -4,10 +4,11 @@ open GraphQLParser.AST
 
 [<RequireQualifiedAccess>]
 type GraphqlScalar =
+    | ID
     | Int
     | String
     | Float
-    | Bool
+    | Boolean
     | Custom of name:string
 
 type GraphqlEnumValue =  {
@@ -92,7 +93,7 @@ type GraphqlFieldSelection = {
 
 type GraphqlFragmentDefinition = {
     name : string 
-    typeDef : string
+    typeDef : string option
     selectionSet : SelectionSet option 
     directives: GraphQLDirective list
     location : GraphQLLocation
@@ -134,7 +135,8 @@ type GraphqlDocument = {
 [<RequireQualifiedAccess>]
 type QueryError = 
     | UnknownField of fieldName:string * typeName:string
-    | ExpandedScalarField of fieldName:string * typeName:string 
+    | ExpandedScalarField of fieldName:string * typeName:string
+    | UnknownInputVariable of variableName:string * variableType:string
 
 [<RequireQualifiedAccess>]
 type ValidationResult = 

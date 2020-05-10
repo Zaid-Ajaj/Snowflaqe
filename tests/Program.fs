@@ -388,10 +388,82 @@ let queryParsing =
 
             |  otherResults -> failwithf "Unexpected %A" otherResults 
         }
+
+        test "Detecting unknown input variables work" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    findUser: User
+                }
+
+                type User {
+                    username: String!
+                    email: String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query ($input: Whatever!) {
+                    findUser {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with 
+                | ValidationResult.QueryErrors [ QueryError.UnknownInputVariable (name, typeName) ]  -> 
+                    Expect.equal name "input" "Variable input name is detected" 
+                    Expect.equal typeName "Whatever" "Type name is detected"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults 
+        }
+
+        test "Object types cannot be used input variables" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    findUser (username: String!) : User
+                    hello: String
+                }
+
+                type User {
+                    username : String!
+                    email : String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query ($input: User!) {
+                    hello
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with 
+                | ValidationResult.QueryErrors [ QueryError.UnknownInputVariable (name, typeName) ]  -> 
+                    Expect.equal name "input" "Variable input name is detected" 
+                    Expect.equal typeName "User" "Type name is detected"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults 
+        }
     ]
 
 
-let snowflakeTests = testList "Snowflake" [ queryParsing ]
+let snowflakeTests = testList "Snowflaqe" [ queryParsing ]
 
 [<EntryPoint>]
 let main argv = runTests defaultConfig snowflakeTests

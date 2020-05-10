@@ -9,9 +9,10 @@ let (|Scalar|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
     | "SCALAR" ->
         match typeJson.["name"].ToString() with
+        | "ID" -> Some (Scalar (GraphqlScalar.ID))
         | "Int" -> Some (Scalar (GraphqlScalar.Int))
         | "String" -> Some (Scalar GraphqlScalar.String)
-        | ("Bool"|"Boolean") -> Some (Scalar GraphqlScalar.Bool)
+        | "Boolean" -> Some (Scalar GraphqlScalar.Boolean)
         | "Float" -> Some (Scalar GraphqlScalar.Float)
         | customScalar -> Some (Scalar (GraphqlScalar.Custom customScalar))
     | _ -> None

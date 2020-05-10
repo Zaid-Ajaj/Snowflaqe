@@ -63,9 +63,9 @@ let rec readNode (node: ASTNode) =
     | ASTNodeKind.FragmentDefinition ->     
         let fragmentDef = unbox<GraphQLFragmentDefinition> node 
         let def : GraphqlFragmentDefinition = {
-            name = fragmentDef.Name.Value 
+            name = if isNull fragmentDef.Name then "" else fragmentDef.Name.Value
             selectionSet = if isNull fragmentDef.SelectionSet then None else Some (readSelections fragmentDef.SelectionSet)
-            typeDef = fragmentDef.TypeCondition.Name.Value
+            typeDef = if isNull fragmentDef.TypeCondition then None else Some fragmentDef.TypeCondition.Name.Value
             directives = listOrNone fragmentDef.Directives
             location = fragmentDef.Location
         }
@@ -246,6 +246,32 @@ let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (s
                             [ ]
     ]
 
+let rec variableName = function
+    | GraphqlVariableType.Ref variable -> variable
+    | GraphqlVariableType.NonNull variable -> variableName variable
+    | GraphqlVariableType.List variable -> variableName variable
+
+let validateInputVariables (variables: GraphqlVariable list) (schema: GraphqlSchema) = 
+    [
+        for variable in variables do 
+            let name = variableName variable.variableType
+            if [ "Int"; "String"; "Float"; "Boolean"; "ID" ] |> List.contains name then 
+                ()
+            else 
+                yield!
+                    schema.types
+                    |> List.tryFind (function 
+                        | GraphqlType.Scalar (GraphqlScalar.Custom customScalar) -> customScalar = name
+                        | GraphqlType.Enum enumType -> enumType.name = name 
+                        | GraphqlType.InputObject inputType ->inputType.name = name 
+                        | _ -> false)
+                    |> function 
+                        | None -> 
+                            [ QueryError.UnknownInputVariable(variable.name, name) ]
+                        | Some _ -> 
+                            [ ]
+    ]
+
 /// Validates a document against the schema
 let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationResult =
     match findOperation (expandDocumentFragments document) with 
@@ -254,7 +280,10 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
         match Schema.findQuery schema with 
         | None -> ValidationResult.SchemaDoesNotHaveQueryType
         | Some queryType ->
-            match validateFields query.selectionSet queryType schema with 
+            let fieldErrors = validateFields query.selectionSet queryType schema
+            let inputVariableErrors = validateInputVariables query.variables schema
+            let queryErrors = [ yield! fieldErrors; yield! inputVariableErrors ]
+            match queryErrors with 
             | [ ] -> ValidationResult.Success
             | errors -> ValidationResult.QueryErrors errors
 
@@ -262,6 +291,9 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
         match Schema.findQuery schema with 
         | None -> ValidationResult.SchemaDoesNotHaveMutationType
         | Some mutationType -> 
-            match validateFields mutation.selectionSet mutationType schema with 
+            let fieldErrors = validateFields mutation.selectionSet mutationType schema
+            let inputVariableErrors = validateInputVariables mutation.variables schema
+            let queryErrors = [ yield! fieldErrors; yield! inputVariableErrors ]
+            match queryErrors with 
             | [ ] -> ValidationResult.Success
             | errors -> ValidationResult.QueryErrors errors
