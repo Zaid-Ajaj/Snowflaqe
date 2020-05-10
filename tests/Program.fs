@@ -1,6 +1,6 @@
 ﻿open Expecto
-open Snowflake
-open Snowflake.Types
+open Snowflaqe
+open Snowflaqe.Types
 
 let queryParsing =
     testList "Query parsing" [
@@ -176,7 +176,7 @@ let queryParsing =
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
                 match validationResult with 
-                | ValidationResult.FieldValidation [ FieldValidationError.UnknownField (unkownField, queryType) ] ->
+                | ValidationResult.QueryErrors [ QueryError.UnknownField (unkownField, queryType) ] ->
                     Expect.equal unkownField "whatsUp" "Unknown field is detected properly"
                     Expect.equal queryType "Query" "Type is propagted"
 
@@ -204,7 +204,7 @@ let queryParsing =
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
                 match validationResult with 
-                | ValidationResult.FieldValidation [ FieldValidationError.ExpandedScalarField (scalarField, queryType) ] ->
+                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, queryType) ] ->
                     Expect.equal scalarField "hello" "Scalar field cannot be expanded"
                     Expect.equal queryType "Query" "Type is propagted"
 
@@ -238,7 +238,7 @@ let queryParsing =
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
                 match validationResult with 
-                | ValidationResult.FieldValidation [ FieldValidationError.UnknownField (scalarField, queryType) ] ->
+                | ValidationResult.QueryErrors [ QueryError.UnknownField (scalarField, queryType) ] ->
                     Expect.equal scalarField "whatever" "Scalar field cannot be expanded"
                     Expect.equal queryType "Composite" "Type is propagted"
 
@@ -273,7 +273,7 @@ let queryParsing =
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
                 match validationResult with 
-                | ValidationResult.FieldValidation [ FieldValidationError.ExpandedScalarField (scalarField, queryType) ] ->
+                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, queryType) ] ->
                     Expect.equal scalarField "values" "Scalar field cannot be expanded"
                     Expect.equal queryType "Composite" "Type is propagted"
 
@@ -346,13 +346,47 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 match Query.validate query schema with 
-                | ValidationResult.FieldValidation [ FieldValidationError.ExpandedScalarField (scalarField, typeName) ] ->
+                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, typeName) ] ->
                     Expect.equal scalarField "values" "Field 'values' cannot be expanded"
                     Expect.equal typeName "Composite" "Type name is correct"
 
                 | otherResults -> failwithf "Unexpected %A" otherResults 
             
             | otherResults -> failwithf "Unexpected %A" otherResults 
+        }
+
+        test "Reading variables in queries works" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    findUser (username: String!) : User
+                }
+
+                type User {
+                    username : String!
+                    email : String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query ($input: String!) {
+                    findUser(name: $input) {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with 
+                | ValidationResult.Success -> ()
+                | otherResults -> failwithf "Unexpected %A" otherResults 
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults 
         }
     ]
 

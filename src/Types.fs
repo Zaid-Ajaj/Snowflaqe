@@ -1,4 +1,4 @@
-﻿module rec Snowflake.Types
+﻿module rec Snowflaqe.Types
 
 open GraphQLParser.AST
 
@@ -34,6 +34,17 @@ type GraphqlField = {
     fieldName : string
     fieldType : GraphqlFieldType
     args :  (string * GraphqlFieldType) list
+}
+
+[<RequireQualifiedAccess>]
+type GraphqlVariableType = 
+    | Ref of referencedType:string
+    | NonNull of GraphqlVariableType
+    | List of GraphqlVariableType
+
+type GraphqlVariable = {
+    name: string 
+    variableType: GraphqlVariableType
 }
 
 type GraphqlInputField = {
@@ -100,14 +111,14 @@ type GraphqlNode =
 type GraphqlQuery = {
     name : string option
     directives : GraphQLDirective list
-    variables : GraphQLVariableDefinition list
+    variables : GraphqlVariable list
     selectionSet : SelectionSet
 }
 
 type GraphqlMutation = {
     name : string option
     directives : GraphQLDirective list
-    variables : GraphQLVariableDefinition list
+    variables : GraphqlVariable list
     selectionSet : SelectionSet
 }
 
@@ -121,7 +132,7 @@ type GraphqlDocument = {
 }
 
 [<RequireQualifiedAccess>]
-type FieldValidationError = 
+type QueryError = 
     | UnknownField of fieldName:string * typeName:string
     | ExpandedScalarField of fieldName:string * typeName:string 
 
@@ -130,5 +141,5 @@ type ValidationResult =
     | NoQueryOrMutationProvided
     | SchemaDoesNotHaveQueryType
     | SchemaDoesNotHaveMutationType
-    | FieldValidation of FieldValidationError list
+    | QueryErrors of QueryError list
     | Success

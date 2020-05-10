@@ -1,9 +1,9 @@
 ﻿[<RequireQualifiedAccess>]
-module Snowflake.Schema
+module Snowflaqe.Schema
 
 open System
 open Newtonsoft.Json.Linq
-open Snowflake.Types
+open Snowflaqe.Types
 
 let (|Scalar|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with

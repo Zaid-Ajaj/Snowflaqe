@@ -1,5 +1,5 @@
 ﻿[<AutoOpen>]
-module Snowflake.Utilities
+module Snowflaqe.Utilities
 
 open System
 open System.IO

@@ -1,5 +1,5 @@
 ﻿[<RequireQualifiedAccess>]
-module Snowflake.Introspection
+module Snowflaqe.Introspection
 
 open FSharp.Data.LiteralProviders
 open System.Text

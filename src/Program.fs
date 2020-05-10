@@ -1,7 +1,7 @@
 ﻿open System
 open Newtonsoft.Json.Linq
 open System.IO
-open Snowflake
+open Snowflaqe
 
 type Config = {
     schema: string

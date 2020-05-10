@@ -1,9 +1,38 @@
 ﻿[<RequireQualifiedAccess>]
-module Snowflake.Query
+module Snowflaqe.Query
 
-open Snowflake.Types
+open Snowflaqe.Types
 open GraphQLParser.AST
 open GraphQLParser
+
+let rec readVariableType (variableType: GraphQLType) = 
+    match variableType.Kind with 
+    | ASTNodeKind.NamedType -> 
+        let namedType = unbox<GraphQLNamedType> variableType
+        GraphqlVariableType.Ref namedType.Name.Value
+    
+    | ASTNodeKind.NonNullType -> 
+        let nonNullType = unbox<GraphQLNonNullType> variableType
+        GraphqlVariableType.NonNull (readVariableType nonNullType.Type)
+
+    | ASTNodeKind.ListType -> 
+        let listType = unbox<GraphQLListType> variableType
+        GraphqlVariableType.List (readVariableType listType.Type)
+    
+    | astNodeType -> 
+        failwithf "Unexpected ASTNodeType '%s' encountered when reading variable type" (astNodeType.ToString())
+
+let readVariables (variables: seq<GraphQLVariableDefinition>) : GraphqlVariable list = 
+    if isNull variables then 
+        [ ]
+    else 
+        [
+            for variable in variables ->
+                {
+                    name = variable.Variable.Name.Value
+                    variableType = readVariableType variable.Type
+                }
+        ]
 
 let rec readNode (node: ASTNode) =
     match node.Kind with
@@ -55,7 +84,7 @@ let rec readNode (node: ASTNode) =
             let query = GraphqlNode.Query {
                 name = name
                 directives = listOrNone operation.Directives
-                variables = listOrNone operation.VariableDefinitions
+                variables = readVariables operation.VariableDefinitions
                 selectionSet = readSelections operation.SelectionSet
             }
 
@@ -70,7 +99,7 @@ let rec readNode (node: ASTNode) =
             let mutation = GraphqlNode.Mutation {
                 name = name
                 directives = listOrNone operation.Directives
-                variables = listOrNone operation.VariableDefinitions
+                variables = readVariables operation.VariableDefinitions
                 selectionSet = readSelections operation.SelectionSet
             }
 
@@ -196,7 +225,7 @@ let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (s
 
     [
         for field in unknownFields 
-            do yield FieldValidationError.UnknownField (field.name, graphqlType.name)
+            do yield QueryError.UnknownField (field.name, graphqlType.name)
         
         for selectedField in fields do  
             yield! 
@@ -207,7 +236,7 @@ let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (s
                     | Some graphqlField -> 
                         match selectedField.selectionSet with 
                         | Some selection when not (fieldCanExpand graphqlField.fieldType) -> 
-                             [ FieldValidationError.ExpandedScalarField (selectedField.name, graphqlType.name) ]
+                             [ QueryError.ExpandedScalarField (selectedField.name, graphqlType.name) ]
                         | Some selection -> 
                             match findFieldType graphqlField.fieldType schema with 
                             | None -> [ ]
@@ -227,7 +256,7 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
         | Some queryType ->
             match validateFields query.selectionSet queryType schema with 
             | [ ] -> ValidationResult.Success
-            | errors -> ValidationResult.FieldValidation errors
+            | errors -> ValidationResult.QueryErrors errors
 
     | Some (GraphqlOperation.Mutation mutation) ->  
         match Schema.findQuery schema with 
@@ -235,4 +264,4 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
         | Some mutationType -> 
             match validateFields mutation.selectionSet mutationType schema with 
             | [ ] -> ValidationResult.Success
-            | errors -> ValidationResult.FieldValidation errors
+            | errors -> ValidationResult.QueryErrors errors
