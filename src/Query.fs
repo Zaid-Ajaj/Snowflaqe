@@ -168,7 +168,7 @@ let rec fieldCanExpand (field: GraphqlFieldType) =
     | GraphqlFieldType.List innerField -> fieldCanExpand innerField
     | GraphqlFieldType.NonNull innerField -> fieldCanExpand innerField
 
-let rec findFieldExpansion (field: GraphqlFieldType) (schema: GraphqlSchema) = 
+let rec findFieldType (field: GraphqlFieldType) (schema: GraphqlSchema) = 
     match field with 
     | GraphqlFieldType.ObjectRef refType -> 
         schema.types 
@@ -182,8 +182,8 @@ let rec findFieldExpansion (field: GraphqlFieldType) (schema: GraphqlSchema) =
     | GraphqlFieldType.EnumRef _ -> None  
     | GraphqlFieldType.Scalar _ -> None 
     | GraphqlFieldType.InputObjectRef _ -> None 
-    | GraphqlFieldType.List innerField -> findFieldExpansion innerField schema
-    | GraphqlFieldType.NonNull innerField -> findFieldExpansion innerField schema
+    | GraphqlFieldType.List innerField -> findFieldType innerField schema
+    | GraphqlFieldType.NonNull innerField -> findFieldType innerField schema
 
 let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (schema: GraphqlSchema) = 
     let fields = selection.nodes |> List.choose (function | GraphqlNode.Field field -> Some field | _ -> None)
@@ -209,11 +209,11 @@ let rec validateFields (selection: SelectionSet) (graphqlType: GraphqlObject) (s
                         | Some selection when not (fieldCanExpand graphqlField.fieldType) -> 
                              [ FieldValidationError.ExpandedScalarField (selectedField.name, graphqlType.name) ]
                         | Some selection -> 
-                            match findFieldExpansion graphqlField.fieldType schema with 
+                            match findFieldType graphqlField.fieldType schema with 
                             | None -> [ ]
                             | Some possibleExpansion -> validateFields selection possibleExpansion schema
                                 
-                        | _ -> 
+                        | _ ->
                             [ ]
     ]
 

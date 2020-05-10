@@ -1,9 +1,6 @@
 ﻿open System
 open Newtonsoft.Json.Linq
 open System.IO
-open GraphQLParser
-open GraphQLParser.AST
-open Snowflake.Types
 open Snowflake
 
 type Config = {

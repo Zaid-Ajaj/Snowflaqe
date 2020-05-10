@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Snowflake.fsproj" />
+    <ProjectReference Include="..\src\Snowflaqe.fsproj" />
   </ItemGroup>
 
 </Project>
