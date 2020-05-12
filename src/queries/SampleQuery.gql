@@ -1,6 +1,5 @@
 query getArtists {
   artists {
     name
-    bio
   }
 }

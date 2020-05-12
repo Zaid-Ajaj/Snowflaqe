@@ -38,13 +38,13 @@ type GraphqlField = {
 }
 
 [<RequireQualifiedAccess>]
-type GraphqlVariableType = 
+type GraphqlVariableType =
     | Ref of referencedType:string
     | NonNull of GraphqlVariableType
     | List of GraphqlVariableType
 
 type GraphqlVariable = {
-    name: string 
+    name: string
     variableType: GraphqlVariableType
 }
 
@@ -72,9 +72,9 @@ type GraphqlType =
     | InputObject of GraphqlInputObject
     | Enum of GraphqlEnum
 
-type GraphqlSchema = { 
+type GraphqlSchema = {
     types : GraphqlType list
-    queryType : string option 
+    queryType : string option
     mutationType : string option
 }
 
@@ -83,18 +83,34 @@ type SelectionSet = {
     location : GraphQLLocation
 }
 
+[<RequireQualifiedAccess>]
+type FieldArgumentValue =
+    | Variable of string
+    | Null
+    | Int of int
+    | String of string
+    | Boolean of bool
+    | Float of float
+    | List of FieldArgumentValue list
+    | Object of (string * FieldArgumentValue) list
+
+type GraphqlFieldArgument = {
+    name: string
+    value: FieldArgumentValue
+}
+
 type GraphqlFieldSelection = {
     name : string
     selectionSet : SelectionSet option
     directives: GraphQLDirective list
-    arguments : GraphQLArgument list
+    arguments : GraphqlFieldArgument list
     location : GraphQLLocation
 }
 
 type GraphqlFragmentDefinition = {
-    name : string 
+    name : string
     typeDef : string option
-    selectionSet : SelectionSet option 
+    selectionSet : SelectionSet option
     directives: GraphQLDirective list
     location : GraphQLLocation
 }
@@ -124,7 +140,7 @@ type GraphqlMutation = {
 }
 
 [<RequireQualifiedAccess>]
-type GraphqlOperation = 
+type GraphqlOperation =
     | Query of GraphqlQuery
     | Mutation of GraphqlMutation
 
@@ -133,13 +149,13 @@ type GraphqlDocument = {
 }
 
 [<RequireQualifiedAccess>]
-type QueryError = 
-    | UnknownField of fieldName:string * typeName:string
-    | ExpandedScalarField of fieldName:string * typeName:string
+type QueryError =
+    | UnknownField of fieldName:string * parentField:string * typeName:string
+    | ExpandedScalarField of fieldName:string * parentField:string * typeName:string
     | UnknownInputVariable of variableName:string * variableType:string
 
 [<RequireQualifiedAccess>]
-type ValidationResult = 
+type ValidationResult =
     | NoQueryOrMutationProvided
     | SchemaDoesNotHaveQueryType
     | SchemaDoesNotHaveMutationType

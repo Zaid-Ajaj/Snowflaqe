@@ -1,4 +1,5 @@
 ﻿open System
+open System.Text
 open Newtonsoft.Json.Linq
 open System.IO
 open Snowflaqe
@@ -10,10 +11,6 @@ type Config = {
     queries: string
     project : string
 }
-
-type CommandLineArgs =
-    | Validate of Config
-    | Generate of Config
 
 let logo = """
      _____                      __ _
@@ -65,43 +62,75 @@ let readConfig (file: string) =
     with
     | ex -> Error ex.Message
 
+let runConfigFile (configFile: string) =
+    colorprintfn "Reading configuration from $green[%s]" (resolveFile configFile)
+    match readConfig configFile with
+    | Error errorMessage ->
+        Console.WriteLine(errorMessage)
+        1
+    | Ok config ->
+        colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
+        match Introspection.loadSchema config.schema with
+        | Error errorMessage ->
+            colorprintfn "$red[%s]" errorMessage
+            1
+        | Ok schema ->
+            printfn "✔️  Schema loaded successfully"
+            colorprintfn "⏳ Validating queries within $green[%s]" config.queries
+            let mutable errorCount = 0
+            let queryFiles = Directory.GetFiles(config.queries, "*.gql")
+            for queryFile in queryFiles do
+                let query = File.ReadAllText queryFile
+                match Query.parse query with
+                | Error parseError ->
+                    colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
+                    errorCount <- errorCount + 1
+                | Ok parsedQuery ->
+                    match Query.validate parsedQuery schema with
+                    | ValidationResult.Success ->
+                        colorprintfn "✔️  Query $blue[%s] is valid" queryFile
+                    | ValidationResult.SchemaDoesNotHaveQueryType ->
+                        errorCount <- errorCount + 1
+                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                        colorprintfn "    Schema doesn't implement a Query type"
+                    | ValidationResult.SchemaDoesNotHaveMutationType ->
+                        errorCount <- errorCount + 1
+                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                        colorprintfn "    Schema doesn't implement a Mutation type"
+                    | ValidationResult.NoQueryOrMutationProvided ->
+                        errorCount <- errorCount + 1
+                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                        colorprintfn "    No query or mutation request were provided"
+                    | ValidationResult.QueryErrors errors ->
+                        errorCount <- errorCount + 1
+                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                        for error in errors do
+                            match error with
+                            | QueryError.UnknownField (fieldName, parent, typeName) ->
+                                colorprintfn "   Unknown field $yellow[%s] selected from $green[%s] of type $blue[%s]" fieldName parent typeName
+                            | QueryError.UnknownInputVariable (variableName, typeName) ->
+                                colorprintfn "   Input variable $blue[%s] has unknown type $yellow[%s]" variableName typeName
+                            | QueryError.ExpandedScalarField (fieldName, parentSelection, typeName) ->
+                                colorprintfn "   Field $yellow[%s] selected from $green[%s] of type $blue[%s] is a scalar and cannot be expanded further" fieldName parentSelection typeName
+
+            errorCount
+
 [<EntryPoint>]
 let main argv =
-    match argv with
-    | [| "--config"; configFile; "--validate" |] ->
-        Console.WriteLine(logo)
-        colorprintfn "Reading configuration from $green[%s]" (resolveFile configFile)
-        match readConfig configFile with
-        | Error errorMessage ->
-            Console.WriteLine(errorMessage)
-            1
-        | Ok config ->
-            colorprintfn "⏳ Loading schema from $yellow[%s]" config.schema
-            match Introspection.loadSchema config.schema with
-            | Error errorMessage ->
-                colorprintfn "$red[%s]" errorMessage
-                1
-            | Ok schema ->
-                printfn "✔️  Schema loaded successfully"
-                colorprintfn "⏳ Validating queries within $blue[%s]" config.queries
-                let mutable errorCount = 0
-                let queryFiles = Directory.GetFiles(config.queries, "*.gql")
-                for queryFile in queryFiles do
-                    let query = File.ReadAllText queryFile
-                    match Query.parse query with
-                    | Error parseError ->
-                        colorprintf "❌ Could not parse query $red[%s]:\n%s\n" queryFile parseError
-                        errorCount <- errorCount + 1
-                    | Ok parsedQuery ->
-                        match Query.validate parsedQuery schema with
-                        | ValidationResult.Success ->
-                            colorprintfn "✔️  Query $blue[%s] is valid" queryFile
-                        | otherwise ->
-                            errorCount <- errorCount + 1
-                            colorprintfn "❌ Error while validating query $red[%s]" queryFile
-                            colorprintfn "    |---- $red[%A]" otherwise
-                errorCount
+    Console.OutputEncoding <- Encoding.UTF8
+    Console.WriteLine(logo)
 
+    match argv with
+    | [| "--config"; configFile; "--validate" |] -> runConfigFile configFile
+    | ([||] | [| "--validate" |]) ->
+        Directory.GetFiles(Environment.CurrentDirectory)
+        |> Seq.tryFind (fun file -> file.ToLower().EndsWith("snowflaqe.json"))
+        |> function
+            | None ->
+                colorprintfn "⚠️  No configuration file found. Expecting JSON file $yellow[%s] in the current working directory" "snowflaqe.json"
+                1
+            | Some configFile ->
+                runConfigFile configFile
     | _ ->
 
         failwith "No config provided"

@@ -18,8 +18,8 @@ let queryParsing =
             match query with
             | Ok document ->
                 Expect.equal 1 document.nodes.Length "Document has one element"
-                match document.nodes.[0] with 
-                | GraphqlNode.Query parsedQuery -> 
+                match document.nodes.[0] with
+                | GraphqlNode.Query parsedQuery ->
                     Expect.equal parsedQuery.name None "Query name can be extracted"
                 | _ ->
                     failwith "Unexpected node"
@@ -40,8 +40,8 @@ let queryParsing =
             match query with
             | Ok document ->
                 Expect.equal 1 document.nodes.Length "Document has one element"
-                match document.nodes.[0] with 
-                | GraphqlNode.Query parsedQuery -> 
+                match document.nodes.[0] with
+                | GraphqlNode.Query parsedQuery ->
                     Expect.equal parsedQuery.name (Some "getArtists") "Query name can be extracted"
                 | _ ->
                     failwith "Unexpected node"
@@ -100,7 +100,7 @@ let queryParsing =
                 }
             """
 
-            match query with 
+            match query with
             | Ok document -> Expect.equal 2 document.nodes.Length "There are two nodes: query and fragment definition"
             | Error error -> failwith error
         }
@@ -120,17 +120,17 @@ let queryParsing =
                 }
             """
 
-            match queryAst with 
-            | Ok document -> 
+            match queryAst with
+            | Ok document ->
                 let modifiedDocument = Query.expandDocumentFragments document
-                match Query.findOperation modifiedDocument with 
-                | Some (GraphqlOperation.Query query) -> 
+                match Query.findOperation modifiedDocument with
+                | Some (GraphqlOperation.Query query) ->
                     let people = query.selectionSet.nodes.[0]
-                    match people with 
-                    | GraphqlNode.Field { name = "people"; selectionSet = Some { nodes = nodes } } -> 
+                    match people with
+                    | GraphqlNode.Field { name = "people"; selectionSet = Some { nodes = nodes } } ->
                         Expect.equal 3 nodes.Length "people have selectionSet of three nodes"
-                    | otherResults -> failwithf "Unexpected %A" otherResults  
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                    | otherResults -> failwithf "Unexpected %A" otherResults
+                | otherResults -> failwithf "Unexpected %A" otherResults
             | Error error -> failwith error
         }
 
@@ -155,7 +155,7 @@ let queryParsing =
                 let validationResult = Query.validate query schema
                 Expect.equal ValidationResult.Success validationResult "Query should be valid"
 
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Query validation: unknown fields can be detected" {
@@ -175,14 +175,15 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
-                match validationResult with 
-                | ValidationResult.QueryErrors [ QueryError.UnknownField (unkownField, queryType) ] ->
+                match validationResult with
+                | ValidationResult.QueryErrors [ QueryError.UnknownField (unkownField, parentSelection, queryType) ] ->
                     Expect.equal unkownField "whatsUp" "Unknown field is detected properly"
+                    Expect.equal parentSelection "query" "Query as parent selection"
                     Expect.equal queryType "Query" "Type is propagted"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Query validation: not allowed to expland non-object fields" {
@@ -203,14 +204,14 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
-                match validationResult with 
-                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, queryType) ] ->
+                match validationResult with
+                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, "query", queryType) ] ->
                     Expect.equal scalarField "hello" "Scalar field cannot be expanded"
                     Expect.equal queryType "Query" "Type is propagted"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
 
@@ -237,14 +238,15 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
-                match validationResult with 
-                | ValidationResult.QueryErrors [ QueryError.UnknownField (scalarField, queryType) ] ->
+                match validationResult with
+                | ValidationResult.QueryErrors [ QueryError.UnknownField (scalarField, parentSelection, queryType) ] ->
                     Expect.equal scalarField "whatever" "Scalar field cannot be expanded"
+                    Expect.equal parentSelection "composites" "Parent selection can be detected"
                     Expect.equal queryType "Composite" "Type is propagted"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Query validation: not allowed to expland non-object fields in nested selection fields" {
@@ -272,14 +274,15 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 let validationResult = Query.validate query schema
-                match validationResult with 
-                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, queryType) ] ->
+                match validationResult with
+                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, parentSelection, queryType) ] ->
                     Expect.equal scalarField "values" "Scalar field cannot be expanded"
+                    Expect.equal parentSelection "composites" "Parent selection can be detected"
                     Expect.equal queryType "Composite" "Type is propagted"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Query validation: succeeds when the query is valid" {
@@ -310,7 +313,7 @@ let queryParsing =
                 let validationResult = Query.validate query schema
                 Expect.equal validationResult ValidationResult.Success "The query is valid"
 
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Query validation with respect to fragments" {
@@ -345,14 +348,14 @@ let queryParsing =
 
             match query, schema with
             | Ok query, Ok schema ->
-                match Query.validate query schema with 
-                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, typeName) ] ->
+                match Query.validate query schema with
+                | ValidationResult.QueryErrors [ QueryError.ExpandedScalarField (scalarField, "composites", typeName) ] ->
                     Expect.equal scalarField "values" "Field 'values' cannot be expanded"
                     Expect.equal typeName "Composite" "Type name is correct"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
-            
-            | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Reading variables in queries works" {
@@ -382,11 +385,11 @@ let queryParsing =
 
             match query, schema with
             | Ok query, Ok schema ->
-                match Query.validate query schema with 
+                match Query.validate query schema with
                 | ValidationResult.Success -> ()
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            |  otherResults -> failwithf "Unexpected %A" otherResults 
+            |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Detecting unknown input variables work" {
@@ -416,14 +419,14 @@ let queryParsing =
 
             match query, schema with
             | Ok query, Ok schema ->
-                match Query.validate query schema with 
-                | ValidationResult.QueryErrors [ QueryError.UnknownInputVariable (name, typeName) ]  -> 
-                    Expect.equal name "input" "Variable input name is detected" 
+                match Query.validate query schema with
+                | ValidationResult.QueryErrors [ QueryError.UnknownInputVariable (name, typeName) ]  ->
+                    Expect.equal name "input" "Variable input name is detected"
                     Expect.equal typeName "Whatever" "Type name is detected"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            |  otherResults -> failwithf "Unexpected %A" otherResults 
+            |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
         test "Object types cannot be used input variables" {
@@ -451,14 +454,37 @@ let queryParsing =
 
             match query, schema with
             | Ok query, Ok schema ->
-                match Query.validate query schema with 
-                | ValidationResult.QueryErrors [ QueryError.UnknownInputVariable (name, typeName) ]  -> 
-                    Expect.equal name "input" "Variable input name is detected" 
+                match Query.validate query schema with
+                | ValidationResult.QueryErrors [ QueryError.UnknownInputVariable (name, typeName) ]  ->
+                    Expect.equal name "input" "Variable input name is detected"
                     Expect.equal typeName "User" "Type name is detected"
 
-                | otherResults -> failwithf "Unexpected %A" otherResults 
+                | otherResults -> failwithf "Unexpected %A" otherResults
 
-            |  otherResults -> failwithf "Unexpected %A" otherResults 
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
+        test "Field arguments can be parsed" {
+            let query = Query.parse """
+                query ($input: String!) {
+                    findUser(
+                        name: $input,
+                        include:
+                        false,
+                        limit: 10,
+                        whatsUp: "value",
+                        nested: { username: "hello" },
+                        listStuff: [1,2,3,4,5]
+                    ) {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query with
+            | Error error -> failwith error
+            | Ok document -> Expect.equal true true "Query was parsed"
         }
     ]
 
