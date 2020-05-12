@@ -462,7 +462,6 @@ let queryParsing =
         }
     ]
 
-
 let snowflakeTests = testList "Snowflaqe" [ queryParsing ]
 
 [<EntryPoint>]

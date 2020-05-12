@@ -2,11 +2,17 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <Description>A dotnet CLI tool to generate F# source code for Fable and F# projects from GraphQL schema and queries.</Description>
+    <ToolCommandName>snowflaqe</ToolCommandName>
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <Version>0.1.0</Version>
+    <PackageReleaseNotes>Initial release</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="snowflake.json" />
+    <Content Include="snowflaqe.json" />
     <None Include="Introspection.gql" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Types.fs" />
@@ -17,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.3" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.2.7" />
     <PackageReference Include="GraphQL" Version="3.0.0-preview-1648" />
     <PackageReference Include="GraphQL.NewtonsoftJson" Version="3.0.0-preview-1648" />
