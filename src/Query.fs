@@ -29,7 +29,7 @@ let readVariables (variables: seq<GraphQLVariableDefinition>) : GraphqlVariable 
         [
             for variable in variables ->
                 {
-                    name = variable.Variable.Name.Value
+                    variableName = variable.Variable.Name.Value
                     variableType = readVariableType variable.Type
                 }
         ]
@@ -316,11 +316,11 @@ let validateInputVariables (variables: GraphqlVariable list) (schema: GraphqlSch
                     |> List.tryFind (function
                         | GraphqlType.Scalar (GraphqlScalar.Custom customScalar) -> customScalar = name
                         | GraphqlType.Enum enumType -> enumType.name = name
-                        | GraphqlType.InputObject inputType ->inputType.name = name
+                        | GraphqlType.InputObject inputType -> inputType.name = name
                         | _ -> false)
                     |> function
                         | None ->
-                            [ QueryError.UnknownInputVariable(variable.name, name) ]
+                            [ QueryError.UnknownInputVariable(variable.variableName, name) ]
                         | Some _ ->
                             [ ]
     ]

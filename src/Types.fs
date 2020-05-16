@@ -44,7 +44,7 @@ type GraphqlVariableType =
     | List of GraphqlVariableType
 
 type GraphqlVariable = {
-    name: string
+    variableName: string
     variableType: GraphqlVariableType
 }
 

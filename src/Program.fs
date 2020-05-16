@@ -62,58 +62,61 @@ let readConfig (file: string) =
     with
     | ex -> Error ex.Message
 
+let runConfig (config: Config) = 
+    colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
+    match Introspection.loadSchema config.schema with
+    | Error errorMessage ->
+        colorprintfn "$red[%s]" errorMessage
+        1
+    | Ok schema ->
+        printfn "✔️  Schema loaded successfully"
+        colorprintfn "⏳ Validating queries within $green[%s]" config.queries
+        let mutable errorCount = 0
+        let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
+        for queryFile in queryFiles do
+            let query = File.ReadAllText queryFile
+            match Query.parse query with
+            | Error parseError ->
+                colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
+                errorCount <- errorCount + 1
+            | Ok parsedQuery ->
+                match Query.validate parsedQuery schema with
+                | ValidationResult.Success ->
+                    colorprintfn "✔️  Query $blue[%s] is valid" queryFile
+                | ValidationResult.SchemaDoesNotHaveQueryType ->
+                    errorCount <- errorCount + 1
+                    colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                    colorprintfn "    Schema doesn't implement a Query type"
+                | ValidationResult.SchemaDoesNotHaveMutationType ->
+                    errorCount <- errorCount + 1
+                    colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                    colorprintfn "    Schema doesn't implement a Mutation type"
+                | ValidationResult.NoQueryOrMutationProvided ->
+                    errorCount <- errorCount + 1
+                    colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                    colorprintfn "    No query or mutation request were provided"
+                | ValidationResult.QueryErrors errors ->
+                    errorCount <- errorCount + 1
+                    colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
+                    for error in errors do
+                        match error with
+                        | QueryError.UnknownField (fieldName, parent, typeName) ->
+                            colorprintfn "   Unknown field $yellow[%s] selected from $green[%s] of type $blue[%s]" fieldName parent typeName
+                        | QueryError.UnknownInputVariable (variableName, typeName) ->
+                            colorprintfn "   Input variable $blue[%s] has unknown type $yellow[%s]" variableName typeName
+                        | QueryError.ExpandedScalarField (fieldName, parentSelection, typeName) ->
+                            colorprintfn "   Field $yellow[%s] selected from $green[%s] of type $blue[%s] is a scalar and cannot be expanded further" fieldName parentSelection typeName
+
+        errorCount
+
 let runConfigFile (configFile: string) =
     colorprintfn "Reading configuration from $green[%s]" (resolveFile configFile)
     match readConfig configFile with
     | Error errorMessage ->
         Console.WriteLine(errorMessage)
         1
-    | Ok config ->
-        colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
-        match Introspection.loadSchema config.schema with
-        | Error errorMessage ->
-            colorprintfn "$red[%s]" errorMessage
-            1
-        | Ok schema ->
-            printfn "✔️  Schema loaded successfully"
-            colorprintfn "⏳ Validating queries within $green[%s]" config.queries
-            let mutable errorCount = 0
-            let queryFiles = Directory.GetFiles(config.queries, "*.gql")
-            for queryFile in queryFiles do
-                let query = File.ReadAllText queryFile
-                match Query.parse query with
-                | Error parseError ->
-                    colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
-                    errorCount <- errorCount + 1
-                | Ok parsedQuery ->
-                    match Query.validate parsedQuery schema with
-                    | ValidationResult.Success ->
-                        colorprintfn "✔️  Query $blue[%s] is valid" queryFile
-                    | ValidationResult.SchemaDoesNotHaveQueryType ->
-                        errorCount <- errorCount + 1
-                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
-                        colorprintfn "    Schema doesn't implement a Query type"
-                    | ValidationResult.SchemaDoesNotHaveMutationType ->
-                        errorCount <- errorCount + 1
-                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
-                        colorprintfn "    Schema doesn't implement a Mutation type"
-                    | ValidationResult.NoQueryOrMutationProvided ->
-                        errorCount <- errorCount + 1
-                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
-                        colorprintfn "    No query or mutation request were provided"
-                    | ValidationResult.QueryErrors errors ->
-                        errorCount <- errorCount + 1
-                        colorprintfn "⚠️  Error while validating query $red[%s]" queryFile
-                        for error in errors do
-                            match error with
-                            | QueryError.UnknownField (fieldName, parent, typeName) ->
-                                colorprintfn "   Unknown field $yellow[%s] selected from $green[%s] of type $blue[%s]" fieldName parent typeName
-                            | QueryError.UnknownInputVariable (variableName, typeName) ->
-                                colorprintfn "   Input variable $blue[%s] has unknown type $yellow[%s]" variableName typeName
-                            | QueryError.ExpandedScalarField (fieldName, parentSelection, typeName) ->
-                                colorprintfn "   Field $yellow[%s] selected from $green[%s] of type $blue[%s] is a scalar and cannot be expanded further" fieldName parentSelection typeName
+    | Ok config -> runConfig config
 
-            errorCount
 
 [<EntryPoint>]
 let main argv =
@@ -121,8 +124,10 @@ let main argv =
     Console.WriteLine(logo)
 
     match argv with
-    | [| "--config"; configFile; "--validate" |] -> runConfigFile configFile
-    | ([||] | [| "--validate" |]) ->
+    | [| "--config"; configFile|] -> 
+        runConfigFile configFile
+    
+    | [| |] ->
         Directory.GetFiles(Environment.CurrentDirectory)
         |> Seq.tryFind (fun file -> file.ToLower().EndsWith("snowflaqe.json"))
         |> function
@@ -131,6 +136,15 @@ let main argv =
                 1
             | Some configFile ->
                 runConfigFile configFile
+    
+    | [| "--queries"; queries; "--schema"; schema; |] -> 
+        let config = { schema = schema; queries = queries; project = "GraphqlClient" }
+        runConfig config
+
+    | [| "--schema"; schema; "--queries"; queries |] -> 
+        let config = { schema = schema; queries = queries; project = "GraphqlClient" }
+        runConfig config
+
     | _ ->
 
         failwith "No config provided"
