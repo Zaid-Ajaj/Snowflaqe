@@ -106,7 +106,10 @@ let runConfig (config: Config) =
                             colorprintfn "   Input variable $blue[%s] has unknown type $yellow[%s]" variableName typeName
                         | QueryError.ExpandedScalarField (fieldName, parentSelection, typeName) ->
                             colorprintfn "   Field $yellow[%s] selected from $green[%s] of type $blue[%s] is a scalar and cannot be expanded further" fieldName parentSelection typeName
-
+                        | QueryError.UnknownFieldArgument (argumentName, fieldName, typeName) -> 
+                            colorprintfn "   Field $blue[%s] has an unknown argument $yellow[%s]" fieldName argumentName
+                        | QueryError.MissingRequiredArgument (argumentName, fieldName, typeName) -> 
+                            colorprintfn "   Field $blue[%s] is missing required argument $yellow[%s]" fieldName argumentName
         errorCount
 
 let runConfigFile (configFile: string) =

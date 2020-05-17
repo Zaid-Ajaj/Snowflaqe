@@ -1,0 +1,17 @@
+init:
+  - git config --global core.autocrlf input
+
+build:
+  verbosity: detailed
+
+# Install scripts. (runs after repo cloning)
+install:
+  # install latest dotnet core 3 preview
+  - cmd: choco install dotnetcore-sdk --pre
+
+os: Visual Studio 2017
+
+build_script:
+  - cmd: dotnet run --project ./tests/Snowflaqe.Tests.fsproj
+
+test: off

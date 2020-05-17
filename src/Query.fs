@@ -287,16 +287,50 @@ let rec validateFields (parentField: string) (selection: SelectionSet) (graphqlT
                 |> function
                     | None -> [ ]
                     | Some graphqlField ->
-                        match selectedField.selectionSet with
-                        | Some selection when not (fieldCanExpand graphqlField.fieldType) ->
-                             [ QueryError.ExpandedScalarField (selectedField.name, parentField, graphqlType.name) ]
-                        | Some selection ->
-                            match findFieldType graphqlField.fieldType schema with
-                            | None -> [ ]
-                            | Some possibleExpansion -> validateFields selectedField.name selection possibleExpansion schema
+                        let selectionErrors = 
+                            match selectedField.selectionSet with
+                            | Some selection when not (fieldCanExpand graphqlField.fieldType) ->
+                                 [ QueryError.ExpandedScalarField (selectedField.name, parentField, graphqlType.name) ]
+                            | Some selection ->
+                                match findFieldType graphqlField.fieldType schema with
+                                | None -> [ ]
+                                | Some possibleExpansion -> validateFields selectedField.name selection possibleExpansion schema
 
-                        | _ ->
-                            [ ]
+                            | _ ->
+                                [ ]
+
+                        let allowedArguments  = List.map fst graphqlField.args
+                        let unknownArguments = 
+                            selectedField.arguments 
+                            |> List.filter (fun arg -> not (List.contains arg.name allowedArguments))
+                            |> List.map (fun arg -> QueryError.UnknownFieldArgument(arg.name, selectedField.name, graphqlType.name))
+
+                        let missingRequiredArguments = 
+                            let requiredArgs = 
+                                graphqlField.args
+                                |> List.filter (fun (argName, argType) -> 
+                                    match argType with 
+                                    | GraphqlFieldType.NonNull _ -> true 
+                                    | _ -> false)
+                                |> List.map (fun (argName, argType) -> argName) 
+
+                            let selectedArgs = 
+                                selectedField.arguments
+                                |> List.map (fun arg -> arg.name)
+
+                            [ 
+                                for requiredArg in requiredArgs do 
+                                    if not (List.contains requiredArg selectedArgs)
+                                    then yield QueryError.MissingRequiredArgument(requiredArg, selectedField.name, graphqlType.name)
+                            ]
+
+                        let allErrors = [
+                            yield! selectionErrors
+                            yield! unknownArguments
+                            yield! missingRequiredArguments
+                        ]
+
+                        allErrors
     ]
 
 let rec variableName = function

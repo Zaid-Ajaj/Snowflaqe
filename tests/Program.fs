@@ -376,7 +376,7 @@ let queryParsing =
 
             let query = Query.parse """
                 query ($input: String!) {
-                    findUser(name: $input) {
+                    findUser(username: $input) {
                         username
                         email
                     }
@@ -464,13 +464,131 @@ let queryParsing =
             |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
+        test "Unknwown field arguments can be detected" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    findUser (username: String!) : User
+                    hello: String
+                }
+
+                type User {
+                    username : String!
+                    email : String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query {
+                    hello
+                    findUser(usernam: "Whatsup?") {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with
+                | ValidationResult.QueryErrors 
+                    [  QueryError.UnknownFieldArgument (name, field, typeName);
+                       QueryError.MissingRequiredArgument ("username", "findUser", "Query") ] -> 
+
+                    Expect.equal name "usernam" "Variable name is detected"
+                    Expect.equal field "findUser" "Field is detected"
+                    Expect.equal typeName "Query" "Type name is detected"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
+        test "Missing required field arguments can be detected" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    findUser (username: String!) : User
+                    hello: String
+                }
+
+                type User {
+                    username : String!
+                    email : String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query {
+                    hello
+                    findUser {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with
+                | ValidationResult.QueryErrors [ QueryError.MissingRequiredArgument (name, field, typeName) ]  ->
+                    Expect.equal name "username" "Variable name is detected"
+                    Expect.equal field "findUser" "Field is detected"
+                    Expect.equal typeName "Query" "Type name is detected"
+
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
+        test "Non-required field arguments don't give errors" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Query {
+                    findUser (username: String) : User
+                    hello: String
+                }
+
+                type User {
+                    username : String!
+                    email : String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query {
+                    hello
+                    findUser {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with
+                | ValidationResult.Success -> ()
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
         test "Field arguments can be parsed" {
             let query = Query.parse """
                 query ($input: String!) {
                     findUser(
                         name: $input,
-                        include:
-                        false,
+                        include: false,
                         limit: 10,
                         whatsUp: "value",
                         nested: { username: "hello" },

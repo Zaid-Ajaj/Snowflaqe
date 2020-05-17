@@ -153,6 +153,8 @@ type QueryError =
     | UnknownField of fieldName:string * parentField:string * typeName:string
     | ExpandedScalarField of fieldName:string * parentField:string * typeName:string
     | UnknownInputVariable of variableName:string * variableType:string
+    | UnknownFieldArgument of argumentName:string * parentField:string * typeName:string
+    | MissingRequiredArgument of argumentName:string * parentField:string * typeName:string
 
 [<RequireQualifiedAccess>]
 type ValidationResult =
