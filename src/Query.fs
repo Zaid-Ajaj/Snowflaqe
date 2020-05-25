@@ -42,7 +42,7 @@ let rec readArgumentValue (argValue: GraphQLValue) : FieldArgumentValue option =
 
     | ASTNodeKind.BooleanValue ->
         let value = unbox<GraphQLScalarValue> argValue
-        Some (FieldArgumentValue.Boolean (if value.Value = "true" then true else false))
+        Some (FieldArgumentValue.Boolean (value.Value = "true"))
 
     | ASTNodeKind.NullValue ->
         Some FieldArgumentValue.Null
@@ -54,6 +54,10 @@ let rec readArgumentValue (argValue: GraphQLValue) : FieldArgumentValue option =
     | ASTNodeKind.IntValue ->
         let value = unbox<GraphQLScalarValue> argValue
         Some (FieldArgumentValue.Int (int value.Value))
+
+    | ASTNodeKind.EnumValue ->
+        let value = unbox<GraphQLScalarValue> argValue
+        Some (FieldArgumentValue.EnumCase value.Value)
 
     | ASTNodeKind.ListValue ->
         let value = unbox<GraphQLListValue> argValue
@@ -267,7 +271,292 @@ let rec findFieldType (field: GraphqlFieldType) (schema: GraphqlSchema) =
     | GraphqlFieldType.List innerField -> findFieldType innerField schema
     | GraphqlFieldType.NonNull innerField -> findFieldType innerField schema
 
-let rec validateFields (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlObject) (schema: GraphqlSchema) =
+let rec formatVariableType = function
+    | GraphqlVariableType.Ref name -> name
+    | GraphqlVariableType.NonNull variable -> sprintf "%s!" (formatVariableType variable)
+    | GraphqlVariableType.List variable -> sprintf "[%s]" (formatVariableType variable)
+
+let rec formatFieldArgumentType = function
+    | GraphqlFieldType.Scalar scalar ->
+        match scalar with
+        | GraphqlScalar.String -> "String"
+        | GraphqlScalar.Int -> "Int"
+        | GraphqlScalar.Boolean -> "Boolean"
+        | GraphqlScalar.Float -> "Float"
+        | GraphqlScalar.ID -> "ID"
+        | GraphqlScalar.Custom customScalar -> customScalar
+
+    | GraphqlFieldType.NonNull fieldType -> sprintf "%s!" (formatFieldArgumentType fieldType)
+    | GraphqlFieldType.EnumRef enumName -> enumName
+    | GraphqlFieldType.List fieldType -> sprintf "[%s]" (formatFieldArgumentType fieldType)
+    | GraphqlFieldType.InputObjectRef objectName -> objectName
+    | GraphqlFieldType.ObjectRef objectName -> objectName
+
+let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument) (argumentType: GraphqlFieldType) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
+    match argumentType with
+    | GraphqlFieldType.Scalar scalar ->
+        match argument.value with
+        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
+        | FieldArgumentValue.Int _ when scalar = GraphqlScalar.Int -> [ ]
+        | FieldArgumentValue.Boolean _  when scalar = GraphqlScalar.Boolean -> [ ]
+        | FieldArgumentValue.Float _  when scalar = GraphqlScalar.Float -> [ ]
+        | FieldArgumentValue.Null -> [ ]
+        | FieldArgumentValue.EnumCase enumCase ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, sprintf "Enum(%s)" enumCase) ]
+        | FieldArgumentValue.List _ ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "List") ]
+        | FieldArgumentValue.Object fields -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Object") ]
+        | FieldArgumentValue.Variable variableName ->
+            let foundVariable =
+                variables
+                |> List.tryFind (fun var -> var.variableName = variableName)
+
+            match foundVariable with
+            | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
+            | Some variable ->
+                match variable.variableType with
+                | GraphqlVariableType.Ref "String" when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "String") when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
+                | GraphqlVariableType.Ref "Int" when scalar = GraphqlScalar.Int -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Int") when scalar = GraphqlScalar.Int -> [ ]
+                | GraphqlVariableType.Ref "Float" when scalar = GraphqlScalar.Float -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float -> [ ]
+                | GraphqlVariableType.Ref "Boolean" when scalar = GraphqlScalar.Boolean -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Boolean") when scalar = GraphqlScalar.Boolean -> [ ]
+                | GraphqlVariableType.Ref refName ->
+                    match scalar with
+                    | GraphqlScalar.Custom customScalar when refName = customScalar -> [ ]
+                    | _  ->
+                        [
+                            QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType (GraphqlVariableType.Ref refName))
+                        ]
+
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref refName) ->
+                    match scalar with
+                    | GraphqlScalar.Custom customScalar when refName = customScalar -> [ ]
+                    | _  ->
+                        [
+                            QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType (GraphqlVariableType.Ref refName))
+                        ]
+
+                | otherVariableType ->
+                    [
+                        QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType)
+                    ]
+        | other ->
+                [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+
+    | GraphqlFieldType.NonNull (GraphqlFieldType.Scalar scalar) ->
+        match argument.value with
+        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
+        | FieldArgumentValue.Int _ when scalar = GraphqlScalar.Int -> [ ]
+        | FieldArgumentValue.Boolean _  when scalar = GraphqlScalar.Boolean -> [ ]
+        | FieldArgumentValue.Float _  when scalar = GraphqlScalar.Float -> [ ]
+        | FieldArgumentValue.Null ->
+            [
+                QueryError.NullUsedForNonNullableType(fieldName, argument.name, formatFieldArgumentType argumentType)
+            ]
+        | FieldArgumentValue.EnumCase enumCase ->
+            [
+                QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, sprintf "Enum(%s)" enumCase)
+            ]
+        | FieldArgumentValue.List _ ->
+            [
+                QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "List")
+            ]
+        | FieldArgumentValue.Object fields ->
+            [
+                QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Object")
+            ]
+        | FieldArgumentValue.Variable variableName ->
+            let foundVariable =
+                variables
+                |> List.tryFind (fun var -> var.variableName = variableName)
+
+            match foundVariable with
+            | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
+            | Some variable ->
+                match variable.variableType with
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "String") when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID ->  [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Int") when scalar = GraphqlScalar.Int -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float ->  [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float -> [ ]
+                | otherVariableType ->
+                    [
+                        QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType)
+                    ]
+
+        | _ ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+
+    | GraphqlFieldType.EnumRef enumTypeName ->
+        match argument.value with
+        | FieldArgumentValue.Null -> [ ]
+        | FieldArgumentValue.EnumCase caseName ->
+            let foundEnumType =
+                schema.types
+                |> List.choose (function
+                    | GraphqlType.Enum enumType -> if enumType.name = enumTypeName then Some enumType else None
+                    | _ -> None)
+                |> List.tryHead
+
+            match foundEnumType with
+            | None -> [ ]
+            | Some enumType ->
+                enumType.values
+                |> List.tryFind(fun enumCase -> enumCase.name = caseName)
+                |> function
+                    | None -> [ QueryError.UnknownEnumCase(fieldName, argument.name, formatFieldArgumentType argumentType, caseName) ]
+                    | Some _ -> [ ]
+
+        | FieldArgumentValue.Variable variableName ->
+
+            let foundVariable =
+                variables
+                |> List.tryFind (fun var -> var.variableName = variableName)
+
+            match foundVariable with
+            | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
+            | Some variable ->
+                match variable.variableType with
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref enumTypeName') when enumTypeName' = enumTypeName -> [ ]
+                | GraphqlVariableType.Ref enumTypeName' when enumTypeName' = enumTypeName -> [ ]
+                | otherVariableType -> [ QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType) ]
+
+        | _ -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+
+    | GraphqlFieldType.NonNull (GraphqlFieldType.EnumRef enumTypeName) ->
+        match argument.value with
+        | FieldArgumentValue.EnumCase caseName ->
+            let foundEnumType =
+                schema.types
+                |> List.choose (function
+                    | GraphqlType.Enum enumType -> if enumType.name = enumTypeName then Some enumType else None
+                    | _ -> None)
+                |> List.tryHead
+
+            match foundEnumType with
+            | None -> [ ]
+            | Some enumType ->
+                enumType.values
+                |> List.tryFind(fun enumCase -> enumCase.name = caseName)
+                |> function
+                    | None -> [ QueryError.UnknownEnumCase(fieldName, argument.name, formatFieldArgumentType argumentType, caseName) ]
+                    | Some _ -> [ ]
+
+        | FieldArgumentValue.Variable variableName ->
+
+            let foundVariable =
+                variables
+                |> List.tryFind (fun var -> var.variableName = variableName)
+
+            match foundVariable with
+            | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
+            | Some variable ->
+                match variable.variableType with
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref enumTypeName') when enumTypeName' = enumTypeName -> [ ]
+                | otherVariableType -> [ QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType) ]
+
+
+        | _ -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+
+    | GraphqlFieldType.InputObjectRef objectRef ->
+        match argument.value with
+        | FieldArgumentValue.Null -> [ ]
+        | FieldArgumentValue.Object fields ->
+            let foundObjectType =
+                schema.types
+                |> List.tryPick (function 
+                    | GraphqlType.InputObject objectDef when objectDef.name = objectRef -> Some objectDef 
+                    | _ -> None)
+
+            match foundObjectType with
+            | None -> [ ]
+            | Some objectType ->
+                [
+                    // check provided fields
+                    for (field, fieldValue) in fields do
+                        let objectField =
+                            objectType.fields
+                            |> List.tryFind (fun f -> f.fieldName = field)
+
+                        match objectField with
+                        | None -> yield QueryError.UnknownInputObjectField(objectType.name, field)
+                        | Some objectField ->
+                            let inputArgument : GraphqlFieldArgument = {
+                                name = field
+                                value = fieldValue
+                            }
+
+                            yield! validateFieldArgument argument.name inputArgument objectField.fieldType variables schema
+                
+                    // check missing fields that should be provided
+                    for objectField in objectType.fields do
+                        match objectField.fieldType with 
+                        | GraphqlFieldType.NonNull _ -> 
+                            let foundField = 
+                                fields
+                                |> List.tryFind(fun (field, _) -> field = objectField.fieldName)
+                            
+                            match foundField with 
+                            | None -> 
+                                yield QueryError.MissingRequireFieldFromInputObject(argument.name, objectType.name, objectField.fieldName)
+                            | Some _ -> 
+                                ()
+                        | _ -> 
+                            yield! [ ]
+                ]
+
+        | _ -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+
+    | GraphqlFieldType.NonNull (GraphqlFieldType.InputObjectRef objectRef) ->
+        match argument.value with
+        | FieldArgumentValue.Object fields ->
+            let foundObjectType =
+                schema.types
+                |> List.tryPick (function 
+                    | GraphqlType.InputObject objectDef when objectDef.name = objectRef -> Some objectDef 
+                    | _ -> None)
+
+            match foundObjectType with
+            | None -> [ ]
+            | Some objectType ->
+                [
+                    // check provided fields
+                    for (field, fieldValue) in fields do
+                        let objectField =
+                            objectType.fields
+                            |> List.tryFind (fun f -> f.fieldName = field)
+
+                        match objectField with
+                        | None -> yield QueryError.UnknownInputObjectField(objectType.name, field)
+                        | Some objectField ->
+                            let inputArgument : GraphqlFieldArgument = {
+                                name = field
+                                value = fieldValue
+                            }
+
+                            yield! validateFieldArgument argument.name inputArgument objectField.fieldType variables schema
+                    
+                    // check missing fields that should be provided
+                    for objectField in objectType.fields do
+                        match objectField.fieldType with 
+                        | GraphqlFieldType.NonNull _ -> 
+                            let foundField = 
+                                fields
+                                |> List.tryFind(fun (field, _) -> field = objectField.fieldName)
+        
+                            match foundField with 
+                            | None -> 
+                                yield QueryError.MissingRequireFieldFromInputObject(argument.name, objectType.name, objectField.fieldName)
+                            | Some _ -> 
+                                ()
+                        | _ -> 
+                            yield! [ ]
+                ]
+
+        | _ -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+
+    | _ -> [ ]
+
+let rec validateFields (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlObject) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     let fields = selection.nodes |> List.choose (function | GraphqlNode.Field field -> Some field | _ -> None)
     let unknownFields =
         fields
@@ -287,47 +576,67 @@ let rec validateFields (parentField: string) (selection: SelectionSet) (graphqlT
                 |> function
                     | None -> [ ]
                     | Some graphqlField ->
-                        let selectionErrors = 
+                        let selectionErrors =
                             match selectedField.selectionSet with
                             | Some selection when not (fieldCanExpand graphqlField.fieldType) ->
                                  [ QueryError.ExpandedScalarField (selectedField.name, parentField, graphqlType.name) ]
                             | Some selection ->
                                 match findFieldType graphqlField.fieldType schema with
                                 | None -> [ ]
-                                | Some possibleExpansion -> validateFields selectedField.name selection possibleExpansion schema
+                                | Some possibleExpansion -> validateFields selectedField.name selection possibleExpansion variables schema
 
                             | _ ->
                                 [ ]
 
                         let allowedArguments  = List.map fst graphqlField.args
-                        let unknownArguments = 
-                            selectedField.arguments 
+
+                        let unknownArguments =
+                            selectedField.arguments
                             |> List.filter (fun arg -> not (List.contains arg.name allowedArguments))
                             |> List.map (fun arg -> QueryError.UnknownFieldArgument(arg.name, selectedField.name, graphqlType.name))
 
-                        let missingRequiredArguments = 
-                            let requiredArgs = 
+                        let missingRequiredArguments =
+                            let requiredArgs =
                                 graphqlField.args
-                                |> List.filter (fun (argName, argType) -> 
-                                    match argType with 
-                                    | GraphqlFieldType.NonNull _ -> true 
+                                |> List.filter (fun (argName, argType) ->
+                                    match argType with
+                                    | GraphqlFieldType.NonNull _ -> true
                                     | _ -> false)
-                                |> List.map (fun (argName, argType) -> argName) 
+                                |> List.map (fun (argName, argType) -> argName)
 
-                            let selectedArgs = 
+                            let selectedArgs =
                                 selectedField.arguments
                                 |> List.map (fun arg -> arg.name)
 
-                            [ 
-                                for requiredArg in requiredArgs do 
+                            [
+                                for requiredArg in requiredArgs do
                                     if not (List.contains requiredArg selectedArgs)
                                     then yield QueryError.MissingRequiredArgument(requiredArg, selectedField.name, graphqlType.name)
                             ]
+
+                        let typeMismatchArguments =
+                            let allowedArguments =
+                                selectedField.arguments
+                                |> List.filter (fun arg -> List.contains arg.name allowedArguments)
+
+                            [
+                                for arg in allowedArguments do
+                                    let argType =
+                                        graphqlField.args
+                                        |> List.tryFind (fun (fieldArgName, fieldArgType) -> fieldArgName = arg.name)
+                                        |> Option.map snd
+
+                                    match argType with
+                                    | None -> ()
+                                    | Some argType -> yield! validateFieldArgument selectedField.name arg argType variables schema
+                            ]
+
 
                         let allErrors = [
                             yield! selectionErrors
                             yield! unknownArguments
                             yield! missingRequiredArguments
+                            yield! typeMismatchArguments
                         ]
 
                         allErrors
@@ -367,7 +676,7 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
         match Schema.findQuery schema with
         | None -> ValidationResult.SchemaDoesNotHaveQueryType
         | Some queryType ->
-            let fieldErrors = validateFields "query" query.selectionSet queryType schema
+            let fieldErrors = validateFields "query" query.selectionSet queryType query.variables schema
             let inputVariableErrors = validateInputVariables query.variables schema
             let queryErrors = [ yield! fieldErrors; yield! inputVariableErrors ]
             match queryErrors with
@@ -375,10 +684,10 @@ let validate (document: GraphqlDocument) (schema: GraphqlSchema) : ValidationRes
             | errors -> ValidationResult.QueryErrors errors
 
     | Some (GraphqlOperation.Mutation mutation) ->
-        match Schema.findQuery schema with
+        match Schema.findMutation schema with
         | None -> ValidationResult.SchemaDoesNotHaveMutationType
         | Some mutationType ->
-            let fieldErrors = validateFields "mutation" mutation.selectionSet mutationType schema
+            let fieldErrors = validateFields "mutation" mutation.selectionSet mutationType mutation.variables schema
             let inputVariableErrors = validateInputVariables mutation.variables schema
             let queryErrors = [ yield! fieldErrors; yield! inputVariableErrors ]
             match queryErrors with

@@ -494,9 +494,9 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 match Query.validate query schema with
-                | ValidationResult.QueryErrors 
+                | ValidationResult.QueryErrors
                     [  QueryError.UnknownFieldArgument (name, field, typeName);
-                       QueryError.MissingRequiredArgument ("username", "findUser", "Query") ] -> 
+                       QueryError.MissingRequiredArgument ("username", "findUser", "Query") ] ->
 
                     Expect.equal name "usernam" "Variable name is detected"
                     Expect.equal field "findUser" "Field is detected"
@@ -583,6 +583,82 @@ let queryParsing =
             |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
+        test "Enums can be used as reference variables" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Interval {
+                  Raw
+                  Day
+                  Month
+                }
+
+                type Query {
+                    findUser (interval: Interval!) : User
+                }
+
+                type User {
+                    username : String!
+                    email : String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query ($interval: Interval!) {
+                    findUser(interval: $interval) {
+                        username
+                        email
+                    }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with
+                | ValidationResult.Success -> ()
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
+        test "Unknown input fields can be detected" {
+            let schema = Introspection.fromSchemaDefinition """
+                input Credentials {
+                    username: String!
+                    password: String!
+                }
+
+                type Mutation {
+                    login (credentials: Credentials!) : String!
+                }
+
+                type Query {
+                    dummy: String
+                }
+
+                schema {
+                    mutation: Mutation
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                mutation  {
+                    login(credentials: { username: "", password: "", whatever: "" })
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                match Query.validate query schema with
+                | ValidationResult.Success -> failwithf "expected to fail" 
+                | otherResults -> ()
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
         test "Field arguments can be parsed" {
             let query = Query.parse """
                 query ($input: String!) {
@@ -592,7 +668,8 @@ let queryParsing =
                         limit: 10,
                         whatsUp: "value",
                         nested: { username: "hello" },
-                        listStuff: [1,2,3,4,5]
+                        listStuff: [1,2,3,4,5],
+                        interval: Raw
                     ) {
                         username
                         email

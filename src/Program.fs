@@ -52,6 +52,8 @@ let readConfig (file: string) =
                 let fullQueriesPath =
                     if Path.IsPathRooted queriesPath
                     then queriesPath
+                    elif Path.HasExtension queriesPath
+                    then resolveFile queriesPath
                     else Path.GetFullPath(Path.Combine(Directory.GetParent(path).FullName, queriesPath))
 
                 Ok {
@@ -62,7 +64,7 @@ let readConfig (file: string) =
     with
     | ex -> Error ex.Message
 
-let runConfig (config: Config) = 
+let runConfig (config: Config) =
     colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
     match Introspection.loadSchema config.schema with
     | Error errorMessage ->
@@ -106,10 +108,26 @@ let runConfig (config: Config) =
                             colorprintfn "   Input variable $blue[%s] has unknown type $yellow[%s]" variableName typeName
                         | QueryError.ExpandedScalarField (fieldName, parentSelection, typeName) ->
                             colorprintfn "   Field $yellow[%s] selected from $green[%s] of type $blue[%s] is a scalar and cannot be expanded further" fieldName parentSelection typeName
-                        | QueryError.UnknownFieldArgument (argumentName, fieldName, typeName) -> 
+                        | QueryError.UnknownFieldArgument (argumentName, fieldName, typeName) ->
                             colorprintfn "   Field $blue[%s] has an unknown argument $yellow[%s]" fieldName argumentName
-                        | QueryError.MissingRequiredArgument (argumentName, fieldName, typeName) -> 
+                        | QueryError.MissingRequiredArgument (argumentName, fieldName, typeName) ->
                             colorprintfn "   Field $blue[%s] is missing required argument $yellow[%s]" fieldName argumentName
+                        | QueryError.ArgumentAndVariableTypeMismatch(fieldName, argumentName, argumentType, variableName, variableType) ->
+                            colorprintfn "   Field $blue[%s] contains type mismatch for argument $blue[%s] of type $green[%s] which references variable $yellow[%s] of type $yellow[%s]" fieldName argumentName argumentType ("$" + variableName) variableType
+                        | QueryError.ArgumentTypeMismatch(fieldName, argumentName, argumentType, providedType) ->
+                            colorprintfn "   Field $blue[%s] contains invalid provided value for argument $blue[%s] of type $green[%s]" fieldName argumentName argumentType
+                        | QueryError.NullUsedForNonNullableType(fieldName, argumentName, argumentType) ->
+                            colorprintfn "   Field $blue[%s] cannot use value null for non-nullable argument $blue[%s] of type $green[%s]" fieldName argumentName argumentType
+                        | QueryError.NullableVariableUsedWithNonNullableArgument(fieldName, argumentName, variableName) ->
+                            colorprintfn "   Field $blue[%s] references a nullable variable $yellow[%s] for non-nullable argument $blue[%s]" fieldName argumentName variableName
+                        | QueryError.UnknownEnumCase(fieldName, argumentName, argumentType, enumCase) ->
+                            colorprintfn "   Field $blue[%s] uses an unknown enum case $yellow[%s] for argument $blue[%s] of type $green[%s]" fieldName enumCase argumentName argumentType
+                        | QueryError.UnknownInputObjectField(inputObjectName, unknownField) ->
+                            colorprintfn "   Unknown field $yellow[%s] used from input object of type $green[%s]" unknownField inputObjectName
+                        | QueryError.UsedNonDeclaredVariable(fieldName, argumentName, variableName) ->
+                            colorprintfn "   Field $blue[%s] references a variable $yellow[%s] in argument $blue[%s] that was not declared" fieldName variableName argumentName
+                        | QueryError.MissingRequireFieldFromInputObject(inputObjectName, inputObjectType, requiredFieldName) -> 
+                            colorprintfn "   Input object $blue[%s] of type $green[%s] is missing required field $yellow[%s]" inputObjectName inputObjectType requiredFieldName
         errorCount
 
 let runConfigFile (configFile: string) =
@@ -120,16 +138,15 @@ let runConfigFile (configFile: string) =
         1
     | Ok config -> runConfig config
 
-
 [<EntryPoint>]
 let main argv =
     Console.OutputEncoding <- Encoding.UTF8
     Console.WriteLine(logo)
 
     match argv with
-    | [| "--config"; configFile|] -> 
+    | [| "--config"; configFile|] ->
         runConfigFile configFile
-    
+
     | [| |] ->
         Directory.GetFiles(Environment.CurrentDirectory)
         |> Seq.tryFind (fun file -> file.ToLower().EndsWith("snowflaqe.json"))
@@ -139,12 +156,12 @@ let main argv =
                 1
             | Some configFile ->
                 runConfigFile configFile
-    
-    | [| "--queries"; queries; "--schema"; schema; |] -> 
+
+    | [| "--queries"; queries; "--schema"; schema; |] ->
         let config = { schema = schema; queries = queries; project = "GraphqlClient" }
         runConfig config
 
-    | [| "--schema"; schema; "--queries"; queries |] -> 
+    | [| "--schema"; schema; "--queries"; queries |] ->
         let config = { schema = schema; queries = queries; project = "GraphqlClient" }
         runConfig config
 

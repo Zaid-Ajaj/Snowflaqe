@@ -55,9 +55,10 @@ let main (args: string[]) =
     Console.WriteLine(Swag.logo)
     try
         match args with
-        | [| "build" |] -> build()
-        | [| "test"  |] -> test()
-        | [| "pack"  |] -> pack()
+        | [| "build"   |] -> build()
+        | [| "test"    |] -> test()
+        | [| "pack"    |] -> pack()
+        | [| "publish" |] -> publish()
 
         | _ -> printfn "Unknown args %A" args
         0

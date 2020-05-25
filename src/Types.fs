@@ -91,6 +91,7 @@ type FieldArgumentValue =
     | String of string
     | Boolean of bool
     | Float of float
+    | EnumCase of string
     | List of FieldArgumentValue list
     | Object of (string * FieldArgumentValue) list
 
@@ -155,6 +156,14 @@ type QueryError =
     | UnknownInputVariable of variableName:string * variableType:string
     | UnknownFieldArgument of argumentName:string * parentField:string * typeName:string
     | MissingRequiredArgument of argumentName:string * parentField:string * typeName:string
+    | UsedNonDeclaredVariable of fieldName:string * argumentName:string * variableName:string
+    | NullableVariableUsedWithNonNullableArgument of fieldName:string * argumentName:string * variableName:string
+    | NullUsedForNonNullableType of fieldName:string * argumentName:string * argumentType:string
+    | ArgumentTypeMismatch of fieldName:string * argumentName:string * argumentType: string * providedType:string
+    | ArgumentAndVariableTypeMismatch of fieldName:string * argumentName:string * argumentType:string * variableName:string * variableType:string
+    | UnknownEnumCase of fieldName:string * argumentName:string * argumentType:string * enumCase:string
+    | UnknownInputObjectField of inputObjectName:string * unknownFieldName:string
+    | MissingRequireFieldFromInputObject of inputObjectName:string * objectType:string * requiredFieldName:string
 
 [<RequireQualifiedAccess>]
 type ValidationResult =
