@@ -49,7 +49,7 @@ let queryParsing =
                 failwith error
         }
 
-        ftest "Queries with aliases can be parsed" {
+        test "Queries with aliases can be parsed" {
             let query = Query.parse """
                 query getArtists {
                     artists {
