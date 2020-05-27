@@ -164,7 +164,7 @@ type QueryError =
     | ArgumentAndVariableTypeMismatch of fieldName:string * argumentName:string * argumentType:string * variableName:string * variableType:string
     | UnknownEnumCase of fieldName:string * argumentName:string * argumentType:string * enumCase:string
     | UnknownInputObjectField of inputObjectName:string * unknownFieldName:string
-    | MissingRequireFieldFromInputObject of inputObjectName:string * objectType:string * requiredFieldName:string
+    | MissingRequiredFieldFromInputObject of inputObjectName:string * objectType:string * requiredFieldName:string
 
 [<RequireQualifiedAccess>]
 type ValidationResult =

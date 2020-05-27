@@ -464,8 +464,8 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
         | FieldArgumentValue.Object fields ->
             let foundObjectType =
                 schema.types
-                |> List.tryPick (function 
-                    | GraphqlType.InputObject objectDef when objectDef.name = objectRef -> Some objectDef 
+                |> List.tryPick (function
+                    | GraphqlType.InputObject objectDef when objectDef.name = objectRef -> Some objectDef
                     | _ -> None)
 
             match foundObjectType with
@@ -487,21 +487,21 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                             }
 
                             yield! validateFieldArgument argument.name inputArgument objectField.fieldType variables schema
-                
+
                     // check missing fields that should be provided
                     for objectField in objectType.fields do
-                        match objectField.fieldType with 
-                        | GraphqlFieldType.NonNull _ -> 
-                            let foundField = 
+                        match objectField.fieldType with
+                        | GraphqlFieldType.NonNull _ ->
+                            let foundField =
                                 fields
                                 |> List.tryFind(fun (field, _) -> field = objectField.fieldName)
-                            
-                            match foundField with 
-                            | None -> 
-                                yield QueryError.MissingRequireFieldFromInputObject(argument.name, objectType.name, objectField.fieldName)
-                            | Some _ -> 
+
+                            match foundField with
+                            | None ->
+                                yield QueryError.MissingRequiredFieldFromInputObject(argument.name, objectType.name, objectField.fieldName)
+                            | Some _ ->
                                 ()
-                        | _ -> 
+                        | _ ->
                             yield! [ ]
                 ]
 
@@ -512,8 +512,8 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
         | FieldArgumentValue.Object fields ->
             let foundObjectType =
                 schema.types
-                |> List.tryPick (function 
-                    | GraphqlType.InputObject objectDef when objectDef.name = objectRef -> Some objectDef 
+                |> List.tryPick (function
+                    | GraphqlType.InputObject objectDef when objectDef.name = objectRef -> Some objectDef
                     | _ -> None)
 
             match foundObjectType with
@@ -535,21 +535,21 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                             }
 
                             yield! validateFieldArgument argument.name inputArgument objectField.fieldType variables schema
-                    
+
                     // check missing fields that should be provided
                     for objectField in objectType.fields do
-                        match objectField.fieldType with 
-                        | GraphqlFieldType.NonNull _ -> 
-                            let foundField = 
+                        match objectField.fieldType with
+                        | GraphqlFieldType.NonNull _ ->
+                            let foundField =
                                 fields
                                 |> List.tryFind(fun (field, _) -> field = objectField.fieldName)
-        
-                            match foundField with 
-                            | None -> 
-                                yield QueryError.MissingRequireFieldFromInputObject(argument.name, objectType.name, objectField.fieldName)
-                            | Some _ -> 
+
+                            match foundField with
+                            | None ->
+                                yield QueryError.MissingRequiredFieldFromInputObject(argument.name, objectType.name, objectField.fieldName)
+                            | Some _ ->
                                 ()
-                        | _ -> 
+                        | _ ->
                             yield! [ ]
                 ]
 

@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.3" />
+    <PackageReference Include="FsAst" Version="0.3.0" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.2.7" />
     <PackageReference Include="GraphQL" Version="3.0.0-preview-1648" />
     <PackageReference Include="GraphQL.NewtonsoftJson" Version="3.0.0-preview-1648" />

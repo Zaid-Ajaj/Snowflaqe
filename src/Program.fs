@@ -1,10 +1,92 @@
 ﻿open System
+open System.Linq
 open System.Text
 open Newtonsoft.Json.Linq
 open System.IO
 open Snowflaqe
 open Snowflaqe.Types
 open BlackFox.ColoredPrintf
+open FsAst
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.XmlDoc
+open FSharp.Compiler.Range
+open Fantomas
+
+let stringEnumAttr : SynAttribute = {
+   AppliesToGetterAndSetter = false
+   ArgExpr = SynExpr.Const (SynConst.Unit, range0)
+   Range = range0
+   Target = None
+   TypeName = LongIdentWithDots([ Ident.Create "StringEnum" ], [ ])
+}
+
+let requireQualifiedAccessAttr : SynAttribute = {
+   AppliesToGetterAndSetter = false
+   ArgExpr = SynExpr.Const (SynConst.Unit, range0)
+   Range = range0
+   Target = None
+   TypeName = LongIdentWithDots([ Ident.Create "RequireQualifiedAccess" ], [ ])
+}
+
+let compiledName name : SynAttribute = {
+   AppliesToGetterAndSetter = false
+   ArgExpr = SynExpr.Const (SynConst.String(name, range0), range0)
+   Range = range0
+   Target = None
+   TypeName = LongIdentWithDots([ Ident.Create "CompiledName" ], [ ])
+}
+
+let capitalize (input: string) = input.First().ToString().ToUpper() + String.Join("", input.Skip(1)).ToLowerInvariant()
+
+let normalizeEnumName (unionCase: string) =
+    if not(unionCase.Contains "_") then
+        capitalize unionCase
+    else
+        unionCase.Split [| '_' |]
+        |> Array.filter String.isNotNullOrEmpty
+        |> Array.map capitalize
+        |> String.concat ""
+
+let createEnumType (enumType: GraphqlEnum) =
+    let info : SynComponentInfoRcd = {
+        Access = None
+        Attributes = [ { Attributes = [ stringEnumAttr; requireQualifiedAccessAttr ] ; Range = range0 } ]
+        Id = [ Ident.Create enumType.name ]
+        XmlDoc = PreXmlDoc.Create [ if enumType.description.IsSome then enumType.description.Value ]
+        Parameters = [ ]
+        Constraints = [ ]
+        PreferPostfix = false
+        Range = range0
+    }
+
+    let enumRepresentation = SynTypeDefnSimpleReprUnionRcd.Create([
+        for value in enumType.values ->
+            let attrs = [ { Attributes = [ compiledName value.name ]; Range = range0 } ]
+            let docs = PreXmlDoc.Create [ if value.description.IsSome then value.description.Value ]
+            SynUnionCase.UnionCase(attrs, Ident.Create (normalizeEnumName value.name), SynUnionCaseType.UnionCaseFields [], docs, None, range0)
+    ])
+
+    let simpleType = SynTypeDefnSimpleReprRcd.Union(enumRepresentation)
+    SynModuleDecl.CreateSimpleType(info, simpleType)
+
+let createGlobalTypes (schema: GraphqlSchema) =
+    let enums =
+        schema.types
+        |> List.choose (function
+            | GraphqlType.Enum enumType when not (enumType.name.StartsWith "__") -> Some enumType
+            | _ -> None)
+        |> List.map createEnumType
+
+    enums
+
+let createNamespace name declarations =
+    let xmlDoc = PreXmlDoc.Create [ ]
+    SynModuleOrNamespace.SynModuleOrNamespace([ Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+
+let createFile fileName modules =
+    let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
+    ParsedImplFileInput.ParsedImplFileInput(fileName, false, qualfiedNameOfFile, [], [], modules, (false, false))
+
 
 type Config = {
     schema: string
@@ -126,7 +208,7 @@ let runConfig (config: Config) =
                             colorprintfn "   Unknown field $yellow[%s] used from input object of type $green[%s]" unknownField inputObjectName
                         | QueryError.UsedNonDeclaredVariable(fieldName, argumentName, variableName) ->
                             colorprintfn "   Field $blue[%s] references a variable $yellow[%s] in argument $blue[%s] that was not declared" fieldName variableName argumentName
-                        | QueryError.MissingRequireFieldFromInputObject(inputObjectName, inputObjectType, requiredFieldName) -> 
+                        | QueryError.MissingRequiredFieldFromInputObject(inputObjectName, inputObjectType, requiredFieldName) ->
                             colorprintfn "   Input object $blue[%s] of type $green[%s] is missing required field $yellow[%s]" inputObjectName inputObjectType requiredFieldName
         errorCount
 
@@ -164,6 +246,37 @@ let main argv =
     | [| "--schema"; schema; "--queries"; queries |] ->
         let config = { schema = schema; queries = queries; project = "GraphqlClient" }
         runConfig config
+
+    | [| "--generate" |] ->
+        Directory.GetFiles(Environment.CurrentDirectory)
+        |> Seq.tryFind (fun file -> file.ToLower().EndsWith("snowflaqe.json"))
+        |> function
+            | None ->
+                colorprintfn "⚠️  No configuration file found. Expecting JSON file $yellow[%s] in the current working directory" "snowflaqe.json"
+                1
+            | Some configFile ->
+
+                match runConfigFile configFile with
+                | 0 ->
+                    printfn "Generate code here"
+                    match readConfig configFile with
+                    | Error _ -> 0
+                    | Ok config ->
+                        match Introspection.loadSchema config.schema with
+                        | Error _ -> 0
+                        | Ok schema ->
+                            let globalTypes = createGlobalTypes schema
+                            let ns = createNamespace config.project globalTypes
+                            let file = createFile "Types.fs" [ ns ]
+                            let input = ParsedInput.ImplFile file
+                            let content =
+                                CodeFormatter.FormatASTAsync(input, "Types.fs", [], None, FormatConfig.FormatConfig.Default)
+                                |> Async.RunSynchronously
+                            printfn "%s" content
+                            0
+
+                | n ->
+                    n
 
     | _ ->
 
