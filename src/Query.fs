@@ -104,6 +104,7 @@ let rec readNode (node: ASTNode) =
     | ASTNodeKind.Field ->
         let field = unbox<GraphQLFieldSelection> node
         let fieldSelection : GraphqlFieldSelection = {
+            alias = if isNull field.Alias then None else Some field.Alias.Value
             name = field.Name.Value
             arguments = if isNull field.Arguments then [ ] else readArguments field.Arguments
             selectionSet = if isNull field.SelectionSet then None else Some (readSelections field.SelectionSet)

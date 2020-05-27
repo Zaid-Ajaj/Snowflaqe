@@ -36,6 +36,5 @@ snowflaqe --config ./src/snowflaqe.json
 ## Not Supported
 
 There are a couple of features of the GraphQL specs which `snowflaqe` doesn't (yet) know how to work with:
- - [ ] Field aliases
  - [ ] Union types
  - [ ] Subscriptions (non-goal of the tool, maybe in the future)

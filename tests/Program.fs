@@ -49,6 +49,29 @@ let queryParsing =
                 failwith error
         }
 
+        ftest "Queries with aliases can be parsed" {
+            let query = Query.parse """
+                query getArtists {
+                    artists {
+                        artistName: name
+                        bio
+                    }
+                }
+            """
+
+            match query with
+            | Ok document ->
+                Expect.equal 1 document.nodes.Length "Document has one element"
+                match document.nodes.[0] with
+                | GraphqlNode.Query parsedQuery ->
+                    Expect.equal parsedQuery.name (Some "getArtists") "Query name can be extracted"
+                | _ ->
+                    failwith "Unexpected node"
+            | Error error ->
+                failwith error
+        }
+
+
         test "Schema can be parsed from GraphQL definition" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {

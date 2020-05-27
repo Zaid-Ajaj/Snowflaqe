@@ -101,6 +101,7 @@ type GraphqlFieldArgument = {
 }
 
 type GraphqlFieldSelection = {
+    alias: string option
     name : string
     selectionSet : SelectionSet option
     directives: GraphQLDirective list
