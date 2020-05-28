@@ -14,6 +14,7 @@ type GraphqlScalar =
 type GraphqlEnumValue =  {
     name : string
     description : string option
+    deprecated : bool
 }
 
 type GraphqlEnum = {
@@ -50,6 +51,8 @@ type GraphqlVariable = {
 
 type GraphqlInputField = {
     fieldName : string
+    description : string option
+    deprecated : bool
     fieldType : GraphqlFieldType
 }
 

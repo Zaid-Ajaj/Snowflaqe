@@ -19,12 +19,13 @@
     <Compile Include="Schema.fs" />
     <Compile Include="Introspection.fs" />
     <Compile Include="Query.fs" />
+    <Compile Include="CodeGen.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.3" />
-    <PackageReference Include="FsAst" Version="0.3.0" />
+    <PackageReference Include="FsAst" Version="0.4.0" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.2.7" />
     <PackageReference Include="GraphQL" Version="3.0.0-preview-1648" />
     <PackageReference Include="GraphQL.NewtonsoftJson" Version="3.0.0-preview-1648" />

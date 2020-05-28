@@ -26,7 +26,8 @@ let (|Enum|_|) (typeJson: JToken) =
             for enumValue in typeJson.["enumValues"] ->
                 {
                     name = string enumValue.["name"]
-                    description = stringOrNone enumValue "description" 
+                    description = stringOrNone enumValue "description"
+                    deprecated = enumValue.["isDeprecated"].ToObject<bool>()
                 }
         ]
 
@@ -131,9 +132,17 @@ let (|InputObject|_|)  (typeJson: JToken) : GraphqlInputObject option =
             |> List.ofSeq
             |> List.choose (fun field ->
                 let fieldName = field.["name"].ToString()
+                let description = stringOrNone field "description"
+                let deprecated = false
                 let parsedFieldType = tryParseFieldType field.["type"]
                 match parsedFieldType with
-                | Some fieldType -> Some  { fieldName = fieldName; fieldType = fieldType }
+                | Some fieldType ->
+                    Some  {
+                        fieldName = fieldName;
+                        fieldType = fieldType
+                        description = description
+                        deprecated = deprecated
+                    }
                 | None -> None
             )
 
@@ -147,7 +156,7 @@ let (|InputObject|_|)  (typeJson: JToken) : GraphqlInputObject option =
         None
 
 let parse (content: string) =
-    try 
+    try
         let contentJson = JToken.Parse(content)
         let graphqlTypes = [
             for typeJson in contentJson.["data"].["__schema"].["types"] ->
@@ -159,23 +168,23 @@ let parse (content: string) =
                 | _ -> None
         ]
 
-        let query = 
-            if isNull contentJson.["data"].["__schema"].["queryType"] 
-            then None 
+        let query =
+            if isNull contentJson.["data"].["__schema"].["queryType"]
+            then None
             else stringOrNone contentJson.["data"].["__schema"].["queryType"] "name"
 
-        let mutation = 
-            if isNull contentJson.["data"].["__schema"].["mutationType"] 
+        let mutation =
+            if isNull contentJson.["data"].["__schema"].["mutationType"]
             then None
             else stringOrNone contentJson.["data"].["__schema"].["mutationType"] "name"
 
-        Ok { 
+        Ok {
             types = graphqlTypes |> List.choose id
             queryType = query
             mutationType = mutation
         }
-    
-    with 
+
+    with
     | ex -> Error ex.Message
 
 let findTypeByName (name: string) (schema: GraphqlSchema) =
@@ -186,18 +195,18 @@ let findTypeByName (name: string) (schema: GraphqlSchema) =
         | GraphqlType.InputObject objectDef -> objectDef.name = name
         | GraphqlType.Scalar scalar -> false)
 
-let findQuery (schema: GraphqlSchema) = 
-    match schema.queryType with 
-    | None -> None 
-    | Some typeName -> 
-        match findTypeByName typeName schema with 
-        | Some (GraphqlType.Object queryType) -> Some queryType 
+let findQuery (schema: GraphqlSchema) =
+    match schema.queryType with
+    | None -> None
+    | Some typeName ->
+        match findTypeByName typeName schema with
+        | Some (GraphqlType.Object queryType) -> Some queryType
         | _ -> None
 
-let findMutation (schema: GraphqlSchema) = 
-    match schema.mutationType with 
-    | None -> None 
-    | Some typeName -> 
-        match findTypeByName typeName schema with 
-        | Some (GraphqlType.Object queryType) -> Some queryType 
+let findMutation (schema: GraphqlSchema) =
+    match schema.mutationType with
+    | None -> None
+    | Some typeName ->
+        match findTypeByName typeName schema with
+        | Some (GraphqlType.Object queryType) -> Some queryType
         | _ -> None

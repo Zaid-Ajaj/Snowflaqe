@@ -1,7 +1,8 @@
 ﻿open Expecto
 open Snowflaqe
 open Snowflaqe.Types
-
+open FSharp.Data.LiteralProviders
+open System
 let queryParsing =
     testList "Query parsing" [
 
@@ -452,6 +453,37 @@ let queryParsing =
             |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
+        test "Enum types can converted into F# unions" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Sort {
+                    ASCENDING,
+                    descending
+                }
+
+                type Query {
+                    sorting: Sort
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+
+                let generated =
+                    let globalTypes = CodeGen.createGlobalTypes schema
+                    let ns = CodeGen.createNamespace "Test" globalTypes
+                    let file = CodeGen.createFile "Types.fs" [ ns ]
+                    CodeGen.formatAst file
+
+                let expected = TextFile<"./enums/SimpleEnum.txt">.Text
+
+                Expect.equal generated expected "The code is generated correctly"
+        }
+
         test "Object types cannot be used input variables" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {
@@ -676,7 +708,7 @@ let queryParsing =
             match query, schema with
             | Ok query, Ok schema ->
                 match Query.validate query schema with
-                | ValidationResult.Success -> failwithf "expected to fail" 
+                | ValidationResult.Success -> failwithf "expected to fail"
                 | otherResults -> ()
 
             |  otherResults -> failwithf "Unexpected %A" otherResults

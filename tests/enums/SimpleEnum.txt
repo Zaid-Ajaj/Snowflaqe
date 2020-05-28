@@ -1,0 +1,6 @@
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Sort =
+    | [<CompiledName "ASCENDING">] Ascending
+    | [<CompiledName "descending">] Descending
