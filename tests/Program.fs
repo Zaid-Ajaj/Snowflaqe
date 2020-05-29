@@ -517,6 +517,26 @@ type LoginCredentials =
                 Expect.equal trimmedGenerated trimmedExpected "The code is generated correctly"
         }
 
+
+        ftest "Next tick generates the correct next typeName" {
+            let names = ResizeArray [
+                "Chair"
+                "Table"
+            ]
+
+            Expect.equal (CodeGen.nextTick "Table" names) "Table1" "Increment starts with 1"
+
+            let conflictingName =  ResizeArray [
+                "Chair"
+                "Table"
+                "Table1"
+                "Table2"
+                "Table3"
+            ]
+
+            Expect.equal (CodeGen.nextTick "Table" conflictingName) "Table4" "Next tick is counted"
+        }
+
         test "Enum types can be converted into F# unions" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {
@@ -557,7 +577,7 @@ type Sort =
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
 
-        ftest "Query types can be generated from schema" {
+        test "Query types can be generated from schema" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {
                     ASCENDING,
@@ -589,6 +609,10 @@ type Sort =
                     currentUser {
                         email
                     }
+                    nextUser: currentUser {
+                        email
+                        username
+                    }
                 }
             """
 
@@ -604,13 +628,15 @@ type Sort =
                 let expected = """
 namespace rec Test
 
-type UserPartial = { email: string }
+type User = { email: string }
+type NextUser = { email: string; username: string }
 
 type Query =
     { sorting: Option<Sort>
       firstName: string
       age: Option<int>
-      currentUser: UserPartial }
+      currentUser: User
+      nextUser: NextUser }
 """
 
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"

@@ -13,7 +13,7 @@ open System.Collections.Generic
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
-let capitalize (input: string) = input.First().ToString().ToUpper() + String.Join("", input.Skip(1)).ToLowerInvariant()
+let capitalize (input: string) = input.First().ToString().ToUpper() + String.Join("", input.Skip(1))
 
 let normalizeEnumName (unionCase: string) =
     if not(unionCase.Contains "_") then
@@ -272,7 +272,40 @@ let objectFieldType (fieldName: string) (field: GraphqlField) =
     | _ ->
         SynFieldRcd.CreateInt fieldName
 
-let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (types: Dictionary<string,SynModuleDecl>)  =
+let nextTick (name: string) (visited: ResizeArray<string>) =
+    if not (visited.Contains name) then
+        name
+    else
+    visited
+    |> Seq.toList
+    |> List.filter (fun visitedName -> visitedName.StartsWith name)
+    |> List.map (fun visitedName -> visitedName.Replace(name, ""))
+    |> List.choose(fun rest ->
+        match Int32.TryParse rest with
+        | true, n -> Some n
+        | _ -> None)
+    |> function
+        | [ ] -> name + "1"
+        | ns -> name + (string (List.max ns + 1))
+
+let findNextTypeName fieldName objectName (selections: string list) (visitedTypes: ResizeArray<string>) =
+    let nestedSelectionType =
+        selections
+        |> List.map normalizeEnumName
+        |> String.concat "And"
+
+    if not (visitedTypes.Contains objectName) then
+        objectName
+    elif not (visitedTypes.Contains (normalizeEnumName fieldName)) then
+        normalizeEnumName fieldName
+    elif not (visitedTypes.Contains nestedSelectionType) && selections.Length <= 3 && selections.Length < 1 then
+        nestedSelectionType
+    elif not (visitedTypes.Contains (normalizeEnumName fieldName + "From" + objectName)) then
+        objectName + normalizeEnumName fieldName
+    else
+        nextTick (normalizeEnumName fieldName + "From" + objectName) visitedTypes
+
+let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [ ]
@@ -310,13 +343,89 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             | _ -> None)
                     match nestedFieldType, field.selectionSet with
                     | Some objectDef, Some nestedSelectionSet ->
-                        let typeName = capitalize objectName + "Partial"
-                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema types
+                        let nestedFields =
+                            nestedSelectionSet.nodes
+                            |> List.choose (function
+                                | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
+                                | _ -> None)
+
+                        let typeName = findNextTypeName fieldName objectName nestedFields visitedTypes
+
+                        visitedTypes.Add(typeName)
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
+                        types.Add(typeName, nestedType)
+                        optionOf fieldName typeName
+                    | _ ->
+                        ()
+
+                | GraphqlFieldType.List(GraphqlFieldType.ObjectRef objectName) ->
+                    let nestedFieldType =
+                        schema.types
+                        |> List.tryPick (function
+                            | GraphqlType.Object objectDef when objectDef.name = objectName -> Some objectDef
+                            | _ -> None)
+                    match nestedFieldType, field.selectionSet with
+                    | Some objectDef, Some nestedSelectionSet ->
+                        let nestedFields =
+                            nestedSelectionSet.nodes
+                            |> List.choose (function
+                                | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
+                                | _ -> None)
+
+                        let typeName = findNextTypeName fieldName objectName nestedFields visitedTypes
+
+                        visitedTypes.Add(typeName)
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
                         types.Add(typeName, nestedType)
                         SynFieldRcd.Create(fieldName, LongIdentWithDots([ Ident.Create typeName ], [ ]))
                     | _ ->
                         ()
 
+                | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.ObjectRef objectName)) ->
+                    let nestedFieldType =
+                        schema.types
+                        |> List.tryPick (function
+                            | GraphqlType.Object objectDef when objectDef.name = objectName -> Some objectDef
+                            | _ -> None)
+                    match nestedFieldType, field.selectionSet with
+                    | Some objectDef, Some nestedSelectionSet ->
+                        let nestedFields =
+                            nestedSelectionSet.nodes
+                            |> List.choose (function
+                                | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
+                                | _ -> None)
+
+                        let typeName = findNextTypeName fieldName objectName nestedFields visitedTypes
+
+                        visitedTypes.Add(typeName)
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
+                        types.Add(typeName, nestedType)
+                        SynFieldRcd.Create(fieldName, LongIdentWithDots([ Ident.Create typeName ], [ ]))
+                    | _ ->
+                        ()
+
+                | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.ObjectRef objectName))) ->
+                    let nestedFieldType =
+                        schema.types
+                        |> List.tryPick (function
+                            | GraphqlType.Object objectDef when objectDef.name = objectName -> Some objectDef
+                            | _ -> None)
+                    match nestedFieldType, field.selectionSet with
+                    | Some objectDef, Some nestedSelectionSet ->
+                        let nestedFields =
+                            nestedSelectionSet.nodes
+                            |> List.choose (function
+                                | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
+                                | _ -> None)
+
+                        let typeName = findNextTypeName fieldName objectName nestedFields visitedTypes
+
+                        visitedTypes.Add(typeName)
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
+                        types.Add(typeName, nestedType)
+                        listOf fieldName typeName
+                    | _ ->
+                        ()
                 | GraphqlFieldType.NonNull(GraphqlFieldType.ObjectRef objectName) ->
                     let nestedFieldType =
                         schema.types
@@ -325,8 +434,16 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             | _ -> None)
                     match nestedFieldType, field.selectionSet with
                     | Some objectDef, Some nestedSelectionSet ->
-                        let typeName = capitalize objectName + "Partial"
-                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema types
+                        let nestedFields =
+                            nestedSelectionSet.nodes
+                            |> List.choose (function
+                                | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
+                                | _ -> None)
+
+                        let typeName = findNextTypeName fieldName objectName nestedFields visitedTypes
+
+                        visitedTypes.Add(typeName)
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
                         types.Add(typeName, nestedType)
                         SynFieldRcd.Create(fieldName, LongIdentWithDots([ Ident.Create typeName ], [ ]))
                     | _ ->
@@ -344,7 +461,6 @@ let rec generateFields (typeName: string) (description: string option) (selectio
 
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
-/// Validates a document against the schema
 let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
     match Query.findOperation (Query.expandDocumentFragments document) with
     | None -> [ ]
@@ -352,8 +468,9 @@ let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModul
         match Schema.findQuery schema with
         | None -> [ ]
         | Some queryType ->
+            let visitedTypes = ResizeArray<string>()
             let allTypes = Dictionary<string, SynModuleDecl>()
-            let rootType = generateFields "Query" queryType.description query.selectionSet queryType schema allTypes
+            let rootType = generateFields "Query" queryType.description query.selectionSet queryType schema visitedTypes allTypes
             [
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
@@ -365,8 +482,14 @@ let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModul
         match Schema.findMutation schema with
         | None -> [ ]
         | Some mutationType ->
+            let visitedTypes = ResizeArray<string>()
+            let allTypes = Dictionary<string, SynModuleDecl>()
+            let rootType = generateFields "Query" mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
             [
+                for typeName in allTypes.Keys do
+                    yield allTypes.[typeName]
 
+                yield rootType
             ]
 
 let createNamespace name declarations =
