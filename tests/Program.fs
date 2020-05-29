@@ -5,13 +5,13 @@ open FSharp.Data.LiteralProviders
 open System
 
 let trimContentEnd (content: string) =
-    let lines =  content.Split Environment.NewLine
+    let lines =  content.Replace("\010", Environment.NewLine).Split Environment.NewLine
 
     lines
+    |> Array.skipWhile String.IsNullOrWhiteSpace
     |> Array.rev
     |> Array.takeWhile (fun line -> not (String.IsNullOrWhiteSpace line))
     |> Array.rev
-    |> Array.skipWhile String.IsNullOrWhiteSpace
     |> String.concat Environment.NewLine
 
 let queryParsing =
