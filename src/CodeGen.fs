@@ -65,6 +65,10 @@ let createEnumType (enumType: GraphqlEnum) =
 
 let optionOf id inner =
     SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "Option" ]) [ (LongIdentWithDots.Create [ inner ]) ]
+
+let listOf id inner =
+    SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "list" ]) [ (LongIdentWithDots.Create [ inner ]) ]
+
 let createInputRecord (input: GraphqlInputObject) =
     let info : SynComponentInfoRcd = {
         Access = None
@@ -108,6 +112,21 @@ let createInputRecord (input: GraphqlInputObject) =
         | GraphqlFieldType.NonNull(GraphqlFieldType.EnumRef enumName) ->
             let synType = LongIdentWithDots.Create [ enumName ]
             SynFieldRcd.Create(field.fieldName, synType)
+
+        | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.EnumRef enumName))) ->
+            listOf field.fieldName enumName
+
+        | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.InputObjectRef inputRef))) ->
+            listOf field.fieldName inputRef
+
+        | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.Scalar scalar ))) ->
+            match scalar with
+            | GraphqlScalar.Int -> listOf field.fieldName "int"
+            | GraphqlScalar.String -> listOf field.fieldName "string"
+            | GraphqlScalar.Boolean -> listOf field.fieldName "bool"
+            | GraphqlScalar.Float -> listOf field.fieldName "float"
+            | GraphqlScalar.ID -> listOf field.fieldName "string"
+            | GraphqlScalar.Custom custom -> listOf field.fieldName custom
 
         | GraphqlFieldType.EnumRef enumName ->
             optionOf field.fieldName enumName

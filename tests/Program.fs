@@ -3,6 +3,17 @@ open Snowflaqe
 open Snowflaqe.Types
 open FSharp.Data.LiteralProviders
 open System
+
+let trimContentEnd (content: string) =
+    let lines =  content.Split Environment.NewLine
+
+    lines
+    |> Array.rev
+    |> Array.takeWhile (fun line -> not (String.IsNullOrWhiteSpace line))
+    |> Array.rev
+    |> Array.skipWhile String.IsNullOrWhiteSpace
+    |> String.concat Environment.NewLine
+
 let queryParsing =
     testList "Query parsing" [
 
@@ -453,7 +464,57 @@ let queryParsing =
             |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
-        test "Enum types can converted into F# unions" {
+        test "Input types can be converted into F# unions" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Role { Admin, Customer }
+
+                input LoginCredentials {
+                    username: String!
+                    password: String!
+                    rememberMe: Boolean
+                    roles: [Role!]!
+                }
+
+                type Query {
+                    sorting(input: LoginCredentials): String!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+
+                let generated =
+                    let globalTypes = CodeGen.createGlobalTypes schema
+                    let ns = CodeGen.createNamespace "Test" globalTypes
+                    let file = CodeGen.createFile "Types.fs" [ ns ]
+                    CodeGen.formatAst file
+
+                let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Role =
+    | [<CompiledName "Admin">] Admin
+    | [<CompiledName "Customer">] Customer
+
+type LoginCredentials =
+    { username: string
+      password: string
+      rememberMe: Option<bool>
+      roles: list<Role> }
+"""
+                let trimmedGenerated = trimContentEnd generated
+                let trimmedExpected = trimContentEnd expected
+
+                Expect.equal trimmedGenerated trimmedExpected "The code is generated correctly"
+        }
+
+        test "Enum types can be converted into F# unions" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {
                     ASCENDING,
@@ -469,12 +530,7 @@ let queryParsing =
                 }
             """
 
-            let trimContentEnd (content: string) =
-                content.Split [| '\n' |]
-                |> Array.rev
-                |> Array.takeWhile (fun line -> not (String.IsNullOrWhiteSpace line))
-                |> Array.rev
-                |> String.concat "\n"
+
 
             match schema with
             | Error error -> failwith error
@@ -486,7 +542,14 @@ let queryParsing =
                     let file = CodeGen.createFile "Types.fs" [ ns ]
                     CodeGen.formatAst file
 
-                let expected = TextFile<"./enums/SimpleEnum.txt">.Text
+                let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Sort =
+    | [<CompiledName "ASCENDING">] Ascending
+    | [<CompiledName "descending">] Descending
+"""
 
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
