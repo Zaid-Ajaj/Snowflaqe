@@ -98,6 +98,7 @@ let (|Object|_|)  (typeJson: JToken) =
             |> List.ofSeq
             |> List.choose (fun field ->
                 let fieldName = field.["name"].ToString()
+                let description = stringOrNone field "description"
                 let parsedFieldType = tryParseFieldType field.["type"]
                 let args = List.choose id [
                     for arg in unbox<JArray> field.["args"] do
@@ -108,7 +109,13 @@ let (|Object|_|)  (typeJson: JToken) =
                 ]
 
                 match parsedFieldType with
-                | Some fieldType -> Some  { fieldName = fieldName; fieldType = fieldType; args = args }
+                | Some fieldType ->
+                    Some  {
+                        fieldName = fieldName;
+                        fieldType = fieldType;
+                        description = description;
+                        args = args
+                    }
                 | None -> None
             )
 

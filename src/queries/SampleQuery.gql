@@ -1,5 +1,9 @@
 query getArtists {
   artists {
     name
+    bio
   }
+  firstName: name
+  lastName: name
+  bio
 }

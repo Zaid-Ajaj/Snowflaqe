@@ -9,6 +9,7 @@ open Snowflaqe.Types
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.XmlDoc
 open FSharp.Compiler.Range
+open System.Collections.Generic
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -66,8 +67,23 @@ let createEnumType (enumType: GraphqlEnum) =
 let optionOf id inner =
     SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "Option" ]) [ (LongIdentWithDots.Create [ inner ]) ]
 
+let optionOfSystemDot id inner =
+    SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "Option" ]) [ (LongIdentWithDots.Create [ "System"; inner ]) ]
+
+let listOfSystemDot id inner =
+    SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "list" ]) [ (LongIdentWithDots.Create [ "System"; inner ]) ]
+
 let listOf id inner =
     SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "list" ]) [ (LongIdentWithDots.Create [ inner ]) ]
+
+let systemDot id inner =
+    SynFieldRcd.Create(id, LongIdentWithDots([ Ident.Create "System"; Ident.Create inner ], []))
+
+// TODO:
+// f inner -> Option<list<inner>>
+// g inner -> list<Option<inner>>
+// h inner -> Option<list<Option<inner>>
+// k inner -> list<list<inner>>
 
 let createInputRecord (input: GraphqlInputObject) =
     let info : SynComponentInfoRcd = {
@@ -90,6 +106,18 @@ let createInputRecord (input: GraphqlInputObject) =
 
         | GraphqlFieldType.Scalar (GraphqlScalar.Int) ->
             optionOf field.fieldName "int"
+
+        | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTimeOffset")) ->
+            systemDot field.fieldName "DateTimeOffset"
+
+        | GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTimeOffset") ->
+            optionOfSystemDot field.fieldName "DateTimeOffset"
+
+        | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTime")) ->
+            systemDot field.fieldName "DateTime"
+
+        | GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTime") ->
+            optionOfSystemDot field.fieldName "DateTime"
 
         | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.String)) ->
             SynFieldRcd.CreateString(field.fieldName)
@@ -126,6 +154,8 @@ let createInputRecord (input: GraphqlInputObject) =
             | GraphqlScalar.Boolean -> listOf field.fieldName "bool"
             | GraphqlScalar.Float -> listOf field.fieldName "float"
             | GraphqlScalar.ID -> listOf field.fieldName "string"
+            | GraphqlScalar.Custom "DateTimeOffset" -> listOfSystemDot field.fieldName "DateTimeOffset"
+            | GraphqlScalar.Custom "DateTime" -> listOfSystemDot field.fieldName "DateTime"
             | GraphqlScalar.Custom custom -> listOf field.fieldName custom
 
         | GraphqlFieldType.EnumRef enumName ->
@@ -148,6 +178,7 @@ let createInputRecord (input: GraphqlInputObject) =
     ]
 
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
+
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
 
@@ -167,6 +198,176 @@ let createGlobalTypes (schema: GraphqlSchema) =
         |> List.map createInputRecord
 
     List.append enums inputs
+
+let objectFieldType (fieldName: string) (field: GraphqlField) =
+
+    match field.fieldType with
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Int)) ->
+        SynFieldRcd.CreateInt(fieldName)
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.Int) ->
+        optionOf fieldName "int"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTimeOffset")) ->
+        systemDot fieldName "DateTimeOffset"
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTimeOffset") ->
+        optionOfSystemDot fieldName "DateTimeOffset"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTime")) ->
+        systemDot fieldName "DateTime"
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.Custom "DateTime") ->
+        optionOfSystemDot fieldName "DateTime"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.String)) ->
+        SynFieldRcd.CreateString(fieldName)
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.String) ->
+        optionOf fieldName "string"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Boolean)) ->
+        SynFieldRcd.CreateBool(fieldName)
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.Boolean) ->
+        optionOf fieldName "bool"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Float)) ->
+        SynFieldRcd.CreateFloat(fieldName)
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.Float) ->
+        optionOf fieldName "float"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.EnumRef enumName) ->
+        let synType = LongIdentWithDots.Create [ enumName ]
+        SynFieldRcd.Create(fieldName, synType)
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.EnumRef enumName))) ->
+        listOf fieldName enumName
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.InputObjectRef inputRef))) ->
+        listOf fieldName inputRef
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.List(GraphqlFieldType.NonNull(GraphqlFieldType.Scalar scalar ))) ->
+        match scalar with
+        | GraphqlScalar.Int -> listOf fieldName "int"
+        | GraphqlScalar.String -> listOf fieldName "string"
+        | GraphqlScalar.Boolean -> listOf fieldName "bool"
+        | GraphqlScalar.Float -> listOf fieldName "float"
+        | GraphqlScalar.ID -> listOf fieldName "string"
+        | GraphqlScalar.Custom "DateTimeOffset" -> listOfSystemDot fieldName "DateTimeOffset"
+        | GraphqlScalar.Custom "DateTime" -> listOfSystemDot fieldName "DateTime"
+        | GraphqlScalar.Custom custom -> listOf fieldName custom
+
+    | GraphqlFieldType.EnumRef enumName ->
+        optionOf fieldName enumName
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.InputObjectRef inputRef) ->
+        let synType = LongIdentWithDots.Create [ inputRef ]
+        SynFieldRcd.Create(fieldName, synType)
+
+    | GraphqlFieldType.InputObjectRef inputRef ->
+        optionOf fieldName inputRef
+
+    | _ ->
+        SynFieldRcd.CreateInt fieldName
+
+let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (types: Dictionary<string,SynModuleDecl>)  =
+    let info : SynComponentInfoRcd = {
+        Access = None
+        Attributes = [ ]
+        Id = [ Ident.Create typeName ]
+        XmlDoc = PreXmlDoc.Create description
+        Parameters = [ ]
+        Constraints = [ ]
+        PreferPostfix = false
+        Range = range0
+    }
+
+    let selectedFields =
+        selections.nodes
+        |> List.choose (function
+            | GraphqlNode.Field field -> Some field
+            | _ -> None)
+
+    let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create [
+        for field in selectedFields do
+            let fieldTypeInfo =
+                schemaType.fields
+                |> List.tryFind (fun fieldType' -> fieldType'.fieldName = field.name)
+
+            match fieldTypeInfo with
+            | None ->
+                ()
+            | Some fieldInfo when Query.fieldCanExpand fieldInfo.fieldType ->
+                let fieldName = field.alias |> Option.defaultValue field.name
+                match fieldInfo.fieldType with
+                | GraphqlFieldType.ObjectRef objectName ->
+                    let nestedFieldType =
+                        schema.types
+                        |> List.tryPick (function
+                            | GraphqlType.Object objectDef when objectDef.name = objectName -> Some objectDef
+                            | _ -> None)
+                    match nestedFieldType, field.selectionSet with
+                    | Some objectDef, Some nestedSelectionSet ->
+                        let typeName = capitalize objectName + "Partial"
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema types
+                        types.Add(typeName, nestedType)
+                        SynFieldRcd.Create(fieldName, LongIdentWithDots([ Ident.Create typeName ], [ ]))
+                    | _ ->
+                        ()
+
+                | GraphqlFieldType.NonNull(GraphqlFieldType.ObjectRef objectName) ->
+                    let nestedFieldType =
+                        schema.types
+                        |> List.tryPick (function
+                            | GraphqlType.Object objectDef when objectDef.name = objectName -> Some objectDef
+                            | _ -> None)
+                    match nestedFieldType, field.selectionSet with
+                    | Some objectDef, Some nestedSelectionSet ->
+                        let typeName = capitalize objectName + "Partial"
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema types
+                        types.Add(typeName, nestedType)
+                        SynFieldRcd.Create(fieldName, LongIdentWithDots([ Ident.Create typeName ], [ ]))
+                    | _ ->
+                        ()
+                | _ ->
+                    ()
+
+            | Some fieldInfo ->
+                let fieldName = field.alias |> Option.defaultValue field.name
+                let recordField = objectFieldType fieldName fieldInfo
+                { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+    ]
+
+    let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
+
+    SynModuleDecl.CreateSimpleType(info, simpleType)
+
+/// Validates a document against the schema
+let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
+    match Query.findOperation (Query.expandDocumentFragments document) with
+    | None -> [ ]
+    | Some (GraphqlOperation.Query query) ->
+        match Schema.findQuery schema with
+        | None -> [ ]
+        | Some queryType ->
+            let allTypes = Dictionary<string, SynModuleDecl>()
+            let rootType = generateFields "Query" queryType.description query.selectionSet queryType schema allTypes
+            [
+                for typeName in allTypes.Keys do
+                    yield allTypes.[typeName]
+
+                yield rootType
+            ]
+
+    | Some (GraphqlOperation.Mutation mutation) ->
+        match Schema.findMutation schema with
+        | None -> [ ]
+        | Some mutationType ->
+            [
+
+            ]
 
 let createNamespace name declarations =
     let xmlDoc = PreXmlDoc.Create [ ]

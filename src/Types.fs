@@ -35,6 +35,7 @@ type GraphqlFieldType =
 type GraphqlField = {
     fieldName : string
     fieldType : GraphqlFieldType
+    description : string option
     args :  (string * GraphqlFieldType) list
 }
 

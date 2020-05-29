@@ -1,7 +1,6 @@
 ﻿open Expecto
 open Snowflaqe
 open Snowflaqe.Types
-open FSharp.Data.LiteralProviders
 open System
 
 let trimContentEnd (content: string) =
@@ -10,7 +9,7 @@ let trimContentEnd (content: string) =
     lines
     |> Array.skipWhile String.IsNullOrWhiteSpace
     |> Array.rev
-    |> Array.takeWhile (fun line -> not (String.IsNullOrWhiteSpace line))
+    |> Array.skipWhile String.IsNullOrWhiteSpace
     |> Array.rev
     |> String.concat Environment.NewLine
 
@@ -466,12 +465,15 @@ let queryParsing =
 
         test "Input types can be converted into F# unions" {
             let schema = Introspection.fromSchemaDefinition """
+                scalar DateTimeOffset
+
                 enum Role { Admin, Customer }
 
                 input LoginCredentials {
                     username: String!
                     password: String!
                     rememberMe: Boolean
+                    createdAt: DateTimeOffset
                     roles: [Role!]!
                 }
 
@@ -506,6 +508,7 @@ type LoginCredentials =
     { username: string
       password: string
       rememberMe: Option<bool>
+      createdAt: Option<System.DateTimeOffset>
       roles: list<Role> }
 """
                 let trimmedGenerated = trimContentEnd generated
@@ -553,6 +556,68 @@ type Sort =
 
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
+
+        ftest "Query types can be generated from schema" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Sort {
+                    ASCENDING,
+                    descending
+                }
+
+                type User {
+                    username: String!
+                    email: String!
+                }
+
+                type Query {
+                    sorting: Sort
+                    name: String!
+                    age: Int
+                    currentUser: User!
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            let query = Query.parse """
+                query {
+                    sorting
+                    firstName: name
+                    age
+                    currentUser {
+                        email
+                    }
+                }
+            """
+
+            match schema, query with
+            | Ok schema, Ok query ->
+
+                let generated =
+                    let globalTypes = CodeGen.generateTypes query schema
+                    let ns = CodeGen.createNamespace "Test" globalTypes
+                    let file = CodeGen.createFile "Types.fs" [ ns ]
+                    CodeGen.formatAst file
+
+                let expected = """
+namespace rec Test
+
+type UserPartial = { email: string }
+
+type Query =
+    { sorting: Option<Sort>
+      firstName: string
+      age: Option<int>
+      currentUser: UserPartial }
+"""
+
+                Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
+
+            | otherwise -> failwithf "%A" otherwise
+        }
+
 
         test "Object types cannot be used input variables" {
             let schema = Introspection.fromSchemaDefinition """
