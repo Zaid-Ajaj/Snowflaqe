@@ -469,6 +469,13 @@ let queryParsing =
                 }
             """
 
+            let trimContentEnd (content: string) =
+                content.Split [| '\n' |]
+                |> Array.rev
+                |> Array.takeWhile (fun line -> not (String.IsNullOrWhiteSpace line))
+                |> Array.rev
+                |> String.concat "\n"
+
             match schema with
             | Error error -> failwith error
             | Ok schema ->
@@ -481,7 +488,7 @@ let queryParsing =
 
                 let expected = TextFile<"./enums/SimpleEnum.txt">.Text
 
-                Expect.equal generated expected "The code is generated correctly"
+                Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
 
         test "Object types cannot be used input variables" {
