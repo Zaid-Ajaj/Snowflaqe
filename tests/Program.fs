@@ -4,7 +4,7 @@ open Snowflaqe.Types
 open System
 
 let trimContentEnd (content: string) =
-    let lines =  content.Replace("\010", Environment.NewLine).Split Environment.NewLine
+    let lines =  content.Split Environment.NewLine
 
     lines
     |> Array.skipWhile String.IsNullOrWhiteSpace
