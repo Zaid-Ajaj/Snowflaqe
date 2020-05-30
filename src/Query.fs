@@ -195,6 +195,18 @@ let findOperation (document: GraphqlDocument) =
         | Some (GraphqlNode.Mutation mutation) -> Some (GraphqlOperation.Mutation mutation)
         | _ -> None
 
+/// Find the root operation of the document whether it is the root query or the root mutation
+let findOperationName (document: GraphqlDocument) =
+    document.nodes
+    |> List.tryFind (function
+        | GraphqlNode.Query _ -> true
+        | GraphqlNode.Mutation _ -> true
+        | _ -> false)
+    |> function
+        | Some (GraphqlNode.Query query) -> query.name
+        | Some (GraphqlNode.Mutation mutation) -> mutation.name
+        | _ -> None
+
 let rec expandFragments (nodes: GraphqlNode list) (fragments: GraphqlFragmentDefinition list) : GraphqlNode list =
     nodes
     |> List.collect (function

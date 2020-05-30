@@ -15,13 +15,24 @@ let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
 let capitalize (input: string) = input.First().ToString().ToUpper() + String.Join("", input.Skip(1))
 
-let normalizeEnumName (unionCase: string) =
+let normalizeName (unionCase: string) =
     if not(unionCase.Contains "_") then
         capitalize unionCase
     else
-        unionCase.Split [| '_' |]
+        unionCase.Split [| '_'; '-' |]
         |> Array.filter String.isNotNullOrEmpty
         |> Array.map capitalize
+        |> String.concat ""
+
+let capitalizeEnum (input: string) =
+    input.First().ToString().ToUpper() + String.Join("", input.Skip(1)).ToLowerInvariant()
+let normalizeEnumName (unionCase: string) =
+    if not(unionCase.Contains "_") then
+        capitalizeEnum unionCase
+    else
+        unionCase.Split [| '_'; '-' |]
+        |> Array.filter String.isNotNullOrEmpty
+        |> Array.map capitalizeEnum
         |> String.concat ""
 
 type SynAttribute with
@@ -291,19 +302,19 @@ let nextTick (name: string) (visited: ResizeArray<string>) =
 let findNextTypeName fieldName objectName (selections: string list) (visitedTypes: ResizeArray<string>) =
     let nestedSelectionType =
         selections
-        |> List.map normalizeEnumName
+        |> List.map normalizeName
         |> String.concat "And"
 
     if not (visitedTypes.Contains objectName) then
         objectName
-    elif not (visitedTypes.Contains (normalizeEnumName fieldName)) then
-        normalizeEnumName fieldName
+    elif not (visitedTypes.Contains (normalizeName fieldName)) then
+        normalizeName fieldName
     elif not (visitedTypes.Contains nestedSelectionType) && selections.Length <= 3 && selections.Length < 1 then
         nestedSelectionType
-    elif not (visitedTypes.Contains (normalizeEnumName fieldName + "From" + objectName)) then
-        objectName + normalizeEnumName fieldName
+    elif not (visitedTypes.Contains (normalizeName fieldName + "From" + objectName)) then
+        objectName + normalizeName fieldName
     else
-        nextTick (normalizeEnumName fieldName + "From" + objectName) visitedTypes
+        nextTick (normalizeName fieldName + "From" + objectName) visitedTypes
 
 let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
     let info : SynComponentInfoRcd = {
@@ -461,7 +472,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
 
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
-let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
+let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
     match Query.findOperation (Query.expandDocumentFragments document) with
     | None -> [ ]
     | Some (GraphqlOperation.Query query) ->
@@ -470,7 +481,7 @@ let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModul
         | Some queryType ->
             let visitedTypes = ResizeArray<string>()
             let allTypes = Dictionary<string, SynModuleDecl>()
-            let rootType = generateFields "Query" queryType.description query.selectionSet queryType schema visitedTypes allTypes
+            let rootType = generateFields rootQueryName queryType.description query.selectionSet queryType schema visitedTypes allTypes
             [
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
@@ -484,7 +495,7 @@ let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModul
         | Some mutationType ->
             let visitedTypes = ResizeArray<string>()
             let allTypes = Dictionary<string, SynModuleDecl>()
-            let rootType = generateFields "Query" mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
+            let rootType = generateFields rootQueryName mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
             [
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
@@ -495,6 +506,10 @@ let generateTypes (document: GraphqlDocument) (schema: GraphqlSchema) : SynModul
 let createNamespace name declarations =
     let xmlDoc = PreXmlDoc.Create [ ]
     SynModuleOrNamespace.SynModuleOrNamespace([ Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+
+let createQualifiedModule idens declarations =
+    let xmlDoc = PreXmlDoc.Create [ ]
+    SynModuleOrNamespace.SynModuleOrNamespace(idens |> List.map Ident.Create, true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range.Zero)
 
 let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)

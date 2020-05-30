@@ -518,7 +518,7 @@ type LoginCredentials =
         }
 
 
-        ftest "Next tick generates the correct next typeName" {
+        test "Next tick generates the correct next typeName" {
             let names = ResizeArray [
                 "Chair"
                 "Table"
@@ -602,7 +602,7 @@ type Sort =
             """
 
             let query = Query.parse """
-                query {
+                query QueryName {
                     sorting
                     firstName: name
                     age
@@ -619,19 +619,25 @@ type Sort =
             match schema, query with
             | Ok schema, Ok query ->
 
+                let name =
+                    Query.findOperationName query
+                    |> Option.defaultValue "DefaultQueryName"
+                    |> CodeGen.normalizeName
+
                 let generated =
-                    let globalTypes = CodeGen.generateTypes query schema
-                    let ns = CodeGen.createNamespace "Test" globalTypes
+                    let queryTypes = CodeGen.generateTypes "Root" query schema
+                    let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
                     let file = CodeGen.createFile "Types.fs" [ ns ]
                     CodeGen.formatAst file
 
                 let expected = """
-namespace rec Test
+[<RequireQualifiedAccess>]
+module rec Test.QueryName
 
 type User = { email: string }
 type NextUser = { email: string; username: string }
 
-type Query =
+type Root =
     { sorting: Option<Sort>
       firstName: string
       age: Option<int>
