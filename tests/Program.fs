@@ -594,6 +594,7 @@ type Sort =
                     name: String!
                     age: Int
                     currentUser: User!
+                    optionalUser: User
                 }
 
                 schema {
@@ -611,6 +612,9 @@ type Sort =
                     }
                     nextUser: currentUser {
                         email
+                        username
+                    }
+                    optionalUser {
                         username
                     }
                 }
@@ -636,13 +640,15 @@ module rec Test.QueryName
 
 type User = { email: string }
 type NextUser = { email: string; username: string }
+type OptionalUser = { username: string }
 
 type Root =
     { sorting: Option<Sort>
       firstName: string
       age: Option<int>
       currentUser: User
-      nextUser: NextUser }
+      nextUser: NextUser
+      optionalUser: Option<OptionalUser> }
 """
 
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"

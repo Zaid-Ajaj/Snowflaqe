@@ -142,6 +142,12 @@ let createInputRecord (input: GraphqlInputObject) =
         | GraphqlFieldType.Scalar (GraphqlScalar.Boolean) ->
             optionOf field.fieldName "bool"
 
+        | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Custom "Decimal")) ->
+            SynFieldRcd.Create(field.fieldName, LongIdentWithDots.Create [ "decimal" ])
+
+        | GraphqlFieldType.Scalar (GraphqlScalar.Custom "Decimal") ->
+            optionOf field.fieldName "decimal"
+
         | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Float)) ->
             SynFieldRcd.CreateFloat(field.fieldName)
 
@@ -167,6 +173,7 @@ let createInputRecord (input: GraphqlInputObject) =
             | GraphqlScalar.ID -> listOf field.fieldName "string"
             | GraphqlScalar.Custom "DateTimeOffset" -> listOfSystemDot field.fieldName "DateTimeOffset"
             | GraphqlScalar.Custom "DateTime" -> listOfSystemDot field.fieldName "DateTime"
+            | GraphqlScalar.Custom "Decimal" -> listOf field.fieldName "decimal"
             | GraphqlScalar.Custom custom -> listOf field.fieldName custom
 
         | GraphqlFieldType.EnumRef enumName ->
@@ -248,6 +255,12 @@ let objectFieldType (fieldName: string) (field: GraphqlField) =
 
     | GraphqlFieldType.Scalar (GraphqlScalar.Float) ->
         optionOf fieldName "float"
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.Custom "Decimal")) ->
+        SynFieldRcd.Create(fieldName, LongIdentWithDots.Create [ "decimal" ])
+
+    | GraphqlFieldType.Scalar (GraphqlScalar.Custom "Decimal") ->
+        optionOf fieldName "decimal"
 
     | GraphqlFieldType.NonNull(GraphqlFieldType.EnumRef enumName) ->
         let synType = LongIdentWithDots.Create [ enumName ]
