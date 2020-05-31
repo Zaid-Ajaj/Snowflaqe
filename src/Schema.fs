@@ -21,7 +21,7 @@ let normalizeComment (comment: string option) =
     match comment with
     | None -> None
     | Some comment ->
-        comment.Replace("\n","").Replace("\r","")
+        " " + comment.Replace("\n","").Replace("\r","")
         |> Some
 
 let (|Enum|_|) (typeJson: JToken) =
