@@ -17,6 +17,13 @@ let (|Scalar|_|) (typeJson: JToken) =
         | customScalar -> Some (Scalar (GraphqlScalar.Custom customScalar))
     | _ -> None
 
+let normalizeComment (comment: string option) =
+    match comment with
+    | None -> None
+    | Some comment ->
+        comment.Replace("\n","").Replace("\r","")
+        |> Some
+
 let (|Enum|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
     | "ENUM" ->
@@ -26,7 +33,7 @@ let (|Enum|_|) (typeJson: JToken) =
             for enumValue in typeJson.["enumValues"] ->
                 {
                     name = string enumValue.["name"]
-                    description = stringOrNone enumValue "description"
+                    description = stringOrNone enumValue "description" |> normalizeComment
                     deprecated = enumValue.["isDeprecated"].ToObject<bool>()
                 }
         ]
@@ -91,14 +98,14 @@ let (|Object|_|)  (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
     | "OBJECT" ->
         let name = typeJson.["name"].ToString()
-        let description = stringOrNone typeJson "description"
+        let description = stringOrNone typeJson "description" |> normalizeComment
         let fields = unbox<JArray> typeJson.["fields"]
         let graphqlFields =
             fields
             |> List.ofSeq
             |> List.choose (fun field ->
                 let fieldName = field.["name"].ToString()
-                let description = stringOrNone field "description"
+                let fieldDescription = stringOrNone field "description" |> normalizeComment
                 let parsedFieldType = tryParseFieldType field.["type"]
                 let args = List.choose id [
                     for arg in unbox<JArray> field.["args"] do
@@ -113,7 +120,7 @@ let (|Object|_|)  (typeJson: JToken) =
                     Some  {
                         fieldName = fieldName;
                         fieldType = fieldType;
-                        description = description;
+                        description = fieldDescription;
                         args = args
                     }
                 | None -> None
@@ -132,14 +139,14 @@ let (|InputObject|_|)  (typeJson: JToken) : GraphqlInputObject option =
     match typeJson.["kind"].ToString() with
     | "INPUT_OBJECT" ->
         let name = typeJson.["name"].ToString()
-        let description = stringOrNone typeJson "description"
+        let description = stringOrNone typeJson "description" |> normalizeComment
         let fields = unbox<JArray> typeJson.["inputFields"]
         let graphqlFields =
             fields
             |> List.ofSeq
             |> List.choose (fun field ->
                 let fieldName = field.["name"].ToString()
-                let description = stringOrNone field "description"
+                let description = stringOrNone field "description" |> normalizeComment
                 let deprecated = false
                 let parsedFieldType = tryParseFieldType field.["type"]
                 match parsedFieldType with

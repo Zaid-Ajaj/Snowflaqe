@@ -1,9 +1,9 @@
-query getArtists {
+query GetArtists {
   artists {
     name
-    bio
+    biography {
+      id
+      title
+    }
   }
-  firstName: name
-  lastName: name
-  bio
 }

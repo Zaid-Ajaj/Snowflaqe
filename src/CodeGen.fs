@@ -190,7 +190,8 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
         | GraphqlScalar.Custom "Decimal" -> SynType.Decimal()
         | GraphqlScalar.Custom "DateTimeOffset" -> SynType.DateTimeOffset()
         | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
-        | GraphqlScalar.Custom custom -> SynType.Create custom
+        | GraphqlScalar.Custom "Date" -> SynType.DateTime()
+        | GraphqlScalar.Custom custom -> SynType.String()
 
     | GraphqlFieldType.NonNull(GraphqlFieldType.List innerType) ->
         let innerFSharpType = createFSharpType name innerType
@@ -216,7 +217,8 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
             | GraphqlScalar.Custom "Decimal" -> SynType.Decimal()
             | GraphqlScalar.Custom "DateTimeOffset" -> SynType.DateTimeOffset()
             | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
-            | GraphqlScalar.Custom custom -> SynType.Create custom
+            | GraphqlScalar.Custom "Date" -> SynType.String()
+            | GraphqlScalar.Custom custom -> SynType.String()
 
         SynType.Option(innerFSharpType)
 
@@ -381,7 +383,8 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                     visitedTypes.Add(typeName)
                     let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
                     types.Add(typeName, nestedType)
-                    SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
+                    let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
+                    { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
                 | _ ->
                     ()
 
@@ -441,3 +444,22 @@ let createFile fileName modules =
 let formatAst file =
     formatAst (ParsedInput.ImplFile file)
     |> Async.RunSynchronously
+
+let sampleFableProject = """<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="*.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="*.fsproj; *.fs; *.js" PackagePath="fable\" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.7.0"/>
+        <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.9.0" />
+    </ItemGroup>
+</Project>
+"""
