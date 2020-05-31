@@ -6,12 +6,19 @@ open System.IO
 open Snowflaqe
 open Snowflaqe.Types
 open BlackFox.ColoredPrintf
+open FSharp.Compiler.SyntaxTree
+
+type CustomErrorType = {
+    typeName : string
+    typeDefinition : SynModuleDecl
+}
 
 type Config = {
     schema: string
     queries: string
     project : string
     output: string
+    errorType: CustomErrorType
 }
 
 let logo = """
@@ -50,26 +57,40 @@ let readConfig (file: string) =
                 Error "The 'project' configuration element must be a string"
             elif parsedJson.["output"].Type <> JTokenType.String then
                 Error "The 'output' configuration element must be a string"
+            elif not (isNull parsedJson.["errorType"]) && parsedJson.["errorType"].Type <> JTokenType.Object then
+                Error "The 'errorType' configuration element must be an object"
             else
-                let queriesPath = string parsedJson.["queries"]
-                let outputPath = string parsedJson.["output"]
+                let errorType =
+                    if isNull parsedJson.["errorType"]
+                    then Ok { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }
+                    else
+                        match CodeGen.parseErrorType (unbox parsedJson.["errorType"]) with
+                        | Error errorMsg -> Error errorMsg
+                        | Ok (typeName, typeDefinition) -> Ok { typeName = typeName; typeDefinition = typeDefinition }
 
-                let fullQueriesPath =
-                    if Path.IsPathRooted queriesPath
-                    then queriesPath
-                    else Path.GetFullPath(Path.Combine(Directory.GetParent(path).FullName, queriesPath))
+                match errorType with
+                | Error errorMessage -> Error errorMessage
+                | Ok errorType ->
+                    let queriesPath = string parsedJson.["queries"]
+                    let outputPath = string parsedJson.["output"]
 
-                let fullOutputPath =
-                    if Path.IsPathRooted outputPath
-                    then outputPath
-                    else Path.GetFullPath(Path.Combine(Directory.GetParent(path).FullName, outputPath))
+                    let fullQueriesPath =
+                        if Path.IsPathRooted queriesPath
+                        then queriesPath
+                        else Path.GetFullPath(Path.Combine(Directory.GetParent(path).FullName, queriesPath))
 
-                Ok {
-                    schema = string parsedJson.["schema"]
-                    queries = fullQueriesPath
-                    project = string parsedJson.["project"]
-                    output = outputPath
-                }
+                    let fullOutputPath =
+                        if Path.IsPathRooted outputPath
+                        then outputPath
+                        else Path.GetFullPath(Path.Combine(Directory.GetParent(path).FullName, outputPath))
+
+                    Ok {
+                        schema = string parsedJson.["schema"]
+                        queries = fullQueriesPath
+                        project = string parsedJson.["project"]
+                        output = outputPath
+                        errorType = errorType
+                    }
     with
     | ex -> Error ex.Message
 
@@ -172,11 +193,11 @@ let main argv =
                 runConfigFile configFile
 
     | [| "--queries"; queries; "--schema"; schema; |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output" }
+        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() } }
         runConfig config
 
     | [| "--schema"; schema; "--queries"; queries |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output" }
+        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() } }
         runConfig config
 
     | [| "--generate" |] ->
@@ -187,7 +208,6 @@ let main argv =
                 colorprintfn "⚠️  No configuration file found. Expecting JSON file $yellow[%s] in the current working directory" "snowflaqe.json"
                 1
             | Some configFile ->
-                printfn "Generate code here"
                 match readConfig configFile with
                 | Error errorMessage ->
                     colorprintfn "$red[%s]" errorMessage
@@ -216,7 +236,11 @@ let main argv =
                         else
 
                         let generatedFiles = ResizeArray<string>()
-                        let globalTypes = CodeGen.createGlobalTypes schema
+                        let globalTypes = [
+                            yield! CodeGen.createGlobalTypes schema
+                            yield config.errorType.typeDefinition
+                        ]
+
                         let globalTypesModule = CodeGen.createNamespace config.project globalTypes
                         let file = CodeGen.createFile "Types.fs" [ globalTypesModule ]
                         let globalTypesContent = CodeGen.formatAst file

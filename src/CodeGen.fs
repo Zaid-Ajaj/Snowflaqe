@@ -10,6 +10,7 @@ open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.XmlDoc
 open FSharp.Compiler.Range
 open System.Collections.Generic
+open Newtonsoft.Json.Linq
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -92,6 +93,17 @@ type SynType with
         SynType.App(
             typeName=SynType.CreateLongIdent "Option",
             typeArgs=[ inner ],
+            commaRanges = [ ],
+            isPostfix = false,
+            range=range0,
+            greaterRange=None,
+            lessRange=None
+        )
+
+    static member Dictionary(key, value) =
+        SynType.App(
+            typeName=SynType.LongIdent(LongIdentWithDots.Create [ "System"; "Collections"; "Generic"; "Dictionary" ]),
+            typeArgs=[ key; value ],
             commaRanges = [ ],
             isPostfix = false,
             range=range0,
@@ -503,6 +515,82 @@ let createFile fileName modules =
 let formatAst file =
     formatAst (ParsedInput.ImplFile file)
     |> Async.RunSynchronously
+
+let defaultErrorType() =
+    let info : SynComponentInfoRcd = {
+        Access = None
+        Attributes = [ ]
+        Id = [ Ident.Create "ErrorType" ]
+        XmlDoc = PreXmlDoc.Create [ " The error returned by the GraphQL backend" ]
+        Parameters = [ ]
+        Constraints = [ ]
+        PreferPostfix = false
+        Range = range0
+    }
+
+    let recordRepresentation =  SynTypeDefnSimpleReprRecordRcd.Create [
+        SynFieldRcd.Create("message", SynType.String())
+    ]
+
+    let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
+    SynModuleDecl.CreateSimpleType(info, simpleType)
+
+let readTypeSegment (input: string) =
+    match input.ToLower() with
+    | "string" -> SynType.String() |> Ok
+    | "int" -> SynType.Int()|> Ok
+    | "bool" -> SynType.Bool()|> Ok
+    | "int64" -> SynType.Create("int64")|> Ok
+    | "option<string>" -> SynType.Option(SynType.String()) |> Ok
+    | "string option" -> SynType.Option(SynType.String()) |> Ok
+    | "option<int>" -> SynType.Option(SynType.Int()) |> Ok
+    | "int option" -> SynType.Option(SynType.Int()) |> Ok
+    | "option<bool>" -> SynType.Option(SynType.Bool()) |> Ok
+    | "bool option" -> SynType.Option(SynType.Bool()) |> Ok
+    | "list<string>" -> SynType.List(SynType.String()) |> Ok
+    | "string list" -> SynType.List(SynType.String()) |> Ok
+    | "list<int>" -> SynType.List(SynType.Int()) |> Ok
+    | "int list" -> SynType.List(SynType.Int()) |> Ok
+    | "dictionary<string, string>" -> SynType.Dictionary(SynType.String(), SynType.String()) |> Ok
+    | otherwise -> Error input
+
+let parseErrorType (typeInfo: JObject) =
+    match Seq.toList (typeInfo.Properties()) with
+    | [ ] -> Error "Missing type name from the custom error type"
+    | property :: _  ->
+        if property.Value.Type <> JTokenType.Object then
+            Error (sprintf "Property %s must be an object containing the fields of the custom error" property.Name)
+        else
+        let info : SynComponentInfoRcd = {
+            Access = None
+            Attributes = [ ]
+            Id = [ Ident.Create property.Name ]
+            XmlDoc = PreXmlDoc.Create [ " The error returned by the GraphQL backend" ]
+            Parameters = [ ]
+            Constraints = [ ]
+            PreferPostfix = false
+            Range = range0
+        }
+
+        let errorFields = unbox<JObject> property.Value
+        let mutable errorMessage = None
+        let fields = ResizeArray<SynFieldRcd>()
+        for prop in errorFields.Properties() do
+            if errorMessage.IsNone && prop.Value.Type = JTokenType.String then
+                match readTypeSegment (string prop.Value) with
+                | Error errorType -> errorMessage <- Some (sprintf "Could not create field %s : %s for the custom error type" property.Name errorType)
+                | Ok fieldType -> fields.Add(SynFieldRcd.Create(prop.Name, fieldType))
+            elif prop.Value.Type <> JTokenType.String then
+                errorMessage <- Some (sprintf "Custom error property '%s' must be a string" prop.Name)
+            else
+                ()
+
+        match errorMessage with
+        | Some errorMsg -> Error errorMsg
+        | None ->
+            let recordRepresentation =  SynTypeDefnSimpleReprRecordRcd.Create (Seq.toList fields)
+            let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
+            Ok (property.Name, SynModuleDecl.CreateSimpleType(info, simpleType))
 
 let sampleFableProject files =
     sprintf """<Project Sdk="Microsoft.NET.Sdk">
