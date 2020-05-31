@@ -398,6 +398,61 @@ let rec generateFields (typeName: string) (description: string option) (selectio
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
+let rec makeVariableType = function
+    | GraphqlVariableType.NonNull(GraphqlVariableType.Ref name) ->
+        match name with
+        | "Int" -> SynType.Int()
+        | "String" -> SynType.String()
+        | "Boolean" -> SynType.Bool()
+        | "Float" -> SynType.Float()
+        | "ID" -> SynType.String()
+        | "Date" -> SynType.DateTime()
+        | "DateTime"-> SynType.DateTime()
+        | "DateTimeOffset" -> SynType.DateTimeOffset()
+        | "Decimal" -> SynType.Decimal()
+        | _ -> SynType.Create name
+
+    | GraphqlVariableType.Ref name ->
+        let variableType =
+            match name with
+            | "Int" -> SynType.Int()
+            | "String" -> SynType.String()
+            | "Boolean" -> SynType.Bool()
+            | "Float" -> SynType.Float()
+            | "ID" -> SynType.String()
+            | "Date" -> SynType.DateTime()
+            | "DateTime"-> SynType.DateTime()
+            | "DateTimeOffset" -> SynType.DateTimeOffset()
+            | "Decimal" -> SynType.Decimal()
+            | _ -> SynType.Create name
+
+        SynType.Option(variableType)
+    | GraphqlVariableType.NonNull(GraphqlVariableType.List variableType) ->
+        SynType.List(makeVariableType variableType)
+    | GraphqlVariableType.List variableType ->
+        SynType.Option(SynType.List(makeVariableType variableType))
+    | GraphqlVariableType.NonNull variableType ->
+        makeVariableType variableType
+
+let generateInputVariablesType (variables: GraphqlVariable list) =
+    let info : SynComponentInfoRcd = {
+        Access = None
+        Attributes = [ ]
+        Id = [ Ident.Create "InputVariables" ]
+        XmlDoc = PreXmlDoc.Empty
+        Parameters = [ ]
+        Constraints = [ ]
+        PreferPostfix = false
+        Range = range0
+    }
+
+    let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create([
+        for variable in variables -> SynFieldRcd.Create(variable.variableName, makeVariableType variable.variableType)
+    ])
+
+    let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
+    SynModuleDecl.CreateSimpleType(info, simpleType)
+
 let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
     match Query.findOperation (Query.expandDocumentFragments document) with
     | None -> [ ]
@@ -409,6 +464,8 @@ let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: G
             let allTypes = Dictionary<string, SynModuleDecl>()
             let rootType = generateFields rootQueryName queryType.description query.selectionSet queryType schema visitedTypes allTypes
             [
+                if query.variables.Length > 0 then yield generateInputVariablesType query.variables
+
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
 
@@ -423,6 +480,8 @@ let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: G
             let allTypes = Dictionary<string, SynModuleDecl>()
             let rootType = generateFields rootQueryName mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
             [
+                if mutation.variables.Length > 0 then yield generateInputVariablesType mutation.variables
+
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
 
