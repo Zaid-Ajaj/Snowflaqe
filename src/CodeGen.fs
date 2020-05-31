@@ -625,3 +625,50 @@ let sampleFableProject files =
     </ItemGroup>
 </Project>
 """   files
+
+let addLines (query: string) =
+    query.Split Environment.NewLine
+    |> Array.map (fun line -> "                " + line)
+    |> String.concat Environment.NewLine
+
+let sampleClientMember query queryName hasVariables =
+    sprintf """    member _.%s(%s) =
+        async {
+            let query = %s
+            let! response =
+                Http.request url
+                |> Http.method POST
+                |> Http.headers [ Headers.contentType "application/json"; yield! headers ]
+                |> Http.content (BodyContent.Text (Json.stringify %s))
+                |> Http.send
+
+            match response.statusCode with
+            | 200 ->
+                let response = Json.parseNativeAs<GraphqlSuccessResponse<%s.Query>> response.responseText
+                return Ok response.data
+
+            | errorStatus ->
+                let response = Json.parseNativeAs<GraphqlErrorResponse> response.responseText
+                return Error response.errors
+        }
+"""
+      queryName
+      (if hasVariables then "input: " + queryName + ".InputVariables" else "")
+      ("\"\"\"\n" + addLines query + "\n            \"\"\"")
+      (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
+      queryName
+
+let sampleGraphqlClient projectName errorType members =
+    sprintf """namespace %s
+
+open Fable.SimpleHttp
+open Fable.SimpleJson
+
+type GraphqlInput<'T> = { query: string; variables: Option<'T> }
+type GraphqlSuccessResponse<'T> = { data: 'T }
+type GraphqlErrorResponse = { errors: %s list }
+
+type %sGraphqlClient(url: string, headers: Header list) =
+    new(url: string) = %sGraphqlClient(url, [ ])
+
+%s""" projectName errorType projectName projectName members

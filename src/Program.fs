@@ -236,6 +236,8 @@ let main argv =
                         else
 
                         let generatedFiles = ResizeArray<string>()
+                        let generatedModules = ResizeArray<string * string * bool>()
+
                         let globalTypes = [
                             yield! CodeGen.createGlobalTypes schema
                             yield config.errorType.typeDefinition
@@ -272,7 +274,20 @@ let main argv =
                                 colorprintfn "✏️  Generating module $green[%s]" fullPath
                                 File.WriteAllText(fullPath, generatedModuleContent)
                                 generatedFiles.Add(fullPath)
+                                generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
                                 ()
+
+                        let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".GraphqlClient.fs"))
+                        generatedFiles.Add(graphqlClientPath)
+                        colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
+                        let members =
+                            generatedModules
+                            |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
+                            |> String.concat "\n"
+
+                        let clientContent = CodeGen.sampleGraphqlClient config.project config.errorType.typeName members
+
+                        File.WriteAllText(graphqlClientPath, clientContent)
 
                         colorprintfn "✏️  Generating project $green[%s]" projectPath
                         let files =
@@ -281,6 +296,8 @@ let main argv =
                             |> String.concat "\n"
 
                         File.WriteAllText(projectPath, CodeGen.sampleFableProject files)
+
+
                         0
 
     | _ ->

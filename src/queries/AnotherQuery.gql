@@ -1,0 +1,9 @@
+query GetMoreArtists ($token: String!) {
+  artists {
+    name
+    biography {
+      id
+      title
+    }
+  }
+}
