@@ -2,5 +2,12 @@
     "schema": "https://metaphysics-production.artsy.net",
     "queries": "./queries",
     "project": "Artsy",
-    "output": "./output"
+    "output": "./output",
+    "errorType": {
+        "ErrorType": {
+            "Message": "string",
+            "Path": "string list",
+            "Type": "string"
+        }
+    }
 }

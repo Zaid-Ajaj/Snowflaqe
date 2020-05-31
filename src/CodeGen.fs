@@ -465,14 +465,21 @@ let generateInputVariablesType (variables: GraphqlVariable list) =
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
-let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
+let generateTypes (rootQueryName: string) (errorTypeName: string) (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
     match Query.findOperation (Query.expandDocumentFragments document) with
     | None -> [ ]
     | Some (GraphqlOperation.Query query) ->
         match Schema.findQuery schema with
         | None -> [ ]
         | Some queryType ->
-            let visitedTypes = ResizeArray<string>()
+            let inputTypes =
+                schema.types
+                |> List.choose (function
+                    | GraphqlType.Enum enumRef -> Some enumRef.name
+                    | GraphqlType.InputObject inputRef -> Some inputRef.name
+                    | _ -> None)
+
+            let visitedTypes = ResizeArray<string> [ yield! inputTypes; "InputVariables" ]
             let allTypes = Dictionary<string, SynModuleDecl>()
             let rootType = generateFields rootQueryName queryType.description query.selectionSet queryType schema visitedTypes allTypes
             [
@@ -488,7 +495,14 @@ let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: G
         match Schema.findMutation schema with
         | None -> [ ]
         | Some mutationType ->
-            let visitedTypes = ResizeArray<string>()
+            let inputTypes =
+                schema.types
+                |> List.choose (function
+                    | GraphqlType.Enum enumRef -> Some enumRef.name
+                    | GraphqlType.InputObject inputRef -> Some inputRef.name
+                    | _ -> None)
+
+            let visitedTypes = ResizeArray<string> [ yield! inputTypes; "InputVariables" ]
             let allTypes = Dictionary<string, SynModuleDecl>()
             let rootType = generateFields rootQueryName mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
             [
