@@ -227,14 +227,10 @@ let main argv =
                         for file in Directory.GetFiles(config.output) do File.Delete file
 
                         let projectPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
-                        let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, "Types.fs"));
+                        let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".Types.fs"));
 
-                        colorprintfn "✏️  Generating project $green[%s]" projectPath
-                        File.WriteAllText(projectPath, CodeGen.sampleFableProject)
                         colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
                         File.WriteAllText(globalTypesPath, globalTypesContent)
-
-                        generatedFiles.Add(projectPath)
                         generatedFiles.Add(globalTypesPath)
 
                         for queryFile in queryFiles do
@@ -248,11 +244,19 @@ let main argv =
                                 let queryTypes = CodeGen.generateTypes "Query" query schema
                                 let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
                                 let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ])
-                                let fullPath = Path.GetFullPath(Path.Combine(config.output, moduleName + ".fs"))
+                                let fullPath = Path.GetFullPath(Path.Combine(config.output, config.project + "." + moduleName + ".fs"))
                                 colorprintfn "✏️  Generating module $green[%s]" fullPath
                                 File.WriteAllText(fullPath, generatedModuleContent)
                                 generatedFiles.Add(fullPath)
                                 ()
+
+                        colorprintfn "✏️  Generating project $green[%s]" projectPath
+                        let files =
+                            generatedFiles
+                            |> Seq.map (fun file -> sprintf "        <Compile Include=\"%s\" />" (Path.GetFileName file))
+                            |> String.concat "\n"
+
+                        File.WriteAllText(projectPath, CodeGen.sampleFableProject files)
                         0
 
     | _ ->

@@ -504,13 +504,14 @@ let formatAst file =
     formatAst (ParsedInput.ImplFile file)
     |> Async.RunSynchronously
 
-let sampleFableProject = """<Project Sdk="Microsoft.NET.Sdk">
+let sampleFableProject files =
+    sprintf """<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="*.fs" />
+%s
     </ItemGroup>
     <ItemGroup>
         <Content Include="*.fsproj; *.fs; *.js" PackagePath="fable\" />
@@ -521,4 +522,4 @@ let sampleFableProject = """<Project Sdk="Microsoft.NET.Sdk">
         <PackageReference Include="Fable.SimpleJson" Version="3.9.0" />
     </ItemGroup>
 </Project>
-"""
+"""   files
