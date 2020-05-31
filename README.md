@@ -15,6 +15,7 @@ Create a JSON file called `snowflaqe.json` with the following shape:
     "queries: "<queries>",
     "project": "<project>",
     "output": "<output>"
+    ["errorType"]: <custom error type>
 }
 ```
 Where
@@ -22,6 +23,8 @@ Where
  - `<queries>` is an absolute or relative path to a directory that contains `*.gql` files that contain individual GraphQL queries that `snowflaqe` will run the verification against.
  - `<project>` is the name of the project will be generated (WIP)
  - `<output>` is an absolute or relative path to a directory where the project will be generated
+ - `<errorType>` an optional custom error type to be generated. See below for docs.
+
 After creating the configuration file. You can `cd` your way to where you have the config file and run:
 ```
 snowflaqe
@@ -38,6 +41,36 @@ snowflaqe --generate
 ```
 Will generate a full project in the designated `output` directory.
 
+## Custom Error Type
+
+By default, the error type that is generated in the global types looks like this:
+```fs
+type ErrorType = { message: string }
+```
+This type is important because every request you make to the GraphQL backend returns `Result<Query, ErrorType list>` but the errors that come back are usually determined by the backend and not exposed through the schema. That is why you can customize this error type using the `errorType` configuration element:
+```json
+{
+    "schema": "<schema>",
+    "queries: "<queries>",
+    "project": "<project>",
+    "output": "<output>",
+    "errorType": {
+        "CustomErrorType": {
+            "Message": "string"
+            "Path": "string list"
+            "RequestId": "string"
+        }
+    }
+}
+```
+which will generate:
+```fs
+type CustomErrorType = {
+    Message: string
+    Path: string list
+    RequestId: string
+}
+```
 ## Not Supported
 
 There are a couple of features of the GraphQL specs which `snowflaqe` doesn't (yet) know how to work with:
