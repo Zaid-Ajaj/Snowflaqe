@@ -13,5 +13,6 @@ os: Visual Studio 2017
 
 build_script:
   - cmd: dotnet run --project ./tests/Snowflaqe.Tests.fsproj
+  - cmd: dotnet run --project ./build/Snowflaqe.Build.fsproj -- integration
 
 test: off

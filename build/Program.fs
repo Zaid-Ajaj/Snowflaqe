@@ -48,6 +48,13 @@ let publish() =
         if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, src) <> 0
         then failwith "Publish failed"
 
+let integration() =
+    if Shell.Exec(Tools.dotnet, "run -- --generate", path [ solutionRoot; "src" ]) <> 0 then
+        failwith "Running generation failed"
+    else
+        if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
+        then failwith "Building generated project failed"
+
 [<EntryPoint>]
 let main (args: string[]) =
     Console.InputEncoding <- Encoding.UTF8
@@ -59,6 +66,7 @@ let main (args: string[]) =
         | [| "test"    |] -> test()
         | [| "pack"    |] -> pack()
         | [| "publish" |] -> publish()
+        | [| "integration" |] -> integration()
 
         | _ -> printfn "Unknown args %A" args
         0
