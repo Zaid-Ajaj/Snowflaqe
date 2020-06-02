@@ -1,0 +1,5 @@
+mutation ($input: ApproveOrderInput!) {
+  approveOrder(input: $input) {
+    clientMutationId
+  }
+}

@@ -516,8 +516,23 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                         | _ ->
                             yield! [ ]
                 ]
-
-        | _ -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+        | FieldArgumentValue.Variable variableName ->
+            let foundVariable =
+                variables
+                |> List.tryFind (fun var -> var.variableName = variableName)
+            match foundVariable with
+            | None ->
+                [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+            | Some variable ->
+                match variable.variableType with
+                | GraphqlVariableType.NonNull(GraphqlVariableType.Ref refName) when refName = objectRef ->
+                    [ ]
+                | GraphqlVariableType.Ref refName when refName = objectRef ->
+                    [ ]
+                | _ ->
+                    [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+        | _ ->
+            [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
 
     | GraphqlFieldType.NonNull (GraphqlFieldType.InputObjectRef objectRef) ->
         match argument.value with
@@ -564,8 +579,23 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                         | _ ->
                             yield! [ ]
                 ]
-
-        | _ -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+        | FieldArgumentValue.Variable variableName ->
+            let foundVariable =
+                variables
+                |> List.tryFind (fun var -> var.variableName = variableName)
+            match foundVariable with
+            | None ->
+                [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+            | Some variable ->
+                match variable.variableType with
+                | GraphqlVariableType.NonNull(GraphqlVariableType.Ref refName) when refName = objectRef ->
+                    [ ]
+                | GraphqlVariableType.NonNull(GraphqlVariableType.Ref refName) ->
+                    [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, refName) ]
+                | _ ->
+                    [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
+        | _ ->
+            [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
 
     | _ -> [ ]
 

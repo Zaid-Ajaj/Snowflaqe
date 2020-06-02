@@ -395,6 +395,86 @@ let queryParsing =
             | otherResults -> failwithf "Unexpected %A" otherResults
         }
 
+        test "Nullable Input object can be used as query variable" {
+            let schema = Introspection.fromSchemaDefinition """
+                input LoginCredentials {
+                    username: String!
+                    password: String!
+                }
+
+                type LoginResult {
+                    token: String
+                    success: Boolean!
+                }
+
+                type Query {
+                    login(credentials: LoginCredentials): LoginResult!
+                }
+            """
+
+            let query = Query.parse """
+                query ($credentials: LoginCredentials!) {
+                    login(credentials: $credentials) {
+                        token
+                        success
+                    }
+
+                    optionalLogin: login(credentials: null) {
+                        token
+                        success
+                    }
+
+                    anotherLogin: login {
+                        token
+                        success
+                    }
+                }
+            """
+
+            match schema, query with
+            | Ok schema, Ok query ->
+                match Query.validate query schema with
+                | ValidationResult.Success -> ()
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
+        test "NonNull Input object can be used as query variable" {
+            let schema = Introspection.fromSchemaDefinition """
+                input LoginCredentials {
+                    username: String!
+                    password: String!
+                }
+
+                type LoginResult {
+                    token: String
+                    success: Boolean!
+                }
+
+                type Query {
+                    login(credentials: LoginCredentials!): LoginResult!
+                }
+            """
+
+            let query = Query.parse """
+                query ($credentials: LoginCredentials!) {
+                    login(credentials: $credentials) {
+                        token
+                        success
+                    }
+                }
+            """
+
+            match schema, query with
+            | Ok schema, Ok query ->
+                match Query.validate query schema with
+                | ValidationResult.Success -> ()
+                | otherResults -> failwithf "Unexpected %A" otherResults
+
+            |  otherResults -> failwithf "Unexpected %A" otherResults
+        }
+
         test "Reading variables in queries works" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {
