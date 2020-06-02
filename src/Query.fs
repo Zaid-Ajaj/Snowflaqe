@@ -665,7 +665,7 @@ let validateInputVariables (variables: GraphqlVariable list) (schema: GraphqlSch
         for variable in variables do
             let name = variableName variable.variableType
             if [ "Int"; "String"; "Float"; "Boolean"; "ID" ] |> List.contains name then
-                ()
+                yield! [ ]
             else
                 yield!
                     schema.types

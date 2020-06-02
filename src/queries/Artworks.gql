@@ -1,0 +1,22 @@
+query {
+  artworks(ids:["giacomo-brunelli-untitled-number-18-car-plaza-hotel-from-new-york"]) {
+    artist {
+      name
+      bio
+      birthday
+    }
+    certificateOfAuthenticity {
+      details
+      label
+    }
+    description
+    date
+    sale {
+      id
+    }
+    id
+    availability
+    category
+    displayLabel
+  }
+}
