@@ -12,6 +12,7 @@ let trimContentEnd (content: string) =
     |> Array.skipWhile String.IsNullOrWhiteSpace
     |> Array.rev
     |> String.concat Environment.NewLine
+    |> fun result -> result + Environment.NewLine
 
 let queryParsing =
     testList "Query parsing" [
