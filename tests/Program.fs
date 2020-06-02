@@ -629,7 +629,7 @@ type Sort =
                     |> CodeGen.normalizeName
 
                 let generated =
-                    let queryTypes = CodeGen.generateTypes "Root" query schema
+                    let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
                     let file = CodeGen.createFile "Types.fs" [ ns ]
                     CodeGen.formatAst file

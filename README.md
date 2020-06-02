@@ -48,7 +48,7 @@ By default, the error type that is generated in the global types looks like this
 type ErrorType = { message: string }
 ```
 This type is important because every request you make to the GraphQL backend returns `Result<Query, ErrorType list>` but the errors that come back are usually determined by the backend and not exposed through the schema. That is why you can customize this error type using the `errorType` configuration element:
-```json
+```
 {
     "schema": "<schema>",
     "queries: "<queries>",
