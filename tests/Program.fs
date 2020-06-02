@@ -4,15 +4,17 @@ open Snowflaqe.Types
 open System
 
 let trimContentEnd (content: string) =
-    let lines =  content.Replace(String [| '\010' |], Environment.NewLine).Split Environment.NewLine
+    let lines =
+      content
+        .Replace(String [| '\010' |], Environment.NewLine)
+        .Split Environment.NewLine
 
     lines
     |> Array.skipWhile String.IsNullOrWhiteSpace
     |> Array.rev
     |> Array.skipWhile String.IsNullOrWhiteSpace
     |> Array.rev
-    |> String.concat Environment.NewLine
-    |> fun result -> result + Environment.NewLine
+    |> Array.map (fun line -> line.Trim())
 
 let queryParsing =
     testList "Query parsing" [
