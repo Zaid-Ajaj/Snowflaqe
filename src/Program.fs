@@ -19,6 +19,7 @@ type Config = {
     project : string
     output: string
     errorType: CustomErrorType
+    target: OutputTarget
 }
 
 let logo = """
@@ -59,6 +60,10 @@ let readConfig (file: string) =
                 Error "The 'output' configuration element must be a string"
             elif not (isNull parsedJson.["errorType"]) && parsedJson.["errorType"].Type <> JTokenType.Object then
                 Error "The 'errorType' configuration element must be an object"
+            elif not (isNull parsedJson.["target"]) && parsedJson.["target"].Type <> JTokenType.String then
+                Error "The 'target' configuration element must be a string"
+            elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" || parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp") then
+                Error "The 'target' configuration element must be either 'fsharp' or 'fable' (default)"
             else
                 let errorType =
                     if isNull parsedJson.["errorType"]
@@ -73,6 +78,11 @@ let readConfig (file: string) =
                 | Ok errorType ->
                     let queriesPath = string parsedJson.["queries"]
                     let outputPath = string parsedJson.["output"]
+
+                    let target =
+                        if isNull parsedJson.["target"] || string parsedJson.["target"] = "fable"
+                        then OutputTarget.Fable
+                        else OutputTarget.FSharp
 
                     let fullQueriesPath =
                         if Path.IsPathRooted queriesPath
@@ -90,6 +100,7 @@ let readConfig (file: string) =
                         project = string parsedJson.["project"]
                         output = outputPath
                         errorType = errorType
+                        target = target
                     }
     with
     | ex -> Error ex.Message
@@ -193,11 +204,11 @@ let main argv =
                 runConfigFile configFile
 
     | [| "--queries"; queries; "--schema"; schema; |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() } }
+        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable }
         runConfig config
 
     | [| "--schema"; schema; "--queries"; queries |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() } }
+        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable }
         runConfig config
 
     | [| "--generate" |] ->
@@ -289,7 +300,10 @@ let main argv =
 
                         File.WriteAllText(graphqlClientPath, clientContent)
 
-                        colorprintfn "✏️  Generating project $green[%s]" projectPath
+                        match config.target with
+                        | OutputTarget.Fable -> colorprintfn "✏️  Generating Fable project $green[%s]" projectPath
+                        | OutputTarget.FSharp -> colorprintfn "✏️  Generating F# project $green[%s]" projectPath
+
                         let files =
                             generatedFiles
                             |> Seq.map (fun file -> sprintf "        <Compile Include=\"%s\" />" (Path.GetFileName file))

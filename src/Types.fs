@@ -3,6 +3,11 @@
 open GraphQLParser.AST
 
 [<RequireQualifiedAccess>]
+type OutputTarget =
+    | Fable
+    | FSharp
+
+[<RequireQualifiedAccess>]
 type GraphqlScalar =
     | ID
     | Int

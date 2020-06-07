@@ -15,7 +15,8 @@ Create a JSON file called `snowflaqe.json` with the following shape:
     "queries: "<queries>",
     "project": "<project>",
     "output": "<output>"
-    ["errorType"]: <custom error type>
+    ["errorType"]: <custom error type>,
+    ["target"]: <target>
 }
 ```
 Where
@@ -23,7 +24,8 @@ Where
  - `<queries>` is an absolute or relative path to a directory that contains `*.gql` files that contain individual GraphQL queries that `snowflaqe` will run the verification against.
  - `<project>` is the name of the project will be generated (WIP)
  - `<output>` is an absolute or relative path to a directory where the project will be generated
- - `<errorType>` an optional custom error type to be generated. See below for docs.
+ - `<errorType>` optional custom error type to be generated. See below to learn more.
+ - `<target>` optional the code-generation target which can either be `fable` (default) or `fsharp` (work in progress)
 
 After creating the configuration file. You can `cd` your way to where you have the config file and run:
 ```
