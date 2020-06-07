@@ -22,7 +22,7 @@ Create a JSON file called `snowflaqe.json` with the following shape:
 Where
  - `<schema>` can be either the URL to the GraphQL backend or a relative path to another JSON file containing the output of the [standard Introspection](https://github.com/Zaid-Ajaj/Snowflaqe/blob/master/src/Introspection.gql) query which you can execute against the backend yourself (this allows for offline verification and type-checking)
  - `<queries>` is an absolute or relative path to a directory that contains `*.gql` files that contain individual GraphQL queries that `snowflaqe` will run the verification against.
- - `<project>` is the name of the project will be generated (WIP)
+ - `<project>` is the name of the project will be generated.
  - `<output>` is an absolute or relative path to a directory where the project will be generated
  - `<errorType>` optional custom error type to be generated. See below to learn more.
  - `<target>` optional the code-generation target which can either be `fable` (default) or `fsharp` (work in progress)
