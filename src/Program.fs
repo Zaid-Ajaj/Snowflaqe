@@ -62,7 +62,7 @@ let readConfig (file: string) =
                 Error "The 'errorType' configuration element must be an object"
             elif not (isNull parsedJson.["target"]) && parsedJson.["target"].Type <> JTokenType.String then
                 Error "The 'target' configuration element must be a string"
-            elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" || parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp") then
+            elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" && parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp") then
                 Error "The 'target' configuration element must be either 'fsharp' or 'fable' (default)"
             else
                 let errorType =
@@ -184,6 +184,122 @@ let runConfigFile (configFile: string) =
         1
     | Ok config -> runConfig config
 
+let generate (configFile: string) =
+    match readConfig configFile with
+    | Error errorMessage ->
+        colorprintfn "$red[%s]" errorMessage
+        1
+    | Ok config ->
+        colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
+        match Introspection.loadSchema config.schema with
+        | Error errorMessage ->
+            colorprintfn "$red[%s]" errorMessage
+            1
+        | Ok schema ->
+            let mutable invalidQuery = false
+            let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
+            for queryFile in queryFiles do
+                if not invalidQuery then
+                    let query = File.ReadAllText queryFile
+                    match Query.parse query with
+                    | Error parseError ->
+                        colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
+                        invalidQuery <- true
+                    | Ok query ->
+                        invalidQuery <- not (validateAndPrint queryFile query schema)
+
+            if invalidQuery then
+                1
+            else
+
+            let generatedFiles = ResizeArray<string>()
+            let generatedModules = ResizeArray<string * string * bool>()
+
+            let globalTypes = [
+                yield! CodeGen.createGlobalTypes schema
+                yield config.errorType.typeDefinition
+            ]
+
+            let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
+            let file = CodeGen.createFile "Types.fs" [ globalTypesModule ]
+            let globalTypesContent = CodeGen.formatAst file
+            if not (Directory.Exists config.output) then
+                Directory.CreateDirectory(config.output)
+                |> ignore
+
+            for file in Directory.GetFiles(config.output) do File.Delete file
+
+            let projectPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
+            let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".Types.fs"));
+
+            match config.target with
+            | OutputTarget.FSharp ->
+                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".StringEnum.fs"));
+                colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
+                File.WriteAllText(stringEnumAttrPath, CodeGen.createDummyStringEnumAttribute())
+                generatedFiles.Add(stringEnumAttrPath)
+                colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
+                File.WriteAllText(globalTypesPath, globalTypesContent)
+                generatedFiles.Add(globalTypesPath)
+            | OutputTarget.Fable ->
+                colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
+                File.WriteAllText(globalTypesPath, globalTypesContent)
+                generatedFiles.Add(globalTypesPath)
+
+            for queryFile in queryFiles do
+                let query = File.ReadAllText queryFile
+                match Query.parse query with
+                | Error _ -> ()
+                | Ok query ->
+                    let queryName = Query.findOperationName query
+                    let queryFileName = Path.GetFileNameWithoutExtension queryFile
+                    let moduleName = queryName |> Option.defaultValue queryFileName
+                    let queryTypes = CodeGen.generateTypes "Query" config.errorType.typeName query schema
+                    let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
+                    let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ])
+                    let fullPath = Path.GetFullPath(Path.Combine(config.output, config.project + "." + moduleName + ".fs"))
+                    colorprintfn "✏️  Generating module $green[%s]" fullPath
+                    File.WriteAllText(fullPath, generatedModuleContent)
+                    generatedFiles.Add(fullPath)
+                    generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
+                    ()
+
+            let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".GraphqlClient.fs"))
+            generatedFiles.Add(graphqlClientPath)
+            colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
+            let members =
+                match config.target with
+                | OutputTarget.Fable ->
+                    generatedModules
+                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
+                    |> String.concat "\n"
+                | OutputTarget.FSharp ->
+                    generatedModules
+                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars)
+                    |> String.concat "\n"
+
+            let clientContent =
+                match config.target with
+                | OutputTarget.Fable -> CodeGen.sampleGraphqlClient config.project config.errorType.typeName members
+                | OutputTarget.FSharp -> CodeGen.sampleFSharpGraphqlClient config.project config.errorType.typeName members
+
+            File.WriteAllText(graphqlClientPath, clientContent)
+
+            match config.target with
+            | OutputTarget.Fable -> colorprintfn "✏️  Generating Fable project $green[%s]" projectPath
+            | OutputTarget.FSharp -> colorprintfn "✏️  Generating F# project $green[%s]" projectPath
+
+            let files =
+                generatedFiles
+                |> Seq.map (fun file -> sprintf "        <Compile Include=\"%s\" />" (Path.GetFileName file))
+                |> String.concat "\n"
+
+            match config.target with
+            | OutputTarget.Fable -> File.WriteAllText(projectPath, CodeGen.sampleFableProject files)
+            | OutputTarget.FSharp -> File.WriteAllText(projectPath, CodeGen.sampleFSharpProject files)
+
+            0
+
 [<EntryPoint>]
 let main argv =
     Console.OutputEncoding <- Encoding.UTF8
@@ -218,101 +334,11 @@ let main argv =
             | None ->
                 colorprintfn "⚠️  No configuration file found. Expecting JSON file $yellow[%s] in the current working directory" "snowflaqe.json"
                 1
-            | Some configFile ->
-                match readConfig configFile with
-                | Error errorMessage ->
-                    colorprintfn "$red[%s]" errorMessage
-                    1
-                | Ok config ->
-                    colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
-                    match Introspection.loadSchema config.schema with
-                    | Error errorMessage ->
-                        colorprintfn "$red[%s]" errorMessage
-                        1
-                    | Ok schema ->
-                        let mutable invalidQuery = false
-                        let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
-                        for queryFile in queryFiles do
-                            if not invalidQuery then
-                                let query = File.ReadAllText queryFile
-                                match Query.parse query with
-                                | Error parseError ->
-                                    colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
-                                    invalidQuery <- true
-                                | Ok query ->
-                                    invalidQuery <- not (validateAndPrint queryFile query schema)
+            | Some configFile -> generate configFile
 
-                        if invalidQuery then
-                            1
-                        else
-
-                        let generatedFiles = ResizeArray<string>()
-                        let generatedModules = ResizeArray<string * string * bool>()
-
-                        let globalTypes = [
-                            yield! CodeGen.createGlobalTypes schema
-                            yield config.errorType.typeDefinition
-                        ]
-
-                        let globalTypesModule = CodeGen.createNamespace config.project globalTypes
-                        let file = CodeGen.createFile "Types.fs" [ globalTypesModule ]
-                        let globalTypesContent = CodeGen.formatAst file
-                        if not (Directory.Exists config.output) then
-                            Directory.CreateDirectory(config.output)
-                            |> ignore
-
-                        for file in Directory.GetFiles(config.output) do File.Delete file
-
-                        let projectPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
-                        let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".Types.fs"));
-
-                        colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
-                        File.WriteAllText(globalTypesPath, globalTypesContent)
-                        generatedFiles.Add(globalTypesPath)
-
-                        for queryFile in queryFiles do
-                            let query = File.ReadAllText queryFile
-                            match Query.parse query with
-                            | Error _ -> ()
-                            | Ok query ->
-                                let queryName = Query.findOperationName query
-                                let queryFileName = Path.GetFileNameWithoutExtension queryFile
-                                let moduleName = queryName |> Option.defaultValue queryFileName
-                                let queryTypes = CodeGen.generateTypes "Query" config.errorType.typeName query schema
-                                let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
-                                let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ])
-                                let fullPath = Path.GetFullPath(Path.Combine(config.output, config.project + "." + moduleName + ".fs"))
-                                colorprintfn "✏️  Generating module $green[%s]" fullPath
-                                File.WriteAllText(fullPath, generatedModuleContent)
-                                generatedFiles.Add(fullPath)
-                                generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
-                                ()
-
-                        let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".GraphqlClient.fs"))
-                        generatedFiles.Add(graphqlClientPath)
-                        colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
-                        let members =
-                            generatedModules
-                            |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
-                            |> String.concat "\n"
-
-                        let clientContent = CodeGen.sampleGraphqlClient config.project config.errorType.typeName members
-
-                        File.WriteAllText(graphqlClientPath, clientContent)
-
-                        match config.target with
-                        | OutputTarget.Fable -> colorprintfn "✏️  Generating Fable project $green[%s]" projectPath
-                        | OutputTarget.FSharp -> colorprintfn "✏️  Generating F# project $green[%s]" projectPath
-
-                        let files =
-                            generatedFiles
-                            |> Seq.map (fun file -> sprintf "        <Compile Include=\"%s\" />" (Path.GetFileName file))
-                            |> String.concat "\n"
-
-                        File.WriteAllText(projectPath, CodeGen.sampleFableProject files)
-
-
-                        0
-
+    | [| "--config"; configFile; "--generate" |] ->
+        generate configFile
+    | [| "--generate"; "--config"; configFile |] ->
+        generate configFile
     | _ ->
         0

@@ -50,10 +50,16 @@ let publish() =
 
 let integration() =
     if Shell.Exec(Tools.dotnet, "run -- --generate", path [ solutionRoot; "src" ]) <> 0 then
-        failwith "Running generation failed"
+        failwith "Running Fable generation failed"
     else
         if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
-        then failwith "Building generated project failed"
+        then failwith "Building generated Fable project failed"
+        else
+            if Shell.Exec(Tools.dotnet, "run -- --config ./snowflaqe-fsharp.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+                failwith "Running FSharp generation failed"
+            else
+            if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
+            then failwith "Building generated FSharp project failed"
 
 [<EntryPoint>]
 let main (args: string[]) =

@@ -1,4 +1,4 @@
-# Snowflaqe [![Build status](https://ci.appveyor.com/api/projects/status/ulq0vfun1ij7ix58?svg=true)](https://ci.appveyor.com/project/Zaid-Ajaj/snowflaqe)
+# Snowflaqe [![Build status](https://ci.appveyor.com/api/projects/status/ulq0vfun1ij7ix58?svg=true)](https://ci.appveyor.com/project/Zaid-Ajaj/snowflaqe) [![Nuget](https://img.shields.io/nuget/v/Snowflaqe.svg?colorB=green)](https://www.nuget.org/packages/Snowflaqe)
 
 A dotnet CLI tool to work with GraphQL queries. It allows for static query *verification* and advanced *type checking* against a remote or local schema as well as generating *type-safe* clients for F# and [Fable](https://fable.io/) (more generation targets in the future).
 
@@ -25,7 +25,7 @@ Where
  - `<project>` is the name of the project will be generated.
  - `<output>` is an absolute or relative path to a directory where the project will be generated
  - `<errorType>` optional custom error type to be generated. See below to learn more.
- - `<target>` optional the code-generation target which can either be `fable` (default) or `fsharp` (work in progress)
+ - `<target>` optional the code-generation target which can either be `fable` (default) or `fsharp`
 
 After creating the configuration file. You can `cd` your way to where you have the config file and run:
 ```
@@ -40,6 +40,8 @@ snowflaqe --config ./src/snowflaqe.json
 ## Generate Client Project
 ```
 snowflaqe --generate
+
+snowflaqe --config ./path/to/snowflaqe.json --generate
 ```
 Will generate a full project in the designated `output` directory.
 
@@ -76,5 +78,5 @@ type CustomErrorType = {
 ## Not Supported
 
 There are a couple of features of the GraphQL specs which `snowflaqe` doesn't (yet) know how to work with:
- - [ ] Union types
+ - [ ] GraphQL Union Types
  - [ ] Subscriptions (non-goal of the tool, maybe in the future)

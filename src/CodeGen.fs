@@ -276,6 +276,7 @@ let createInputRecord (input: GraphqlInputObject) =
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
 
+
 let createGlobalTypes (schema: GraphqlSchema) =
     let enums =
         schema.types
@@ -514,9 +515,9 @@ let generateTypes (rootQueryName: string) (errorTypeName: string) (document: Gra
                 yield rootType
             ]
 
-let createNamespace name declarations =
+let createNamespace names declarations =
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for name in names -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
 
 let createQualifiedModule idens declarations =
     let xmlDoc = PreXmlDoc.Create [ ]
@@ -606,6 +607,13 @@ let parseErrorType (typeInfo: JObject) =
             let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
             Ok (property.Name, SynModuleDecl.CreateSimpleType(info, simpleType))
 
+let createDummyStringEnumAttribute() =
+    """namespace Fable.Core
+
+type StringEnumAttribute() =
+    inherit System.Attribute()
+    """
+
 let sampleFableProject files =
     sprintf """<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
@@ -625,6 +633,22 @@ let sampleFableProject files =
     </ItemGroup>
 </Project>
 """   files
+
+let sampleFSharpProject files =
+    sprintf """<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+%s
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.7.0"/>
+        <PackageReference Include="Fable.Remoting.Json" Version="2.7.0" />
+    </ItemGroup>
+</Project>
+"""  files
 
 let addLines (query: string) =
     query.Split Environment.NewLine
@@ -658,6 +682,42 @@ let sampleClientMember query queryName hasVariables =
       (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
       queryName
 
+let sampleFSharpClientMember query queryName hasVariables =
+    sprintf """    member _.%sAsync(%s) =
+        async {
+            let query = %s
+
+            let inputJson = JsonConvert.SerializeObject(%s, [| converter |])
+
+            let! response =
+                httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
+                |> Async.AwaitTask
+
+            let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
+
+            match response.IsSuccessStatusCode with
+            | true ->
+                let response = JsonConvert.DeserializeObject<GraphqlSuccessResponse<%s.Query>>(responseContent, [| converter |])
+                return Ok response.data
+
+            | errorStatus ->
+                let response = JsonConvert.DeserializeObject<GraphqlErrorResponse>(responseContent, [| converter |])
+                return Error response.errors
+        }
+
+    member this.%s(%s) = Async.RunSynchronously(this.%sAsync%s)
+"""
+      queryName
+      (if hasVariables then "input: " + queryName + ".InputVariables" else "")
+      ("\"\"\"\n" + addLines query + "\n            \"\"\"")
+      (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
+      queryName
+
+      queryName
+      (if hasVariables then "input: " + queryName + ".InputVariables" else "")
+      queryName
+      (if hasVariables then " input" else "()")
+
 let sampleGraphqlClient projectName errorType members =
     sprintf """namespace %s
 
@@ -670,5 +730,24 @@ type GraphqlErrorResponse = { errors: %s list }
 
 type %sGraphqlClient(url: string, headers: Header list) =
     new(url: string) = %sGraphqlClient(url, [ ])
+
+%s""" projectName errorType projectName projectName members
+
+let sampleFSharpGraphqlClient projectName errorType members =
+    sprintf """namespace %s
+
+open Fable.Remoting.Json
+open Newtonsoft.Json
+open System.Net.Http
+open System.Text
+
+type GraphqlInput<'T> = { query: string; variables: Option<'T> }
+type GraphqlSuccessResponse<'T> = { data: 'T }
+type GraphqlErrorResponse = { errors: %s list }
+
+type %sGraphqlClient(url: string, httpClient: HttpClient) =
+    let converter = FableJsonConverter() :> JsonConverter
+
+    new(url: string) = %sGraphqlClient(url, new HttpClient())
 
 %s""" projectName errorType projectName projectName members
