@@ -575,7 +575,7 @@ let queryParsing =
 
                 let generated =
                     let globalTypes = CodeGen.createGlobalTypes schema
-                    let ns = CodeGen.createNamespace "Test" globalTypes
+                    let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                     let file = CodeGen.createFile "Types.fs" [ ns ]
                     CodeGen.formatAst file
 
@@ -644,7 +644,7 @@ type LoginCredentials =
 
                 let generated =
                     let globalTypes = CodeGen.createGlobalTypes schema
-                    let ns = CodeGen.createNamespace "Test" globalTypes
+                    let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                     let file = CodeGen.createFile "Types.fs" [ ns ]
                     CodeGen.formatAst file
 
