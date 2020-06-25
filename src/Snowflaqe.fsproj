@@ -7,8 +7,8 @@
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.2.0</Version>
-    <PackageReleaseNotes>F# project as configurable code-generation target</PackageReleaseNotes>
+    <Version>1.3.0</Version>
+    <PackageReleaseNotes>Shared Types/Fable/F# projects as a code-generation target</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

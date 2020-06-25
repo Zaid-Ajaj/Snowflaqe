@@ -6,6 +6,7 @@ open GraphQLParser.AST
 type OutputTarget =
     | Fable
     | FSharp
+    | Shared
 
 [<RequireQualifiedAccess>]
 type GraphqlScalar =

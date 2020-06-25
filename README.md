@@ -25,7 +25,9 @@ Where
  - `<project>` is the name of the project will be generated.
  - `<output>` is an absolute or relative path to a directory where the project will be generated
  - `<errorType>` optional custom error type to be generated. See below to learn more.
- - `<target>` optional the code-generation target which can either be `fable` (default) or `fsharp`
+ - `<target>` optional the code-generation target which can either be `fable` (default), `fsharp` or `shared`.
+
+> Using `shared` as a code generation target actually builds 3 projects! One contains just the types and can be *shared* across platforms. The other two reference this shared projects and implmenent Fable specific client and dotnet specific client, respectively.
 
 After creating the configuration file. You can `cd` your way to where you have the config file and run:
 ```

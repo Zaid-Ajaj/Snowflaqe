@@ -60,6 +60,17 @@ let integration() =
             else
             if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
             then failwith "Building generated FSharp project failed"
+            else
+                if Shell.Exec(Tools.dotnet, "run -- --config ./snowflaqe-shared.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+                    failwith "Running Shared project generation failed"
+                else
+                    let output = List.sum [
+                        Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output"; "shared" ])
+                        Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output"; "fable" ])
+                        Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output"; "dotnet" ])
+                    ]
+
+                    if output <> 0 then failwith "Building generated shared projects failed"
 
 [<EntryPoint>]
 let main (args: string[]) =

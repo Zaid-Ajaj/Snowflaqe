@@ -627,7 +627,7 @@ let sampleFableProject files =
         <Content Include="*.fsproj; *.fs; *.js" PackagePath="fable\" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.0"/>
+        <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
         <PackageReference Include="Fable.SimpleJson" Version="3.9.0" />
     </ItemGroup>
@@ -649,6 +649,59 @@ let sampleFSharpProject files =
     </ItemGroup>
 </Project>
 """  files
+
+let sampleSharedProject files =
+    sprintf """<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+%s
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.7.0" />
+    </ItemGroup>
+</Project>
+"""  files
+
+let sampleSharedFSharpProject project =
+    sprintf """<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="%s.GraphqlClient.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.7.0" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.7.0" />
+        <ProjectReference Include="..\shared\%s.Shared.fsproj" />
+    </ItemGroup>
+</Project>
+"""  project project
+
+let sampleSharedFableProject project =
+    sprintf """<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <Compile Include="%s.GraphqlClient.fs" />
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="*.fsproj; *.fs; *.js" PackagePath="fable\" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.7.0" />
+        <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.9.0" />
+        <ProjectReference Include="..\shared\%s.Shared.fsproj" />
+    </ItemGroup>
+</Project>
+"""  project project
 
 let addLines (query: string) =
     query.Split Environment.NewLine
