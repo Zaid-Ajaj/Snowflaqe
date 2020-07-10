@@ -14,12 +14,13 @@ type CustomErrorType = {
 }
 
 type Config = {
-    schema: string
-    queries: string
+    schema : string
+    queries : string
     project : string
-    output: string
-    errorType: CustomErrorType
-    target: OutputTarget
+    output : string
+    errorType : CustomErrorType
+    target : OutputTarget
+    overrideClientName : string option
 }
 
 let logo = """
@@ -96,6 +97,11 @@ let readConfig (file: string) =
                         then outputPath
                         else Path.GetFullPath(Path.Combine(Directory.GetParent(path).FullName, outputPath))
 
+                    let overrideClientName =
+                        if isNull parsedJson.["overrideClientName"]
+                        then None
+                        else Some (string parsedJson.["overrideClientName"])
+
                     Ok {
                         schema = string parsedJson.["schema"]
                         queries = fullQueriesPath
@@ -103,6 +109,7 @@ let readConfig (file: string) =
                         output = outputPath
                         errorType = errorType
                         target = target
+                        overrideClientName = overrideClientName
                     }
     with
     | ex -> Error ex.Message
@@ -306,6 +313,10 @@ let generate (configFile: string) =
                         generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
                         ()
 
+            let clientName =
+                config.overrideClientName
+                |> Option.defaultValue (sprintf "%sGraphqlClient" config.project)
+
             match config.target with
             | OutputTarget.Fable ->
                 let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".GraphqlClient.fs"))
@@ -315,7 +326,7 @@ let generate (configFile: string) =
                     generatedModules
                     |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
-                let clientContent = CodeGen.sampleGraphqlClient config.project config.errorType.typeName members
+                let clientContent = CodeGen.sampleGraphqlClient config.project clientName config.errorType.typeName members
                 File.WriteAllText(graphqlClientPath, clientContent)
                 colorprintfn "✏️  Generating Fable project $green[%s]" projectPath
                 let files =
@@ -373,7 +384,7 @@ let generate (configFile: string) =
                     |> String.concat "\n"
 
                 let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".GraphqlClient.fs"))
-                let fableClientContent = CodeGen.sampleGraphqlClient config.project config.errorType.typeName fableMembers
+                let fableClientContent = CodeGen.sampleGraphqlClient config.project clientName config.errorType.typeName fableMembers
                 File.WriteAllText(fableGraphqlClientPath, fableClientContent)
                 let sharedFableProject = Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
                 colorprintfn "✏️  Generating Fable project $green[%s]" sharedFableProject
@@ -400,11 +411,11 @@ let main argv =
                 runConfigFile configFile
 
     | [| "--queries"; queries; "--schema"; schema; |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable }
+        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable; overrideClientName = None }
         runConfig config
 
     | [| "--schema"; schema; "--queries"; queries |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable }
+        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable; overrideClientName = None }
         runConfig config
 
     | [| "--generate" |] ->

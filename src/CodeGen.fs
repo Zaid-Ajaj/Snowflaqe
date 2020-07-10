@@ -771,7 +771,7 @@ let sampleFSharpClientMember query queryName hasVariables =
       queryName
       (if hasVariables then " input" else "()")
 
-let sampleGraphqlClient projectName errorType members =
+let sampleGraphqlClient projectName clientName errorType members =
     sprintf """namespace %s
 
 open Fable.SimpleHttp
@@ -781,10 +781,10 @@ type GraphqlInput<'T> = { query: string; variables: Option<'T> }
 type GraphqlSuccessResponse<'T> = { data: 'T }
 type GraphqlErrorResponse = { errors: %s list }
 
-type %sGraphqlClient(url: string, headers: Header list) =
-    new(url: string) = %sGraphqlClient(url, [ ])
+type %s(url: string, headers: Header list) =
+    new(url: string) = %s(url, [ ])
 
-%s""" projectName errorType projectName projectName members
+%s""" projectName errorType clientName clientName members
 
 let sampleFSharpGraphqlClient projectName errorType members =
     sprintf """namespace %s
