@@ -63,6 +63,8 @@ let readConfig (file: string) =
                 Error "The 'errorType' configuration element must be an object"
             elif not (isNull parsedJson.["target"]) && parsedJson.["target"].Type <> JTokenType.String then
                 Error "The 'target' configuration element must be a string"
+            elif not (isNull parsedJson.["overrideClientName"]) && parsedJson.["overrideClientName"].Type <> JTokenType.String then
+                Error "The 'overrideClientName' configuration element must be a string"
             elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" && parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp" && parsedJson.["target"].ToObject<string>().ToLower() <> "shared") then
                 Error "The 'target' configuration element must be either 'fable' (default), 'fsharp' or 'shared'"
             else
