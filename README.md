@@ -5,7 +5,7 @@ A dotnet CLI tool to work with GraphQL queries. It allows for static query *veri
 ## Installation
 Install as a global dotnet CLI tool
 ```
-dotnet install snowflaqe -g
+dotnet tool install snowflaqe -g
 ```
 ## Using The Tool
 Create a JSON file called `snowflaqe.json` with the following shape:
