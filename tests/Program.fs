@@ -3,18 +3,7 @@ open Snowflaqe
 open Snowflaqe.Types
 open System
 
-let trimContentEnd (content: string) =
-    let lines =
-      content
-        .Replace(String [| '\010' |], Environment.NewLine)
-        .Split Environment.NewLine
-
-    lines
-    |> Array.skipWhile String.IsNullOrWhiteSpace
-    |> Array.rev
-    |> Array.skipWhile String.IsNullOrWhiteSpace
-    |> Array.rev
-    |> Array.map (fun line -> line.Trim())
+let trimContentEnd (content: string) = Utilities.trimContentEnd content
 
 let queryParsing =
     testList "Query parsing" [
@@ -994,7 +983,10 @@ type Root =
         }
     ]
 
-let snowflakeTests = testList "Snowflaqe" [ queryParsing ]
+let snowflakeTests = testList "Snowflaqe" [
+    queryParsing
+    SampleHasuraSchema.hasuraTests
+]
 
 [<EntryPoint>]
 let main argv = runTests defaultConfig snowflakeTests

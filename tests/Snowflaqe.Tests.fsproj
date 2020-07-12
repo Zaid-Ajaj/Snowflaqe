@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Utilities.fs" />
+    <Compile Include="SampleHasuraSchema.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

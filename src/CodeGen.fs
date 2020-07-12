@@ -201,6 +201,7 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
         | GraphqlScalar.ID -> SynType.String()
         | GraphqlScalar.Custom "Decimal" -> SynType.Decimal()
         | GraphqlScalar.Custom "DateTimeOffset" -> SynType.DateTimeOffset()
+        | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
         | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
         | GraphqlScalar.Custom "Date" -> SynType.DateTime()
         | GraphqlScalar.Custom custom -> SynType.String()
@@ -228,6 +229,7 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
             | GraphqlScalar.ID -> SynType.String()
             | GraphqlScalar.Custom "Decimal" -> SynType.Decimal()
             | GraphqlScalar.Custom "DateTimeOffset" -> SynType.DateTimeOffset()
+            | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
             | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
             | GraphqlScalar.Custom "Date" -> SynType.String()
             | GraphqlScalar.Custom custom -> SynType.String()
@@ -411,7 +413,15 @@ let rec generateFields (typeName: string) (description: string option) (selectio
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
-let rec makeVariableType = function
+let isCustomScalar (typeName: string) (schema: GraphqlSchema) =
+    schema.types
+    |> List.choose (function
+        | GraphqlType.Scalar (GraphqlScalar.Custom name) -> Some name
+        | _ -> None)
+    |> List.contains typeName
+
+let rec makeVariableType variableType  (schema: GraphqlSchema) =
+    match variableType with
     | GraphqlVariableType.NonNull(GraphqlVariableType.Ref name) ->
         match name with
         | "Int" -> SynType.Int()
@@ -423,6 +433,8 @@ let rec makeVariableType = function
         | "DateTime"-> SynType.DateTime()
         | "DateTimeOffset" -> SynType.DateTimeOffset()
         | "Decimal" -> SynType.Decimal()
+        | "timestamptz" -> SynType.DateTimeOffset()
+        | _ when isCustomScalar name schema -> SynType.String()
         | _ -> SynType.Create name
 
     | GraphqlVariableType.Ref name ->
@@ -436,18 +448,20 @@ let rec makeVariableType = function
             | "Date" -> SynType.DateTime()
             | "DateTime"-> SynType.DateTime()
             | "DateTimeOffset" -> SynType.DateTimeOffset()
+            | "timestamptz" -> SynType.DateTimeOffset()
             | "Decimal" -> SynType.Decimal()
+            | _ when isCustomScalar name schema -> SynType.String()
             | _ -> SynType.Create name
 
         SynType.Option(variableType)
     | GraphqlVariableType.NonNull(GraphqlVariableType.List variableType) ->
-        SynType.List(makeVariableType variableType)
+        SynType.List(makeVariableType variableType schema)
     | GraphqlVariableType.List variableType ->
-        SynType.Option(SynType.List(makeVariableType variableType))
+        SynType.Option(SynType.List(makeVariableType variableType schema))
     | GraphqlVariableType.NonNull variableType ->
-        makeVariableType variableType
+        makeVariableType variableType schema
 
-let generateInputVariablesType (variables: GraphqlVariable list) =
+let generateInputVariablesType (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [ ]
@@ -460,7 +474,9 @@ let generateInputVariablesType (variables: GraphqlVariable list) =
     }
 
     let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create([
-        for variable in variables -> SynFieldRcd.Create(variable.variableName, makeVariableType variable.variableType)
+        for variable in variables ->
+            let variableType = makeVariableType variable.variableType schema
+            SynFieldRcd.Create(variable.variableName, variableType)
     ])
 
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
@@ -484,7 +500,7 @@ let generateTypes (rootQueryName: string) (errorTypeName: string) (document: Gra
             let allTypes = Dictionary<string, SynModuleDecl>()
             let rootType = generateFields rootQueryName queryType.description query.selectionSet queryType schema visitedTypes allTypes
             [
-                if query.variables.Length > 0 then yield generateInputVariablesType query.variables
+                if query.variables.Length > 0 then yield generateInputVariablesType query.variables schema
 
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
@@ -507,7 +523,7 @@ let generateTypes (rootQueryName: string) (errorTypeName: string) (document: Gra
             let allTypes = Dictionary<string, SynModuleDecl>()
             let rootType = generateFields rootQueryName mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
             [
-                if mutation.variables.Length > 0 then yield generateInputVariablesType mutation.variables
+                if mutation.variables.Length > 0 then yield generateInputVariablesType mutation.variables schema
 
                 for typeName in allTypes.Keys do
                     yield allTypes.[typeName]
