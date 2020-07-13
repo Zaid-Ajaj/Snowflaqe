@@ -959,6 +959,42 @@ type Root =
             |  otherResults -> failwithf "Unexpected %A" otherResults
         }
 
+        test "Input variables with required ID can be used properly" {
+            let schema = Introspection.fromSchemaDefinition """
+                type Foo {
+                  id: ID!
+                  name: String!
+                }
+
+                type Query {
+                  foo(id: ID!): Foo
+                  bar(id: ID): Foo
+                }
+            """
+
+            let query = Query.parse """
+                query($id: ID!) {
+                  foo(id: $id) {
+                    id
+                    name
+                  }
+
+                  bar(id: $id) {
+                    id
+                    name
+                  }
+                }
+            """
+
+            match query, schema with
+            | Ok query, Ok schema ->
+                let result = Query.validate query schema
+                Expect.equal result ValidationResult.Success "Should succeed"
+
+            |  otherResults ->
+                failwithf "Unexpected %A" otherResults
+        }
+
         test "Field arguments can be parsed" {
             let query = Query.parse """
                 query ($input: String!) {

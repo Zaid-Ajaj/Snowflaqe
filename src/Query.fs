@@ -326,6 +326,8 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
             | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
             | Some variable ->
                 match variable.variableType with
+                | GraphqlVariableType.Ref "ID" when scalar = GraphqlScalar.ID -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "ID") when scalar = GraphqlScalar.ID -> [ ]
                 | GraphqlVariableType.Ref "String" when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "String") when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
                 | GraphqlVariableType.Ref "Int" when scalar = GraphqlScalar.Int -> [ ]
@@ -388,10 +390,11 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
             | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
             | Some variable ->
                 match variable.variableType with
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "ID") when scalar = GraphqlScalar.ID -> [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "String") when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID ->  [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Int") when scalar = GraphqlScalar.Int -> [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float ->  [ ]
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Boolean") when scalar = GraphqlScalar.Boolean -> [ ]
                 | otherVariableType ->
                     [
                         QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType)
