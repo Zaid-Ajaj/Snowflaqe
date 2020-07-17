@@ -12,7 +12,7 @@ Create a JSON file called `snowflaqe.json` with the following shape:
 ```
 {
     "schema": "<schema>",
-    "queries: "<queries>",
+    "queries": "<queries>",
     "project": "<project>",
     "output": "<output>"
     ["errorType"]: <custom error type>,
