@@ -604,7 +604,11 @@ and generateFields (typeName: string) (description: string option) (selections: 
 
                     let interfaceUnionsInfo : SynComponentInfoRcd = {
                         Access = None
-                        Attributes = [ ]
+                        Attributes = [
+                            SynAttributeList.Create [
+                                SynAttribute.RequireQualifiedAccess()
+                            ]
+                        ]
                         Id = [ Ident.Create typeName ]
                         XmlDoc = PreXmlDoc.Create description
                         Parameters = [ ]

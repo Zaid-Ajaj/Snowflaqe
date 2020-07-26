@@ -9,7 +9,7 @@ open Snowflaqe.Types
 let [<Literal>] githubSchema = TextFile<"./GithubSchema.json">.Text
 
 let queryWithUnion = """
-query {
+query GithubSearch {
   search(query:"Snowflaqe", type:REPOSITORY, first:10) {
     nodes {
       ... on Repository {
@@ -315,7 +315,7 @@ let githubTests = testList "Github tests" [
 
             let name =
                 Query.findOperationName query
-                |> Option.defaultValue "SnowflaqeSearch"
+                |> Option.defaultValue "GithubSearch"
                 |> CodeGen.normalizeName
 
             let generated =
@@ -324,7 +324,7 @@ let githubTests = testList "Github tests" [
                 let file = CodeGen.createFile "Types.fs" [ ns ]
                 CodeGen.formatAst file
 
-            //printfn "%s" generated
+            // printfn "%s" generated
 
             Expect.isNotEmpty generated "The code is generated correctly"
 
