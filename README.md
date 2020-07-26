@@ -1,6 +1,14 @@
 # Snowflaqe [![Build status](https://ci.appveyor.com/api/projects/status/ulq0vfun1ij7ix58?svg=true)](https://ci.appveyor.com/project/Zaid-Ajaj/snowflaqe) [![Nuget](https://img.shields.io/nuget/v/Snowflaqe.svg?colorB=green)](https://www.nuget.org/packages/Snowflaqe)
 
-A dotnet CLI tool to work with GraphQL queries. It allows for static query *verification* and advanced *type checking* against a remote or local schema as well as generating *type-safe* clients for F# and [Fable](https://fable.io/) (more generation targets in the future).
+A dotnet CLI tool for generating type-safe GraphQL clients for F#.
+
+### Features
+ - Static query *analysis*, *verification* and *type checking* against a remote or local GraphQL schema.
+ - Generating idiomatic F# types from GraphQL queries
+ - Generating type-safe [Fable](https://fable.io/) or F# GraphQL client project in a single command. This project can be then referenced by your application and will be ready to go.
+ - Supports GraphQL interfaces and unions
+ - Resolved type name collisions when re-using types in a single query
+ - Exact and automatic JSON deserialization built-in
 
 ## Installation
 Install as a global dotnet CLI tool
@@ -85,5 +93,4 @@ type CustomErrorType = {
 ## Not Supported
 
 There are a couple of features of the GraphQL specs which `snowflaqe` doesn't (yet) know how to work with:
- - [ ] GraphQL Union Types
  - [ ] Subscriptions (non-goal of the tool, maybe in the future)

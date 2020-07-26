@@ -118,6 +118,13 @@ let rec readNode (node: ASTNode) =
         let fragmentSpread = unbox<GraphQLFragmentSpread> node
         Some (GraphqlNode.FragmentSpread fragmentSpread)
 
+    | ASTNodeKind.InlineFragment ->
+        let inlineFragment = unbox<GraphQLInlineFragment> node
+        Some (GraphqlNode.InlineFragment {
+            typeCondition = inlineFragment.TypeCondition.Name.Value
+            selection = readSelections inlineFragment.SelectionSet
+        })
+
     | ASTNodeKind.FragmentDefinition ->
         let fragmentDef = unbox<GraphQLFragmentDefinition> node
         let def : GraphqlFragmentDefinition = {
@@ -207,6 +214,22 @@ let findOperationName (document: GraphqlDocument) =
         | Some (GraphqlNode.Mutation mutation) -> mutation.name
         | _ -> None
 
+
+let rec findInlineFragments (nodes: GraphqlNode list) =
+    nodes
+    |> List.collect (function
+        | GraphqlNode.InlineFragment fragment -> [ fragment ]
+        | GraphqlNode.SelectionSet set -> findInlineFragments set.nodes
+        | GraphqlNode.Query query -> findInlineFragments query.selectionSet.nodes
+        | GraphqlNode.Mutation mutation -> findInlineFragments mutation.selectionSet.nodes
+        | GraphqlNode.Field field ->
+            match field.selectionSet with
+            | None -> [ ]
+            | Some selection -> findInlineFragments selection.nodes
+        | anythingElse ->
+            [ ]
+    )
+
 let rec expandFragments (nodes: GraphqlNode list) (fragments: GraphqlFragmentDefinition list) : GraphqlNode list =
     nodes
     |> List.collect (function
@@ -261,6 +284,8 @@ let expandDocumentFragments (document: GraphqlDocument) : GraphqlDocument =
 let rec fieldCanExpand (field: GraphqlFieldType) =
     match field with
     | GraphqlFieldType.ObjectRef _ -> true
+    | GraphqlFieldType.InterfaceRef _ -> true
+    | GraphqlFieldType.UnionRef _ -> true
     | GraphqlFieldType.EnumRef _ -> false
     | GraphqlFieldType.Scalar _ -> false
     | GraphqlFieldType.InputObjectRef _ -> false
@@ -269,15 +294,9 @@ let rec fieldCanExpand (field: GraphqlFieldType) =
 
 let rec findFieldType (field: GraphqlFieldType) (schema: GraphqlSchema) =
     match field with
-    | GraphqlFieldType.ObjectRef refType ->
-        schema.types
-        |> List.tryFind (function
-            | GraphqlType.Object objectDef -> objectDef.name = refType
-            | _ -> false)
-        |> function
-            | Some (GraphqlType.Object objectDef) -> Some objectDef
-            | _ -> None
-
+    | GraphqlFieldType.ObjectRef refType -> Schema.findTypeByName refType schema
+    | GraphqlFieldType.InterfaceRef refType -> Schema.findTypeByName refType schema
+    | GraphqlFieldType.UnionRef refType -> Schema.findTypeByName refType schema
     | GraphqlFieldType.EnumRef _ -> None
     | GraphqlFieldType.Scalar _ -> None
     | GraphqlFieldType.InputObjectRef _ -> None
@@ -304,6 +323,8 @@ let rec formatFieldArgumentType = function
     | GraphqlFieldType.List fieldType -> sprintf "[%s]" (formatFieldArgumentType fieldType)
     | GraphqlFieldType.InputObjectRef objectName -> objectName
     | GraphqlFieldType.ObjectRef objectName -> objectName
+    | GraphqlFieldType.InterfaceRef interfaceRef -> interfaceRef
+    | GraphqlFieldType.UnionRef unionRef -> unionRef
 
 let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument) (argumentType: GraphqlFieldType) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     match argumentType with
@@ -602,7 +623,89 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
 
     | _ -> [ ]
 
-let rec validateFields (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlObject) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
+let containsTypeName (set: SelectionSet) =
+    set.nodes
+    |> List.choose (function
+        | GraphqlNode.Field field -> Some field.name
+        | _ -> None)
+    |> List.contains "__typename"
+
+let rec validateUnion (parentField: string) (selection: SelectionSet)  (graphqlType: GraphqlUnion) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
+    let fragments = findInlineFragments selection.nodes
+
+    let unknownSubtypeErrors =
+        fragments
+        |> List.filter (fun fragment -> not (List.contains fragment.typeCondition graphqlType.possibleTypes))
+        |> List.map (fun fragment -> QueryError.UnknownSubType(graphqlType.name, fragment.typeCondition, parentField))
+
+    let subTypeErrors =
+        fragments
+        |> List.filter (fun fragment -> List.contains fragment.typeCondition graphqlType.possibleTypes)
+        |> List.collect (fun fragment ->
+            match Schema.findTypeByName fragment.typeCondition schema with
+            | Some (GraphqlType.Object objectDef) ->
+                validateFields parentField fragment.selection objectDef variables schema
+            | Some (GraphqlType.Interface interfaceDef) ->
+                if not (containsTypeName fragment.selection)
+                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
+                else validateInterface parentField fragment.selection interfaceDef variables schema
+            | Some (GraphqlType.Union unionDef) ->
+                if not (containsTypeName fragment.selection)
+                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
+                else validateUnion parentField fragment.selection unionDef variables schema
+            | _ ->
+                [ ]
+        )
+
+    List.append subTypeErrors unknownSubtypeErrors
+
+and validateInterface (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlInterface) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
+    let fragments = findInlineFragments selection.nodes
+
+    // handle interface fields as if it was an object
+    // change the interface into an object definition
+    let graphqlObject = {
+        name = graphqlType.name
+        description = graphqlType.description
+        fields = graphqlType.fields
+    }
+
+    let baseFieldErrors = validateFields parentField selection graphqlObject variables schema
+
+    let unknownSubtypeErrors =
+        fragments
+        |> List.filter (fun fragment -> not (List.contains fragment.typeCondition graphqlType.possibleTypes))
+        |> List.map (fun fragment -> QueryError.UnknownSubType(graphqlType.name, fragment.typeCondition, parentField))
+
+    let subTypeErrors =
+        fragments
+        |> List.filter (fun fragment -> List.contains fragment.typeCondition graphqlType.possibleTypes)
+        |> List.collect (fun fragment ->
+            match Schema.findTypeByName fragment.typeCondition schema with
+            | Some (GraphqlType.Object objectDef) ->
+                if not (containsTypeName fragment.selection)
+                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
+                else validateFields parentField fragment.selection objectDef variables schema
+            | Some (GraphqlType.Interface interfaceDef) ->
+                if not (containsTypeName fragment.selection)
+                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
+                else validateInterface parentField fragment.selection interfaceDef variables schema
+            | Some (GraphqlType.Union unionDef) ->
+                if not (containsTypeName fragment.selection)
+                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
+                else validateUnion parentField fragment.selection unionDef variables schema
+            | _ ->
+                [ ]
+        )
+
+    let allErrors =
+        baseFieldErrors
+        |> List.append unknownSubtypeErrors
+        |> List.append subTypeErrors
+
+    allErrors
+
+and validateFields (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlObject) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     let fields = selection.nodes |> List.choose (function | GraphqlNode.Field field -> Some field | _ -> None)
     let unknownFields =
         fields
@@ -629,8 +732,14 @@ let rec validateFields (parentField: string) (selection: SelectionSet) (graphqlT
                             | Some selection ->
                                 match findFieldType graphqlField.fieldType schema with
                                 | None -> [ ]
-                                | Some possibleExpansion -> validateFields selectedField.name selection possibleExpansion variables schema
-
+                                | Some (GraphqlType.Object possibleExpansion) ->
+                                    validateFields selectedField.name selection possibleExpansion variables schema
+                                | Some (GraphqlType.Interface interfaceExpansion) ->
+                                    validateInterface selectedField.name selection interfaceExpansion variables schema
+                                | Some (GraphqlType.Union unionExpansion) ->
+                                    validateUnion selectedField.name selection unionExpansion variables schema
+                                | _ ->
+                                    [ ]
                             | _ ->
                                 [ ]
 

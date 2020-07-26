@@ -35,6 +35,8 @@ type GraphqlFieldType =
     | ObjectRef of referencedObject:string
     | InputObjectRef of referencedObject:string
     | EnumRef of referencedEnum:string
+    | InterfaceRef of referencedInterface:string
+    | UnionRef of referencedUnion:string
     | NonNull of GraphqlFieldType
     | List of GraphqlFieldType
 
@@ -75,12 +77,27 @@ type GraphqlObject = {
     fields : GraphqlField  list
 }
 
+type GraphqlInterface = {
+    name: string
+    description: string option
+    fields : GraphqlField  list
+    possibleTypes: string list
+}
+
+type GraphqlUnion = {
+    name: string
+    description: string option
+    possibleTypes: string list
+}
+
 [<RequireQualifiedAccess>]
 type GraphqlType =
     | Scalar of GraphqlScalar
     | Object of GraphqlObject
     | InputObject of GraphqlInputObject
     | Enum of GraphqlEnum
+    | Interface of GraphqlInterface
+    | Union of GraphqlUnion
 
 type GraphqlSchema = {
     types : GraphqlType list
@@ -127,6 +144,11 @@ type GraphqlFragmentDefinition = {
     location : GraphQLLocation
 }
 
+type GraphqlInlineFragment = {
+    typeCondition: string
+    selection: SelectionSet
+}
+
 [<RequireQualifiedAccess>]
 type GraphqlNode =
     | Name of GraphQLName * GraphQLLocation
@@ -134,6 +156,7 @@ type GraphqlNode =
     | SelectionSet of SelectionSet
     | FragmentSpread of GraphQLFragmentSpread
     | FragmentDefinition of GraphqlFragmentDefinition
+    | InlineFragment of GraphqlInlineFragment
     | Query of GraphqlQuery
     | Mutation of GraphqlMutation
 
@@ -175,6 +198,9 @@ type QueryError =
     | UnknownEnumCase of fieldName:string * argumentName:string * argumentType:string * enumCase:string
     | UnknownInputObjectField of inputObjectName:string * unknownFieldName:string
     | MissingRequiredFieldFromInputObject of inputObjectName:string * objectType:string * requiredFieldName:string
+    | UnknownSubType of interfaceName:string * subTypeName: string * parentField: string
+    | MissingTypeNameOnInterface of interfaceName:string * parentField:string
+    | MissingTypeNameField of interfaceName:string * subTypeName: string * parentField: string
 
 [<RequireQualifiedAccess>]
 type ValidationResult =

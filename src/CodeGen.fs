@@ -11,6 +11,7 @@ open FSharp.Compiler.XmlDoc
 open FSharp.Compiler.Range
 open System.Collections.Generic
 open Newtonsoft.Json.Linq
+open GraphQLParser.AST
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -219,6 +220,12 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
     | GraphqlFieldType.NonNull(GraphqlFieldType.ObjectRef objectRef) ->
         SynType.Create (Option.defaultValue objectRef name)
 
+    | GraphqlFieldType.NonNull(GraphqlFieldType.InterfaceRef interfaceRef) ->
+        SynType.Create (Option.defaultValue interfaceRef name)
+
+    | GraphqlFieldType.NonNull(GraphqlFieldType.UnionRef unionRef) ->
+        SynType.Create (Option.defaultValue unionRef name)
+
     | GraphqlFieldType.Scalar scalar ->
         let innerFSharpType =
             match scalar with
@@ -248,6 +255,12 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
 
     | GraphqlFieldType.ObjectRef objectRef ->
         SynType.Option(SynType.Create (Option.defaultValue objectRef name))
+
+    | GraphqlFieldType.InterfaceRef interfaceRef ->
+        SynType.Option(SynType.Create (Option.defaultValue interfaceRef name))
+
+    | GraphqlFieldType.UnionRef unionRef ->
+        SynType.Option(SynType.Create (Option.defaultValue unionRef name))
 
     | GraphqlFieldType.NonNull(inner) ->
         createFSharpType name inner
@@ -341,6 +354,8 @@ let rec extractTypeName = function
         | GraphqlScalar.Custom custom -> custom
 
     | GraphqlFieldType.ObjectRef objectRef -> objectRef
+    | GraphqlFieldType.InterfaceRef interfaceRef -> interfaceRef
+    | GraphqlFieldType.UnionRef unionRef -> unionRef
     | GraphqlFieldType.EnumRef enumRef -> enumRef
     | GraphqlFieldType.InputObjectRef objectRef -> objectRef
 
@@ -350,7 +365,13 @@ let rec extractTypeName = function
     | GraphqlFieldType.List fieldType ->
         extractTypeName fieldType
 
-let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
+let rec generateTypeFromUnion (typeName: string) (description: string option) (selections: SelectionSet) (graphqlType: GraphqlUnion) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>) =
+    [ ]
+
+and generateTypeFromInterface (typeName: string) (description: string option) (selections: SelectionSet) (graphqlType: GraphqlInterface) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>) =
+    [ ]
+
+and generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [ ]
@@ -379,31 +400,226 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                 ()
             | Some fieldInfo when Query.fieldCanExpand fieldInfo.fieldType ->
                 let fieldName = field.alias |> Option.defaultValue field.name
-                let objectName = extractTypeName fieldInfo.fieldType
-                let nestedFieldType =
-                    schema.types
-                    |> List.tryPick (function
-                        | GraphqlType.Object objectDef when objectDef.name = objectName -> Some objectDef
-                        | _ -> None)
+                let fieldTypeName = extractTypeName fieldInfo.fieldType
+                let nestedFieldType = Schema.findTypeByName fieldTypeName schema
+
                 match nestedFieldType, field.selectionSet with
-                | Some objectDef, Some nestedSelectionSet ->
+                | Some (GraphqlType.Object objectDef), Some nestedSelectionSet ->
                     let nestedFields =
                         nestedSelectionSet.nodes
                         |> List.choose (function
                             | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
                             | _ -> None)
 
-                    let typeName = findNextTypeName fieldName objectName nestedFields visitedTypes
+                    let typeName = findNextTypeName fieldName fieldTypeName nestedFields visitedTypes
 
                     visitedTypes.Add(typeName)
                     let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
                     types.Add(typeName, nestedType)
                     let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
                     { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+
+                | Some (GraphqlType.Interface interfaceDef), Some nestedSelectionSet ->
+                    let inlineFragments = Query.findInlineFragments nestedSelectionSet.nodes
+                    let interfaceFields =
+                        nestedSelectionSet.nodes
+                        |> List.choose (function
+                            | GraphqlNode.Field field -> field.alias |> Option.defaultValue field.name |> Some
+                            | _ -> None)
+
+                    match inlineFragments, interfaceFields with
+                    | [ ], nestedFields ->
+                        // no inline fragments means to treat the interface def like another object def
+                        let typeName = findNextTypeName fieldName fieldTypeName nestedFields visitedTypes
+                        // do as if the interface was an object
+                        let objectTypeDef = {
+                            name = interfaceDef.name
+                            description = interfaceDef.description
+                            fields = interfaceDef.fields
+                        }
+
+                        visitedTypes.Add(typeName)
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectTypeDef schema visitedTypes types
+                        types.Add(typeName, nestedType)
+                        let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
+                        { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+
+                    // There were inline fragments without selection fields
+                    // Create a discriminated union from it
+                    | fragments, [ ] ->
+                        let interfaceTypeName = fieldTypeName
+                        let typeName = findNextTypeName fieldName interfaceTypeName [ ] visitedTypes
+                        visitedTypes.Add(typeName)
+                        let localUnionCases = Dictionary<string, string>()
+                        for fragment in fragments do
+                            match Schema.findTypeByName fragment.typeCondition schema with
+                            | Some (GraphqlType.Object objectDef) ->
+                                let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
+                                visitedTypes.Add caseName
+                                let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types
+                                types.Add(caseName, nestedType)
+                                localUnionCases.Add(fragment.typeCondition, caseName)
+
+                            | _ ->
+                                ()
+
+                        let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
+                            for pair in localUnionCases  ->
+                                let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                                SynUnionCaseRcd.Create(Ident.Create pair.Key, unionCaseType)
+                        ]
+
+                        let interfaceUnionsInfo : SynComponentInfoRcd = {
+                            Access = None
+                            Attributes = [
+                                SynAttributeList.Create [
+                                    SynAttribute.RequireQualifiedAccess()
+                                ]
+                            ]
+                            Id = [ Ident.Create typeName ]
+                            XmlDoc = PreXmlDoc.Create description
+                            Parameters = [ ]
+                            Constraints = [ ]
+                            PreferPostfix = false
+                            Range = range0
+                        }
+
+                        let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
+                        let unionType = SynModuleDecl.CreateSimpleType(interfaceUnionsInfo, simpleType)
+
+                        types.Add(typeName, unionType)
+
+                        let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
+                        { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+
+                    // There were inline fragments AND selection fields
+                    // Create a discriminated union from it including an extra case for the base fields
+                    // all unions have the common base fields as well
+                    | fragments, fields ->
+                        let interfaceTypeName = interfaceDef.name
+
+                        let interfaceFields =
+                            nestedSelectionSet.nodes
+                            |> List.choose (function
+                                | GraphqlNode.Field field -> Some field
+                                | _ -> None)
+
+                        let modifiedFragments = [
+                            for fragment in fragments ->
+                                let modifiedSelection =
+                                    { fragment.selection
+                                        with nodes = fragment.selection.nodes
+                                                     |> List.append [ for field in interfaceFields -> GraphqlNode.Field field ]
+                                                     |> List.distinctBy (function
+                                                        | GraphqlNode.Field field -> field.name
+                                                        | _ -> Guid.NewGuid().ToString()) }
+
+                                { fragment with selection = modifiedSelection }
+                        ]
+
+                        let typeName = findNextTypeName fieldName interfaceTypeName [ ] visitedTypes
+                        visitedTypes.Add(typeName)
+                        let localUnionCases = Dictionary<string, string>()
+                        for fragment in modifiedFragments do
+                            match Schema.findTypeByName fragment.typeCondition schema with
+                            | Some (GraphqlType.Object objectDef) ->
+                                let caseName = findNextTypeName fieldName fragment.typeCondition fields visitedTypes
+                                visitedTypes.Add caseName
+                                let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types
+                                types.Add(caseName, nestedType)
+                                localUnionCases.Add(fragment.typeCondition, caseName)
+
+                            | Some (GraphqlType.Interface interfaceDef) ->
+                                let objectDef = {
+                                    name = interfaceDef.name
+                                    description = interfaceDef.description
+                                    fields = interfaceDef.fields
+                                }
+
+                                let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
+                                visitedTypes.Add caseName
+                                let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
+                                types.Add(caseName, nestedType)
+                                localUnionCases.Add(interfaceDef.name, caseName)
+                            | _ ->
+                                ()
+
+                        let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
+                            for pair in localUnionCases  ->
+                                let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                                SynUnionCaseRcd.Create(Ident.Create pair.Key, unionCaseType)
+                        ]
+
+                        let interfaceUnionsInfo : SynComponentInfoRcd = {
+                            Access = None
+                            Attributes = [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess() ] ]
+                            Id = [ Ident.Create typeName ]
+                            XmlDoc = PreXmlDoc.Create description
+                            Parameters = [ ]
+                            Constraints = [ ]
+                            PreferPostfix = false
+                            Range = range0
+                        }
+
+                        let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
+                        let unionType = SynModuleDecl.CreateSimpleType(interfaceUnionsInfo, simpleType)
+
+                        types.Add(typeName, unionType)
+
+                        let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
+                        { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+
+                | Some (GraphqlType.Union unionDef), Some nestedSelectionSet ->
+                    let fragments = Query.findInlineFragments nestedSelectionSet.nodes
+                    let typeName = findNextTypeName fieldName unionDef.name [ ] visitedTypes
+                    visitedTypes.Add(typeName)
+                    let localUnionCases = Dictionary<string, string>()
+                    for fragment in fragments do
+                        match Schema.findTypeByName fragment.typeCondition schema with
+                        | Some (GraphqlType.Object objectDef) ->
+                            let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
+                            visitedTypes.Add caseName
+                            let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types
+                            types.Add(caseName, nestedType)
+                            localUnionCases.Add(fragment.typeCondition, caseName)
+
+                        | _ ->
+                            ()
+
+                    let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
+                        for pair in localUnionCases  ->
+                            let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                            SynUnionCaseRcd.Create(Ident.Create pair.Key, unionCaseType)
+                    ]
+
+                    let interfaceUnionsInfo : SynComponentInfoRcd = {
+                        Access = None
+                        Attributes = [
+                            SynAttributeList.Create [
+                                SynAttribute.RequireQualifiedAccess()
+                            ]
+                        ]
+                        Id = [ Ident.Create typeName ]
+                        XmlDoc = PreXmlDoc.Create description
+                        Parameters = [ ]
+                        Constraints = [ ]
+                        PreferPostfix = false
+                        Range = range0
+                    }
+
+                    let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
+                    let unionType = SynModuleDecl.CreateSimpleType(interfaceUnionsInfo, simpleType)
+
+                    types.Add(typeName, unionType)
+
+                    let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
+                    { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+
                 | _ ->
                     ()
 
             | Some fieldInfo ->
+                // a field that cannot expand which means it was a scalar
                 let fieldName = field.alias |> Option.defaultValue field.name
                 let recordFieldType = createFSharpType None fieldInfo.fieldType
                 let recordField = SynFieldRcd.Create(fieldName, recordFieldType)
@@ -645,7 +861,7 @@ let sampleFableProject files =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.9.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.10.0" />
     </ItemGroup>
 </Project>
 """   files
@@ -661,7 +877,7 @@ let sampleFSharpProject files =
     </ItemGroup>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0"/>
-        <PackageReference Include="Fable.Remoting.Json" Version="2.7.0" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.9.0" />
     </ItemGroup>
 </Project>
 """  files
@@ -692,7 +908,7 @@ let sampleSharedFSharpProject project =
     </ItemGroup>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
-        <PackageReference Include="Fable.Remoting.Json" Version="2.7.0" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.9.0" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
@@ -713,7 +929,7 @@ let sampleSharedFableProject project =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.9.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.10.0" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>

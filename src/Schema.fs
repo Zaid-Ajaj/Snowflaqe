@@ -58,6 +58,29 @@ let (|InputObjectRef|_|) (typeJson: JToken) =
     | _ ->
         None
 
+let (|InterfaceRef|_|) (typeJson: JToken) =
+    match typeJson.["kind"].ToString() with
+    | "INTERFACE" ->
+        let typeName = typeJson.["name"].ToString()
+        Some typeName
+    | _ ->
+        None
+
+let (|UnionRef|_|) (typeJson: JToken) =
+    match typeJson.["kind"].ToString() with
+    | "UNION" ->
+        let typeName = typeJson.["name"].ToString()
+        Some typeName
+    | _ ->
+        None
+
+let typeNameField = {
+    fieldName = "__typename"
+    fieldType = GraphqlFieldType.NonNull(GraphqlFieldType.Scalar (GraphqlScalar.String))
+    description = Some "The name of the type"
+    args = [ ]
+}
+
 let (|EnumRef|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
     | "ENUM"  ->
@@ -82,6 +105,8 @@ let rec tryParseFieldType (fieldJson: JToken)  =
     | ObjectRef referencedObject -> Some (GraphqlFieldType.ObjectRef referencedObject)
     | InputObjectRef referencedObject -> Some (GraphqlFieldType.InputObjectRef referencedObject)
     | EnumRef enumRef -> Some (GraphqlFieldType.EnumRef enumRef)
+    | InterfaceRef interfaceRef -> Some (GraphqlFieldType.InterfaceRef interfaceRef)
+    | UnionRef unionRef -> Some (GraphqlFieldType.UnionRef unionRef)
     | NonNull innerType ->
         match tryParseFieldType innerType with
         | Some field -> Some (GraphqlFieldType.NonNull field)
@@ -129,9 +154,78 @@ let (|Object|_|)  (typeJson: JToken) =
         Some {
             name = name
             description = description
-            fields = graphqlFields
+            fields = graphqlFields @ [typeNameField]
         }
 
+    | _ ->
+        None
+
+let (|Interface|_|)  (typeJson: JToken) =
+    match typeJson.["kind"].ToString() with
+    | "INTERFACE" ->
+        let name = typeJson.["name"].ToString()
+        let description = stringOrNone typeJson "description" |> normalizeComment
+        let fields = unbox<JArray> typeJson.["fields"]
+        let graphqlFields =
+            fields
+            |> List.ofSeq
+            |> List.choose (fun field ->
+                let fieldName = field.["name"].ToString()
+                let fieldDescription = stringOrNone field "description" |> normalizeComment
+                let parsedFieldType = tryParseFieldType field.["type"]
+                let args = List.choose id [
+                    for arg in unbox<JArray> field.["args"] do
+                        let argName = arg.["name"].ToString()
+                        match tryParseFieldType arg.["type"] with
+                        | Some argType -> Some (argName, argType)
+                        | None -> None
+                ]
+
+
+                match parsedFieldType with
+                | Some fieldType ->
+                    Some  {
+                        fieldName = fieldName;
+                        fieldType = fieldType;
+                        description = fieldDescription;
+                        args = args
+                    }
+                | None -> None
+            )
+
+        let possibleTypes =
+            if isNull typeJson.["possibleTypes"] then
+                [ ]
+            else
+                [ for possibleType in unbox<JArray> typeJson.["possibleTypes"] do
+                    yield possibleType.["name"].ToString() ]
+        Some {
+            name = name
+            description = description
+            fields = graphqlFields @ [typeNameField]
+            possibleTypes = possibleTypes
+        }
+
+    | _ ->
+        None
+
+let (|Union|_|) (typeJson: JToken) =
+    match typeJson.["kind"].ToString() with
+    | "UNION" ->
+        let name = typeJson.["name"].ToString()
+        let description = stringOrNone typeJson "description" |> normalizeComment
+        let possibleTypes =
+            if isNull typeJson.["possibleTypes"] then
+                [ ]
+            else
+                [ for possibleType in unbox<JArray> typeJson.["possibleTypes"] do
+                    yield possibleType.["name"].ToString() ]
+
+        Some {
+            name = name
+            description = description
+            possibleTypes = possibleTypes
+        }
     | _ ->
         None
 
@@ -177,8 +271,10 @@ let parse (content: string) =
                 match typeJson with
                 | Scalar scalar -> Some (GraphqlType.Scalar scalar)
                 | Object object -> Some (GraphqlType.Object object)
-                | InputObject object -> Some (GraphqlType.InputObject object)
-                | Enum enum -> Some (GraphqlType.Enum enum)
+                | InputObject objectDef -> Some (GraphqlType.InputObject objectDef)
+                | Enum enumDef -> Some (GraphqlType.Enum enumDef)
+                | Interface interfaceDef -> Some (GraphqlType.Interface interfaceDef)
+                | Union unionDef -> Some (GraphqlType.Union unionDef)
                 | _ -> None
         ]
 
@@ -207,6 +303,8 @@ let findTypeByName (name: string) (schema: GraphqlSchema) =
         | GraphqlType.Enum enumDef -> enumDef.name = name
         | GraphqlType.Object objectDef -> objectDef.name = name
         | GraphqlType.InputObject objectDef -> objectDef.name = name
+        | GraphqlType.Interface interfaceDef -> interfaceDef.name = name
+        | GraphqlType.Union unionDef -> unionDef.name = name
         | GraphqlType.Scalar scalar -> false)
 
 let findQuery (schema: GraphqlSchema) =
