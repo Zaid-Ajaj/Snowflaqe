@@ -496,17 +496,7 @@ and generateFields (typeName: string) (description: string option) (selections: 
                     // Create a discriminated union from it including an extra case for the base fields
                     // all unions have the common base fields as well
                     | fragments, fields ->
-                        let interfaceTypeName = sprintf "%sInterface" interfaceDef.name
-                        let extraBaseInterfaceFragment = {
-                            typeCondition = interfaceDef.name
-                            selection = {
-                                location = GraphQLLocation()
-                                nodes = nestedSelectionSet.nodes
-                                        |> List.choose (function
-                                            | GraphqlNode.Field field -> Some (GraphqlNode.Field field)
-                                            | _ -> None)
-                            }
-                        }
+                        let interfaceTypeName = interfaceDef.name
 
                         let interfaceFields =
                             nestedSelectionSet.nodes
@@ -514,7 +504,7 @@ and generateFields (typeName: string) (description: string option) (selections: 
                                 | GraphqlNode.Field field -> Some field
                                 | _ -> None)
 
-                        let modifiedFragments = [ extraBaseInterfaceFragment ] @ [
+                        let modifiedFragments = [
                             for fragment in fragments ->
                                 let modifiedSelection =
                                     { fragment.selection

@@ -662,11 +662,6 @@ let rec validateUnion (parentField: string) (selection: SelectionSet)  (graphqlT
 and validateInterface (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlInterface) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     let fragments = findInlineFragments selection.nodes
 
-    let missingTypeNameError =
-        if not (containsTypeName selection) && not (List.isEmpty fragments)
-        then [ QueryError.MissingTypeNameOnInterface(graphqlType.name, parentField) ]
-        else [ ]
-
     // handle interface fields as if it was an object
     // change the interface into an object definition
     let graphqlObject = {
@@ -704,8 +699,7 @@ and validateInterface (parentField: string) (selection: SelectionSet) (graphqlTy
         )
 
     let allErrors =
-        missingTypeNameError
-        |> List.append baseFieldErrors
+        baseFieldErrors
         |> List.append unknownSubtypeErrors
         |> List.append subTypeErrors
 

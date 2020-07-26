@@ -58,7 +58,6 @@ query GetPullRequests($org: String!) {
             reviews(last: 10, states: APPROVED) {
               nodes {
                 author {
-                  __typename
                   avatarUrl
                   login
                   ... on Bot {
@@ -149,7 +148,6 @@ let githubTests = testList "Github tests" [
                         reviews(last: 10, states: APPROVED) {
                           nodes {
                             author {
-                              __typename
                               avatarUrl
                               login
                             }
@@ -197,7 +195,6 @@ let githubTests = testList "Github tests" [
                         reviews(last: 10, states: APPROVED) {
                           nodes {
                             author {
-                              __typename
                               avatarUrl
                               login
                               ... on WeirdSubType {
@@ -250,7 +247,6 @@ let githubTests = testList "Github tests" [
                         reviews(last: 10, states: APPROVED) {
                           nodes {
                             author {
-                              __typename
                               avatarUrl
                               login
                               ... on User {
@@ -298,7 +294,7 @@ let githubTests = testList "Github tests" [
                 let file = CodeGen.createFile "Types.fs" [ ns ]
                 CodeGen.formatAst file
 
-            //printfn "%s" generated
+            // printfn "%s" generated
 
             Expect.isNotEmpty generated "The code is generated correctly"
 
