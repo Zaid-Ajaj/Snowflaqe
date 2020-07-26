@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Utilities.fs" />
     <Compile Include="SampleHasuraSchema.fs" />
+    <Compile Include="SampleGithubSchema.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

@@ -163,6 +163,12 @@ let validateAndPrint (queryFile: string) (document: GraphqlDocument) (schema: Gr
                 colorprintfn "   Field $blue[%s] references a variable $yellow[%s] in argument $blue[%s] that was not declared" fieldName variableName argumentName
             | QueryError.MissingRequiredFieldFromInputObject(inputObjectName, inputObjectType, requiredFieldName) ->
                 colorprintfn "   Input object $blue[%s] of type $green[%s] is missing required field $yellow[%s]" inputObjectName inputObjectType requiredFieldName
+            | QueryError.UnknownSubType(interfaceOrUnion, subType, parentField) ->
+                colorprintfn "   Unknown subtype or union case $yellow[%s] was used as field of $blue[%s] of type $green[%s]" subType parentField interfaceOrUnion
+            | QueryError.MissingTypeNameField(interfaceOrUnion, subType, parentField) ->
+                colorprintfn "   Missing required $yellow[__typename] on sub type $blue[%s] of type $green[%s] selected on field $green[%s]" subType interfaceOrUnion parentField
+            | QueryError.MissingTypeNameOnInterface(interfaceName, parentField) ->
+                colorprintfn "   Missing required $yellow[__typename] on interface $green[%s] from selection $blue[%s]" interfaceName parentField
         false
 
 let runConfig (config: Config) =

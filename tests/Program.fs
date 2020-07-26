@@ -103,7 +103,6 @@ let queryParsing =
                 match Schema.findQuery schema with
                 | Some queryType ->
                     Expect.equal "Query" queryType.name "Query can queries"
-                    Expect.equal 1 queryType.fields.Length "Query only has one field"
                     Expect.equal "hello" queryType.fields.[0].fieldName "Field name is read correctly"
                     Expect.isEmpty queryType.fields.[0].args "Field has no arguments"
                     Expect.equal (GraphqlFieldType.Scalar(GraphqlScalar.String)) queryType.fields.[0].fieldType "Field type is correct"
@@ -1022,6 +1021,7 @@ type Root =
 let snowflakeTests = testList "Snowflaqe" [
     queryParsing
     SampleHasuraSchema.hasuraTests
+    SampleGithubSchema.githubTests
 ]
 
 [<EntryPoint>]
