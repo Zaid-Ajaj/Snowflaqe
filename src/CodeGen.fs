@@ -998,14 +998,24 @@ let sampleFSharpClientMember query queryName hasVariables =
                 |> Async.AwaitTask
 
             let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
+            let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
 
             match response.IsSuccessStatusCode with
             | true ->
-                let response = JsonConvert.DeserializeObject<GraphqlSuccessResponse<%s.Query>>(responseContent, [| converter |])
-                return Ok response.data
+                let errorsReturned =
+                    responseJson.ContainsKey "errors"
+                    && responseJson.["errors"].Type = JTokenType.Array
+                    && responseJson.["errors"].HasValues
+
+                if errorsReturned then
+                    let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                    return Error response.errors
+                else
+                    let response = responseJson.ToObject<GraphqlSuccessResponse<%s.Query>>(JsonSerializer.Create(settings))
+                    return Ok response.data
 
             | errorStatus ->
-                let response = JsonConvert.DeserializeObject<GraphqlErrorResponse>(responseContent, [| converter |])
+                let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
                 return Error response.errors
         }
 
@@ -1042,6 +1052,7 @@ let sampleFSharpGraphqlClient projectName errorType members =
 
 open Fable.Remoting.Json
 open Newtonsoft.Json
+open Newtonsoft.Json.Linq
 open System.Net.Http
 open System.Text
 
@@ -1051,6 +1062,7 @@ type GraphqlErrorResponse = { errors: %s list }
 
 type %sGraphqlClient(url: string, httpClient: HttpClient) =
     let converter = FableJsonConverter() :> JsonConverter
+    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| converter |])
 
     new(url: string) = %sGraphqlClient(url, new HttpClient())
 

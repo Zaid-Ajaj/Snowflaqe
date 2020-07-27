@@ -7,7 +7,7 @@ A dotnet CLI tool for generating type-safe GraphQL clients for F#.
  - Generating idiomatic F# types from GraphQL queries
  - Generating type-safe [Fable](https://fable.io/) or F# GraphQL client project in a single command. This project can be then referenced by your application and will be ready to go.
  - Supports GraphQL interfaces and unions
- - Resolved type name collisions when re-using types in a single query
+ - Resolves type name collisions when re-using types in a single query
  - Exact and automatic JSON deserialization built-in
 
 ## Installation
