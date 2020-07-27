@@ -1,0 +1,7 @@
+{
+    "schema": "../tests/GithubSchema.json",
+    "queries": "./queries",
+    "project": "Github",
+    "output": "./output",
+    "target": "fsharp"
+}

@@ -71,6 +71,12 @@ let integration() =
                     ]
 
                     if output <> 0 then failwith "Building generated shared projects failed"
+                    else
+                        if Shell.Exec(Tools.dotnet, "run -- --config ../samples/snowflaqe-github.json --generate", path [ solutionRoot; "src" ]) <> 0
+                        then failwith "Failed to generate Github client"
+                        elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "output" ]) <> 0
+                        then failwith "Failed to build the generated Github project"
+
 
 [<EntryPoint>]
 let main (args: string[]) =

@@ -538,7 +538,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             | Some (GraphqlType.Object objectDef) ->
                                 let caseName = findNextTypeName fieldName fragment.typeCondition fields visitedTypes
                                 visitedTypes.Add caseName
-                                let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types
+                                let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
                                 types.Add(caseName, nestedType)
                                 localUnionCases.Add(fragment.typeCondition, caseName)
 
@@ -549,7 +549,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                                     fields = interfaceDef.fields
                                 }
 
-                                let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
+                                let caseName = findNextTypeName fieldName fragment.typeCondition fields visitedTypes
                                 visitedTypes.Add caseName
                                 let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
                                 types.Add(caseName, nestedType)
@@ -592,7 +592,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                         | Some (GraphqlType.Object objectDef) ->
                             let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
                             visitedTypes.Add caseName
-                            let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types
+                            let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
                             types.Add(caseName, nestedType)
                             localUnionCases.Add(fragment.typeCondition, caseName)
 
