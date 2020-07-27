@@ -646,9 +646,7 @@ let rec validateUnion (parentField: string) (selection: SelectionSet)  (graphqlT
             | Some (GraphqlType.Object objectDef) ->
                 validateFields parentField fragment.selection objectDef variables schema
             | Some (GraphqlType.Interface interfaceDef) ->
-                if not (containsTypeName fragment.selection)
-                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
-                else validateInterface parentField fragment.selection interfaceDef variables schema
+                validateInterface parentField fragment.selection interfaceDef variables schema
             | Some (GraphqlType.Union unionDef) ->
                 if not (containsTypeName fragment.selection)
                 then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
@@ -657,7 +655,8 @@ let rec validateUnion (parentField: string) (selection: SelectionSet)  (graphqlT
                 [ ]
         )
 
-    List.append subTypeErrors unknownSubtypeErrors
+    subTypeErrors
+    |> List.append unknownSubtypeErrors
 
 and validateInterface (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlInterface) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     let fragments = findInlineFragments selection.nodes
@@ -669,6 +668,11 @@ and validateInterface (parentField: string) (selection: SelectionSet) (graphqlTy
         description = graphqlType.description
         fields = graphqlType.fields
     }
+
+    let missingTypeNameErrors =
+        if not (containsTypeName selection) && not (List.isEmpty fragments)
+        then [ QueryError.MissingTypeNameOnInterface(graphqlType.name, parentField) ]
+        else [ ]
 
     let baseFieldErrors = validateFields parentField selection graphqlObject variables schema
 
@@ -687,9 +691,7 @@ and validateInterface (parentField: string) (selection: SelectionSet) (graphqlTy
                 then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
                 else validateFields parentField fragment.selection objectDef variables schema
             | Some (GraphqlType.Interface interfaceDef) ->
-                if not (containsTypeName fragment.selection)
-                then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
-                else validateInterface parentField fragment.selection interfaceDef variables schema
+                validateInterface parentField fragment.selection interfaceDef variables schema
             | Some (GraphqlType.Union unionDef) ->
                 if not (containsTypeName fragment.selection)
                 then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
@@ -699,7 +701,8 @@ and validateInterface (parentField: string) (selection: SelectionSet) (graphqlTy
         )
 
     let allErrors =
-        baseFieldErrors
+        missingTypeNameErrors
+        |> List.append baseFieldErrors
         |> List.append unknownSubtypeErrors
         |> List.append subTypeErrors
 

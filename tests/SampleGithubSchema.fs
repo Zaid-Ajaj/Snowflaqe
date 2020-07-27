@@ -58,6 +58,7 @@ query GetPullRequests($org: String!) {
             reviews(last: 10, states: APPROVED) {
               nodes {
                 author {
+                  __typename
                   avatarUrl
                   login
                   ... on Bot {
@@ -195,6 +196,7 @@ let githubTests = testList "Github tests" [
                         reviews(last: 10, states: APPROVED) {
                           nodes {
                             author {
+                              __typename
                               avatarUrl
                               login
                               ... on WeirdSubType {
@@ -247,6 +249,7 @@ let githubTests = testList "Github tests" [
                         reviews(last: 10, states: APPROVED) {
                           nodes {
                             author {
+                              __typename
                               avatarUrl
                               login
                               ... on User {
