@@ -201,6 +201,7 @@ type QueryError =
     | UnknownSubType of interfaceName:string * subTypeName: string * parentField: string
     | MissingTypeNameOnInterface of interfaceName:string * parentField:string
     | MissingTypeNameField of interfaceName:string * subTypeName: string * parentField: string
+    | InvalidInlineFragment of objectType:string * fragmentName:string * parentField: string
 
 [<RequireQualifiedAccess>]
 type ValidationResult =

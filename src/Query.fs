@@ -709,7 +709,23 @@ and validateInterface (parentField: string) (selection: SelectionSet) (graphqlTy
     allErrors
 
 and validateFields (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlObject) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
-    let fields = selection.nodes |> List.choose (function | GraphqlNode.Field field -> Some field | _ -> None)
+    let fields =
+        selection.nodes
+        |> List.choose (function
+            | GraphqlNode.Field field -> Some field
+            | _ -> None)
+
+    let invalidInlineFragments =
+        match Schema.findTypeByName graphqlType.name schema with
+        | Some (GraphqlType.Object objectDef) ->
+            // only when the input is an actual Object, validate the inline fragments
+            selection.nodes
+            |> List.choose (function
+                | GraphqlNode.InlineFragment fragment -> Some fragment
+                | _ -> None)
+        | _ ->
+            [ ]
+
     let unknownFields =
         fields
         |> List.filter (fun field ->
@@ -718,6 +734,9 @@ and validateFields (parentField: string) (selection: SelectionSet) (graphqlType:
             | Some field -> false)
 
     [
+        for fragment in invalidInlineFragments
+            do yield QueryError.InvalidInlineFragment(graphqlType.name, fragment.typeCondition, parentField)
+
         for field in unknownFields
             do yield QueryError.UnknownField (field.name, parentField, graphqlType.name)
 

@@ -222,6 +222,51 @@ let githubTests = testList "Github tests" [
             failwith "Unexpected"
     }
 
+    test "Detect invalid inline fragments on fields" {
+      let queryWithInvalidFragment = """
+        query GetPullRequests($org: String!) {
+          organization(login: $org) {
+            name
+            url
+            repositories(first: 100) {
+              nodes {
+                name
+                pullRequests(first: 100, states: OPEN) {
+                  nodes {
+                    number
+                    title
+                    url
+                    body
+                    author {
+                      login
+                    }
+                    reviews(last: 10, states: APPROVED) {
+                      nodes {
+                        author {
+                          login
+                        }
+                        ... on User {
+                          __typename
+                          bio
+                          id
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      """
+
+      match Query.parse queryWithInvalidFragment, Schema.parse githubSchema with
+        | Ok query, Ok schema ->
+            let result = Query.validate query schema
+            Expect.equal (ValidationResult.QueryErrors [QueryError.InvalidInlineFragment("PullRequestReview", "User", "nodes")]) result "Validation should succeed"
+        | _ ->
+            failwith "Unexpected"
+    }
 
     test "Unknown fields on subtypes can be detected" {
         let simplifiedValidQuery = """

@@ -365,13 +365,7 @@ let rec extractTypeName = function
     | GraphqlFieldType.List fieldType ->
         extractTypeName fieldType
 
-let rec generateTypeFromUnion (typeName: string) (description: string option) (selections: SelectionSet) (graphqlType: GraphqlUnion) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>) =
-    [ ]
-
-and generateTypeFromInterface (typeName: string) (description: string option) (selections: SelectionSet) (graphqlType: GraphqlInterface) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>) =
-    [ ]
-
-and generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
+let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [ ]

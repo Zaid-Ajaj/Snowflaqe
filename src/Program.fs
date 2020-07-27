@@ -169,6 +169,8 @@ let validateAndPrint (queryFile: string) (document: GraphqlDocument) (schema: Gr
                 colorprintfn "   Missing required $yellow[__typename] on sub type $blue[%s] of type $green[%s] selected on field $green[%s]" subType interfaceOrUnion parentField
             | QueryError.MissingTypeNameOnInterface(interfaceName, parentField) ->
                 colorprintfn "   Missing required $yellow[__typename] on interface $green[%s] from selection $blue[%s]" interfaceName parentField
+            | QueryError.InvalidInlineFragment(typeName, invalidFragment, parentField) ->
+                colorprintfn "   Field $blue[%s] uses inline fragment $yellow[%s] which isn't allowed on type $green[%s]" parentField invalidFragment typeName
         false
 
 let runConfig (config: Config) =
