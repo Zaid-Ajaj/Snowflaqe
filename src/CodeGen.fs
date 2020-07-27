@@ -504,7 +504,26 @@ and generateFields (typeName: string) (description: string option) (selections: 
                                 | GraphqlNode.Field field -> Some field
                                 | _ -> None)
 
-                        let modifiedFragments = [
+                        let includedImplementers =
+                            fragments
+                            |> List.map (fun fragment -> fragment.typeCondition)
+
+                        let notIncludedImplementers =
+                            interfaceDef.possibleTypes
+                            |> List.filter (fun subType -> not (List.contains subType includedImplementers))
+
+                        let extraInterfaceFragments = [
+                            for subType in notIncludedImplementers ->
+                                {
+                                    typeCondition = subType
+                                    selection = {
+                                        location = GraphQLLocation()
+                                        nodes = [ for field in interfaceFields -> GraphqlNode.Field field ]
+                                    }
+                                }
+                        ]
+
+                        let modifiedFragments = extraInterfaceFragments @ [
                             for fragment in fragments ->
                                 let modifiedSelection =
                                     { fragment.selection
