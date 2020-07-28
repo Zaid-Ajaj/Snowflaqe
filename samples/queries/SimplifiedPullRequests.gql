@@ -1,0 +1,35 @@
+query SimplePullRequests ($org: String!) {
+  organization(login: $org) {
+    name
+    url
+    repositories(first: 1) {
+      nodes {
+        name
+        pullRequests(first: 1, states: MERGED) {
+          nodes {
+            number
+            title
+            url
+            body
+            author {
+              login
+              url
+            }
+            mergedBy {
+              login
+              resourcePath
+            }
+            reviews(last: 10, states: APPROVED) {
+              nodes {
+                author {
+                  avatarUrl
+                  login
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
