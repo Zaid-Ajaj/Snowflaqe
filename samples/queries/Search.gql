@@ -1,0 +1,22 @@
+query GithubSearch {
+  search(query:"Snowflaqe", type:REPOSITORY, first:10) {
+    nodes {
+      ... on Repository {
+        __typename
+        name
+        nameWithOwner
+      }
+      ... on App {
+        __typename
+        id
+        name
+      }
+
+      ... on Issue {
+        __typename
+        id
+        title
+      }
+    }
+  }
+}
