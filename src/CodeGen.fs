@@ -15,7 +15,10 @@ open GraphQLParser.AST
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
-let capitalize (input: string) = input.First().ToString().ToUpper() + String.Join("", input.Skip(1))
+let capitalize (input: string) =
+    if String.IsNullOrWhiteSpace input
+    then ""
+    else input.First().ToString().ToUpper() + String.Join("", input.Skip(1))
 
 let normalizeName (unionCase: string) =
     if not(unionCase.Contains "_") then
@@ -460,7 +463,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                         let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                             for pair in localUnionCases  ->
                                 let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
-                                SynUnionCaseRcd.Create(Ident.Create pair.Key, unionCaseType)
+                                SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
                         ]
 
                         let interfaceUnionsInfo : SynComponentInfoRcd = {
@@ -560,7 +563,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                         let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                             for pair in localUnionCases  ->
                                 let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
-                                SynUnionCaseRcd.Create(Ident.Create pair.Key, unionCaseType)
+                                SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
                         ]
 
                         let interfaceUnionsInfo : SynComponentInfoRcd = {
@@ -602,7 +605,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                     let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                         for pair in localUnionCases  ->
                             let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
-                            SynUnionCaseRcd.Create(Ident.Create pair.Key, unionCaseType)
+                            SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
                     ]
 
                     let interfaceUnionsInfo : SynComponentInfoRcd = {
@@ -874,7 +877,7 @@ let sampleFableProject files =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.10.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.11.0" />
     </ItemGroup>
 </Project>
 """   files
@@ -890,7 +893,7 @@ let sampleFSharpProject files =
     </ItemGroup>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0"/>
-        <PackageReference Include="Fable.Remoting.Json" Version="2.9.0" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.11.0" />
     </ItemGroup>
 </Project>
 """  files
@@ -921,7 +924,7 @@ let sampleSharedFSharpProject project =
     </ItemGroup>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
-        <PackageReference Include="Fable.Remoting.Json" Version="2.9.0" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.11.0" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
@@ -942,7 +945,7 @@ let sampleSharedFableProject project =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.10.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.11.0" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>

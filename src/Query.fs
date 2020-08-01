@@ -630,8 +630,15 @@ let containsTypeName (set: SelectionSet) =
         | _ -> None)
     |> List.contains "__typename"
 
-let rec validateUnion (parentField: string) (selection: SelectionSet)  (graphqlType: GraphqlUnion) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
+let rec validateUnion (unionCase: string option) (parentField: string) (selection: SelectionSet)  (graphqlType: GraphqlUnion) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     let fragments = findInlineFragments selection.nodes
+
+    let missingTypeNameErrors =
+        [
+            for fragment in fragments do
+                if not (containsTypeName fragment.selection)
+                then yield QueryError.MissingTypeNameField(graphqlType.name, fragment.typeCondition, parentField)
+        ]
 
     let unknownSubtypeErrors =
         fragments
@@ -650,12 +657,13 @@ let rec validateUnion (parentField: string) (selection: SelectionSet)  (graphqlT
             | Some (GraphqlType.Union unionDef) ->
                 if not (containsTypeName fragment.selection)
                 then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
-                else validateUnion parentField fragment.selection unionDef variables schema
+                else validateUnion (Some fragment.typeCondition) parentField fragment.selection unionDef variables schema
             | _ ->
                 [ ]
         )
 
-    subTypeErrors
+    missingTypeNameErrors
+    |> List.append subTypeErrors
     |> List.append unknownSubtypeErrors
 
 and validateInterface (parentField: string) (selection: SelectionSet) (graphqlType: GraphqlInterface) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
@@ -695,7 +703,7 @@ and validateInterface (parentField: string) (selection: SelectionSet) (graphqlTy
             | Some (GraphqlType.Union unionDef) ->
                 if not (containsTypeName fragment.selection)
                 then [ QueryError.MissingTypeNameField(fragment.typeCondition, graphqlType.name, parentField) ]
-                else validateUnion parentField fragment.selection unionDef variables schema
+                else validateUnion (Some fragment.typeCondition) parentField fragment.selection unionDef variables schema
             | _ ->
                 [ ]
         )
@@ -759,7 +767,7 @@ and validateFields (parentField: string) (selection: SelectionSet) (graphqlType:
                                 | Some (GraphqlType.Interface interfaceExpansion) ->
                                     validateInterface selectedField.name selection interfaceExpansion variables schema
                                 | Some (GraphqlType.Union unionExpansion) ->
-                                    validateUnion selectedField.name selection unionExpansion variables schema
+                                    validateUnion None selectedField.name selection unionExpansion variables schema
                                 | _ ->
                                     [ ]
                             | _ ->

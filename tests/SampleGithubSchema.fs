@@ -33,6 +33,30 @@ query GithubSearch {
 }
 """
 
+let queryWithUnionMissingTypeName = """
+query GithubSearch {
+  search(query:"Snowflaqe", type:REPOSITORY, first:10) {
+    nodes {
+      ... on Repository {
+        name
+        nameWithOwner
+      }
+      ... on App {
+        __typename
+        id
+        name
+      }
+
+      ... on Issue {
+        __typename
+        id
+        title
+      }
+    }
+  }
+}
+"""
+
 let validQuery = """
 query GetPullRequests($org: String!) {
   organization(login: $org) {
@@ -222,6 +246,15 @@ let githubTests = testList "Github tests" [
             failwith "Unexpected"
     }
 
+    test "Missing type name from union fields can be detected" {
+      match Query.parse queryWithUnionMissingTypeName, Schema.parse githubSchema with
+      | Ok query, Ok schema ->
+          let result = Query.validate query schema
+          Expect.equal result (ValidationResult.QueryErrors [QueryError.MissingTypeNameField("SearchResultItem", "Repository", "nodes")])  "Validation should succeed"
+      | _ ->
+          failwith "Unexpected"
+    }
+
     test "Detect invalid inline fragments on fields" {
       let queryWithInvalidFragment = """
         query GetPullRequests($org: String!) {
@@ -261,11 +294,11 @@ let githubTests = testList "Github tests" [
       """
 
       match Query.parse queryWithInvalidFragment, Schema.parse githubSchema with
-        | Ok query, Ok schema ->
-            let result = Query.validate query schema
-            Expect.equal (ValidationResult.QueryErrors [QueryError.InvalidInlineFragment("PullRequestReview", "User", "nodes")]) result "Validation should succeed"
-        | _ ->
-            failwith "Unexpected"
+      | Ok query, Ok schema ->
+          let result = Query.validate query schema
+          Expect.equal (ValidationResult.QueryErrors [QueryError.InvalidInlineFragment("PullRequestReview", "User", "nodes")]) result "Validation should succeed"
+      | _ ->
+          failwith "Unexpected"
     }
 
     test "Unknown fields on subtypes can be detected" {

@@ -7,8 +7,8 @@
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.7.3</Version>
-    <PackageReleaseNotes>Fix naming collisions in generated union cases from interfaces</PackageReleaseNotes>
+    <Version>1.7.4</Version>
+    <PackageReleaseNotes>Allow for lower case union/interface cases and ensure type name field resolution</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
