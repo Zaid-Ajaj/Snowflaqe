@@ -1022,6 +1022,7 @@ let snowflakeTests = testList "Snowflaqe" [
     queryParsing
     SampleHasuraSchema.hasuraTests
     SampleGithubSchema.githubTests
+    SampleCraftSchema.tests
 ]
 
 [<EntryPoint>]

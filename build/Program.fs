@@ -48,6 +48,13 @@ let publish() =
         if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, src) <> 0
         then failwith "Publish failed"
 
+let buildCraftSchema() =
+    if Shell.Exec(Tools.dotnet, "run -- --config ../samples/craft-cms/snowflaqe.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+        failwith "Running Fable generation failed"
+    else
+        if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "craft-cms"; "output" ]) <> 0
+        then failwith "Could not build generated CraftCMS"
+
 let integration() =
     if Shell.Exec(Tools.dotnet, "run -- --generate", path [ solutionRoot; "src" ]) <> 0 then
         failwith "Running Fable generation failed"
@@ -72,10 +79,11 @@ let integration() =
 
                     if output <> 0 then failwith "Building generated shared projects failed"
                     else
-                        if Shell.Exec(Tools.dotnet, "run -- --config ../samples/snowflaqe-github.json --generate", path [ solutionRoot; "src" ]) <> 0
+                        if Shell.Exec(Tools.dotnet, "run -- --config ../samples/github/snowflaqe.json --generate", path [ solutionRoot; "src" ]) <> 0
                         then failwith "Failed to generate Github client"
-                        elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "output" ]) <> 0
+                        elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
                         then failwith "Failed to build the generated Github project"
+                        else buildCraftSchema()
 
 
 [<EntryPoint>]
@@ -90,6 +98,7 @@ let main (args: string[]) =
         | [| "pack"    |] -> pack()
         | [| "publish" |] -> publish()
         | [| "integration" |] -> integration()
+        | [| "build-craft" |] -> buildCraftSchema()
 
         | _ -> printfn "Unknown args %A" args
         0

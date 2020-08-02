@@ -1,0 +1,7 @@
+{
+    "schema": "../tests/CraftSchema.json",
+    "queries": "./queries",
+    "project": "Craft",
+    "output": "./output",
+    "target": "fable"
+}

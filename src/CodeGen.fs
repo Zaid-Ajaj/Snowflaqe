@@ -339,7 +339,7 @@ let findNextTypeName fieldName objectName (selections: string list) (visitedType
         objectName
     elif not (visitedTypes.Contains (normalizeName fieldName)) then
         normalizeName fieldName
-    elif not (visitedTypes.Contains nestedSelectionType) && selections.Length <= 3 && selections.Length < 1 then
+    elif not (visitedTypes.Contains nestedSelectionType) && selections.Length <= 3 && selections.Length > 1 then
         nestedSelectionType
     elif not (visitedTypes.Contains (normalizeName fieldName + "From" + objectName)) then
         objectName + normalizeName fieldName
