@@ -8,7 +8,7 @@ A dotnet CLI tool for generating type-safe GraphQL clients for F#.
  - Generating type-safe [Fable](https://fable.io/) or F# GraphQL client project in a single command. This project can be then referenced by your application and will be ready to go.
  - Supports GraphQL interfaces and unions
  - Resolves type name collisions when re-using types in a single query
- - Exact and automatic JSON deserialization built-in
+ - Generates a HTTP client with functions that correspond to the query or mutation names. These functions handle exact JSON deserialization for the returned data.
 
 ## Installation
 Install as a global dotnet CLI tool
@@ -23,8 +23,8 @@ Create a JSON file called `snowflaqe.json` with the following shape:
     "queries": "<queries>",
     "project": "<project>",
     "output": "<output>"
-    ["errorType"]: <custom error type>,
     ["target"]: "<target>",
+    ["errorType"]: <custom error type>,
     ["overrideClientName"]: "<clientName>"
 }
 ```
@@ -93,4 +93,4 @@ type CustomErrorType = {
 ## Not Supported
 
 There are a couple of features of the GraphQL specs which `snowflaqe` doesn't (yet) know how to work with:
- - [ ] Subscriptions (non-goal of the tool, maybe in the future)
+ - [ ] Subscriptions
