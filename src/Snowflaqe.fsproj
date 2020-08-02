@@ -7,8 +7,8 @@
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.7.5</Version>
-    <PackageReleaseNotes>Fix naming collisions on unions when nested selections are empty</PackageReleaseNotes>
+    <Version>1.7.6</Version>
+    <PackageReleaseNotes>Properly expand fragments within inline fragments of unions and interfaces</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

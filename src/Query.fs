@@ -253,6 +253,12 @@ let rec expandFragments (nodes: GraphqlNode list) (fragments: GraphqlFragmentDef
                     GraphqlNode.Field { field with selectionSet = Some modifiedSelections }
             ]
 
+        | GraphqlNode.InlineFragment inlineFragment ->
+            let modifiedNodes = expandFragments inlineFragment.selection.nodes fragments
+            let modifiedSelection = { inlineFragment.selection with nodes = modifiedNodes  }
+            let modifiedFragment = { inlineFragment with selection = modifiedSelection }
+            [ GraphqlNode.InlineFragment modifiedFragment ]
+
         | GraphqlNode.SelectionSet selectionSet ->
             [
                 let modifiedNodes = expandFragments selectionSet.nodes fragments

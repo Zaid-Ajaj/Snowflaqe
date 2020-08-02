@@ -1,0 +1,46 @@
+query HomeConfigWithFragments {
+  HomeConfig: entries(site: "stephenHamiltonNew" type: ["Home"]){
+    __typename
+    ...on Home_Home_Entry {
+      __typename
+      HeroLink
+  	  Grid {
+        ... GridItems
+      }
+    }
+  }
+  Sections: entries(site: "stephenHamiltonNew", type: "PortfolioSection") {
+    __typename
+    ... on PortfolioSection_portfolioSection_Entry {
+      __typename
+      siteTitle
+      siteSubtitle
+      Grid {
+        ...GridItems
+      }
+    }
+  }
+}
+
+fragment GridItems on Grid_MatrixField {
+  ... on Grid_row_BlockType {
+    __typename
+    typeHandle
+    items {
+      __typename
+      kind
+      id
+      width
+      height
+		... on portfolio_Asset {
+        __typename
+        videoWidth
+        videoheight
+        foodTypes {
+          id
+        }
+      }
+      url
+    }
+  }
+}
