@@ -7,6 +7,7 @@ open Snowflaqe
 open Snowflaqe.Types
 open BlackFox.ColoredPrintf
 open FSharp.Compiler.SyntaxTree
+open FSharp.Data.LiteralProviders
 
 type CustomErrorType = {
     typeName : string
@@ -401,8 +402,21 @@ let generate (configFile: string) =
                 File.WriteAllText(sharedFableProject, CodeGen.sampleSharedFableProject config.project)
             0
 
+let [<Literal>] projectFile = TextFile<"./Snowflaqe.fsproj">.Text
+
+let readVersion(projectFile: string) =
+    let doc = Xml.XmlDocument()
+    use content = new MemoryStream(Text.Encoding.UTF8.GetBytes projectFile)
+    doc.Load(content)
+    doc.GetElementsByTagName("Version").[0].InnerText
+
 [<EntryPoint>]
 let main argv =
+    if argv = [| "--version" |]
+    then
+        printfn "%s" (readVersion projectFile)
+        0
+    else
     Console.OutputEncoding <- Encoding.UTF8
     Console.WriteLine(logo)
 
@@ -442,4 +456,5 @@ let main argv =
     | [| "--generate"; "--config"; configFile |] ->
         generate configFile
     | _ ->
+        printfn "The combination of arguments was not recognized: %A" (List.ofArray argv)
         0

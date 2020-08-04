@@ -15,6 +15,10 @@ query GetPullRequests($org: String!) {
               login
               url
             }
+            sameAuthor: author {
+              login
+              url
+            }
             mergedBy {
               login
               resourcePath
