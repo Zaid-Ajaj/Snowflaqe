@@ -1,0 +1,8 @@
+{
+    "schema": "../tests/GithubSchema.json",
+    "queries": "./queries",
+    "project": "Github.Data.GraphQLClient",
+    "output": "./output",
+    "target": "fable",
+    "overrideClientName": "FableGraphqlClient"
+}

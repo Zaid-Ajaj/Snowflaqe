@@ -79,8 +79,6 @@ let tests = testList "Craft schema" [
                 let file = CodeGen.createFile "Types.fs" [ ns ]
                 CodeGen.formatAst file
 
-            printfn "%s" generated
-
             Expect.isNotEmpty generated "The code is generated correctly"
 
         | otherwise -> failwithf "%A" otherwise

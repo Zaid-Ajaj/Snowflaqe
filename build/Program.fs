@@ -32,6 +32,9 @@ let pack() =
         then failwith "Local install failed"
 
 let publish() =
+    Shell.deleteDir (path [ src; "bin" ])
+    Shell.deleteDir (path [ src; "obj" ])
+
     if Shell.Exec(Tools.dotnet, "pack --configuration Release", src) <> 0 then
         failwith "Pack failed"
     else
@@ -57,6 +60,18 @@ let buildCraftSchema() =
 
 let buildGithub() =
     if Shell.Exec(Tools.dotnet, "run -- --config ../samples/github/snowflaqe.json --generate", path [ solutionRoot; "src" ]) <> 0
+    then failwith "Failed to generate Github client"
+    elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
+    then failwith "Failed to build the generated Github project"
+
+let buildGithubDotProject() =
+    if Shell.Exec(Tools.dotnet, "run -- --config ../samples/github/snowflaqe-dot-project.json --generate", path [ solutionRoot; "src" ]) <> 0
+    then failwith "Failed to generate Github client"
+    elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
+    then failwith "Failed to build the generated Github project"
+
+let buildGithubFable() =
+    if Shell.Exec(Tools.dotnet, "run -- --config ../samples/github/snowflaqe-fable.json --generate", path [ solutionRoot; "src" ]) <> 0
     then failwith "Failed to generate Github client"
     elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
     then failwith "Failed to build the generated Github project"
@@ -87,7 +102,8 @@ let integration() =
                     else
                         buildGithub()
                         buildCraftSchema()
-
+                        buildGithubDotProject()
+                        buildGithubFable()
 
 [<EntryPoint>]
 let main (args: string[]) =
@@ -103,6 +119,8 @@ let main (args: string[]) =
         | [| "integration" |] -> integration()
         | [| "build-craft" |] -> buildCraftSchema()
         | [| "build-github" |] -> buildGithub()
+        | [| "build-github-dot-project" |] -> buildGithubDotProject()
+        | [| "build-github-fable" |] -> buildGithubFable()
 
         | _ -> printfn "Unknown args %A" args
         0

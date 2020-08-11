@@ -269,29 +269,35 @@ let generate (configFile: string) =
 
             let projectPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
 
+            let fileName file =
+                if config.project.Contains "."
+                then file
+                else config.project + "." + file
+
             match config.target with
             | OutputTarget.FSharp ->
-                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".StringEnum.fs"));
+                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, fileName "StringEnum.fs"));
                 colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
                 File.WriteAllText(stringEnumAttrPath, CodeGen.createDummyStringEnumAttribute())
                 generatedFiles.Add(stringEnumAttrPath)
-                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".Types.fs"));
+
+                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, fileName "Types.fs"));
                 colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
                 File.WriteAllText(globalTypesPath, globalTypesContent)
                 generatedFiles.Add(globalTypesPath)
 
             | OutputTarget.Fable ->
-                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".Types.fs"));
+                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, fileName "Types.fs"));
                 colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
                 File.WriteAllText(globalTypesPath, globalTypesContent)
                 generatedFiles.Add(globalTypesPath)
 
             | OutputTarget.Shared ->
-                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".StringEnum.fs"));
+                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName "StringEnum.fs"));
                 colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
                 File.WriteAllText(stringEnumAttrPath, CodeGen.createDummyStringEnumAttribute())
                 generatedFiles.Add(stringEnumAttrPath)
-                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Types.fs"));
+                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName "Types.fs"));
                 colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
                 File.WriteAllText(globalTypesPath, globalTypesContent)
                 generatedFiles.Add(globalTypesPath)
@@ -310,14 +316,14 @@ let generate (configFile: string) =
                     match config.target with
                     | OutputTarget.Fable
                     | OutputTarget.FSharp ->
-                        let fullPath = Path.GetFullPath(Path.Combine(config.output, config.project + "." + moduleName + ".fs"))
+                        let fullPath = Path.GetFullPath(Path.Combine(config.output, fileName (moduleName + ".fs")))
                         colorprintfn "✏️  Generating module $green[%s]" fullPath
                         File.WriteAllText(fullPath, generatedModuleContent)
                         generatedFiles.Add(fullPath)
                         generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
                         ()
                     | OutputTarget.Shared ->
-                        let fullPath = Path.GetFullPath(Path.Combine(config.output, "shared", config.project + "." + moduleName + ".fs"))
+                        let fullPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName (moduleName + ".fs")))
                         colorprintfn "✏️  Generating module $green[%s]" fullPath
                         File.WriteAllText(fullPath, generatedModuleContent)
                         generatedFiles.Add(fullPath)
@@ -326,11 +332,15 @@ let generate (configFile: string) =
 
             let clientName =
                 config.overrideClientName
-                |> Option.defaultValue (sprintf "%sGraphqlClient" config.project)
+                |> Option.defaultValue (
+                    if config.project.Contains "."
+                    then "GraphqlClient"
+                    else sprintf "%sGraphqlClient" config.project
+                )
 
             match config.target with
             | OutputTarget.Fable ->
-                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".GraphqlClient.fs"))
+                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
                 colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
                 generatedFiles.Add(graphqlClientPath)
                 let members =
@@ -355,9 +365,9 @@ let generate (configFile: string) =
                     |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
 
-                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, config.project + ".GraphqlClient.fs"))
+                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
                 generatedFiles.Add(graphqlClientPath)
-                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project config.errorType.typeName members
+                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members
                 File.WriteAllText(graphqlClientPath, clientContent)
 
                 let files =
@@ -378,12 +388,12 @@ let generate (configFile: string) =
                 colorprintfn "✏️  Generating shared F# project $green[%s]" sharedProjectPath
                 File.WriteAllText(sharedProjectPath, CodeGen.sampleSharedProject files)
 
-                let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".GraphqlClient.fs"))
+                let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
                 let fsharpMembers =
                     generatedModules
                     |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
-                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project config.errorType.typeName fsharpMembers
+                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers
                 File.WriteAllText(fsharpGraphqlClientPath, dotnetClientContent)
                 let sharedFSharpProject = Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
                 colorprintfn "✏️  Generating F# dotnet project $green[%s]" sharedFSharpProject
@@ -394,7 +404,7 @@ let generate (configFile: string) =
                     |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
 
-                let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".GraphqlClient.fs"))
+                let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fs"))
                 let fableClientContent = CodeGen.sampleGraphqlClient config.project clientName config.errorType.typeName fableMembers
                 File.WriteAllText(fableGraphqlClientPath, fableClientContent)
                 let sharedFableProject = Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))

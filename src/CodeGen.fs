@@ -763,13 +763,29 @@ let generateTypes (rootQueryName: string) (errorTypeName: string) (document: Gra
                 yield rootType
             ]
 
-let createNamespace names declarations =
-    let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for name in names -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+let createNamespace (names: seq<string>) declarations =
+    let nameParts =
+        names
+        |> Seq.collect (fun name ->
+            if name.Contains "."
+            then name.Split('.')
+            else [| name |]
+        )
 
-let createQualifiedModule idens declarations =
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace(idens |> List.map Ident.Create, true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range.Zero)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+
+let createQualifiedModule (idens: seq<string>) declarations =
+    let nameParts =
+        idens
+        |> Seq.collect (fun name ->
+            if name.Contains "."
+            then name.Split('.')
+            else [| name |]
+        )
+
+    let xmlDoc = PreXmlDoc.Create [ ]
+    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range.Zero)
 
 let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
@@ -1044,7 +1060,7 @@ type %s(url: string, headers: Header list) =
 
 %s""" projectName errorType clientName clientName members
 
-let sampleFSharpGraphqlClient projectName errorType members =
+let sampleFSharpGraphqlClient projectName clientName errorType members =
     sprintf """namespace %s
 
 open Fable.Remoting.Json
@@ -1057,10 +1073,10 @@ type GraphqlInput<'T> = { query: string; variables: Option<'T> }
 type GraphqlSuccessResponse<'T> = { data: 'T }
 type GraphqlErrorResponse = { errors: %s list }
 
-type %sGraphqlClient(url: string, httpClient: HttpClient) =
+type %s(url: string, httpClient: HttpClient) =
     let converter = FableJsonConverter() :> JsonConverter
     let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| converter |])
 
-    new(url: string) = %sGraphqlClient(url, new HttpClient())
+    new(url: string) = %s(url, new HttpClient())
 
-%s""" projectName errorType projectName projectName members
+%s""" projectName errorType clientName clientName members
