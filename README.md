@@ -40,7 +40,7 @@ Where
  - `<clientName>` optional name for the `GraphqlClient` class which is `{project}GraphqlClient` by default when you don't provide this property.
  - `<target>` optional the code-generation target which can either be `fable` (default), `fsharp` or `shared`.
 
-> Using `shared` as a code generation target actually builds 3 projects! One contains just the types and can be *shared* across platforms. The other two reference this shared projects and implmenent Fable specific client and dotnet specific client, respectively.
+> Using `shared` as a code generation target actually builds 3 projects! One contains just the types and can be *shared* across platforms. The other two reference this shared projects and implement Fable specific client and dotnet specific client, respectively.
 
 After creating the configuration file. You can `cd` your way to where you have the config file and run:
 ```
