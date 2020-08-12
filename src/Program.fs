@@ -1,5 +1,6 @@
 ﻿open System
 open System.Linq
+open System.Xml
 open System.Text
 open Newtonsoft.Json.Linq
 open System.IO
@@ -414,17 +415,16 @@ let generate (configFile: string) =
 
 let [<Literal>] projectFile = TextFile<"./Snowflaqe.fsproj">.Text
 
-let readVersion(projectFile: string) =
-    let doc = Xml.XmlDocument()
+let projectVersion =
+    let doc = XmlDocument()
     use content = new MemoryStream(Text.Encoding.UTF8.GetBytes projectFile)
     doc.Load(content)
     doc.GetElementsByTagName("Version").[0].InnerText
 
 [<EntryPoint>]
 let main argv =
-    if argv = [| "--version" |]
-    then
-        printfn "%s" (readVersion projectFile)
+    if argv = [| "--version" |] then
+        printfn "%s" projectVersion
         0
     else
     Console.OutputEncoding <- Encoding.UTF8
