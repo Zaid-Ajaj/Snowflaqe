@@ -23,6 +23,7 @@ type Config = {
     errorType : CustomErrorType
     target : OutputTarget
     overrideClientName : string option
+    copyLocalLockFileAssemblies : bool option
 }
 
 let logo = """
@@ -69,6 +70,8 @@ let readConfig (file: string) =
                 Error "The 'overrideClientName' configuration element must be a string"
             elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" && parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp" && parsedJson.["target"].ToObject<string>().ToLower() <> "shared") then
                 Error "The 'target' configuration element must be either 'fable' (default), 'fsharp' or 'shared'"
+            elif not (isNull parsedJson.["copyLocalLockFileAssemblies"]) && parsedJson.["copyLocalLockFileAssemblies"].Type <> JTokenType.Boolean then
+                Error "The 'copyLocalLockFileAssemblies' configuration element must be a boolean"
             else
                 let errorType =
                     if isNull parsedJson.["errorType"]
@@ -106,6 +109,11 @@ let readConfig (file: string) =
                         then None
                         else Some (string parsedJson.["overrideClientName"])
 
+                    let copyLocalLockFileAssemblies =
+                        if isNull parsedJson.["copyLocalLockFileAssemblies"]
+                        then None
+                        else Some (parsedJson.["copyLocalLockFileAssemblies"].ToObject<bool>())
+
                     Ok {
                         schema = string parsedJson.["schema"]
                         queries = fullQueriesPath
@@ -114,6 +122,7 @@ let readConfig (file: string) =
                         errorType = errorType
                         target = target
                         overrideClientName = overrideClientName
+                        copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
                     }
     with
     | ex -> Error ex.Message
@@ -376,7 +385,7 @@ let generate (configFile: string) =
                     |> Seq.map (fun file -> sprintf "        <Compile Include=\"%s\" />" (Path.GetFileName file))
                     |> String.concat "\n"
 
-                File.WriteAllText(projectPath, CodeGen.sampleFSharpProject files)
+                File.WriteAllText(projectPath, CodeGen.sampleFSharpProject files config.copyLocalLockFileAssemblies)
 
             | OutputTarget.Shared ->
 
@@ -398,7 +407,7 @@ let generate (configFile: string) =
                 File.WriteAllText(fsharpGraphqlClientPath, dotnetClientContent)
                 let sharedFSharpProject = Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
                 colorprintfn "✏️  Generating F# dotnet project $green[%s]" sharedFSharpProject
-                File.WriteAllText(sharedFSharpProject, CodeGen.sampleSharedFSharpProject config.project)
+                File.WriteAllText(sharedFSharpProject, CodeGen.sampleSharedFSharpProject config.project config.copyLocalLockFileAssemblies)
 
                 let fableMembers =
                     generatedModules
@@ -445,11 +454,29 @@ let main argv =
                 runConfigFile configFile
 
     | [| "--queries"; queries; "--schema"; schema; |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable; overrideClientName = None }
+        let config = {
+            schema = schema;
+            queries = queries;
+            project = "GraphqlClient";
+            output = "./output";
+            errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() };
+            target = OutputTarget.Fable; overrideClientName = None
+            copyLocalLockFileAssemblies = None
+        }
+
         runConfig config
 
     | [| "--schema"; schema; "--queries"; queries |] ->
-        let config = { schema = schema; queries = queries; project = "GraphqlClient"; output = "./output"; errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() }; target = OutputTarget.Fable; overrideClientName = None }
+        let config = {
+            schema = schema;
+            queries = queries;
+            project = "GraphqlClient";
+            output = "./output";
+            errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() };
+            target = OutputTarget.Fable; overrideClientName = None
+            copyLocalLockFileAssemblies = None
+        }
+
         runConfig config
 
     | [| "--generate" |] ->

@@ -4,6 +4,7 @@
     "project": "Artsy",
     "output": "./output",
     "target": "fsharp",
+    "copyLocalLockFileAssemblies": true,
     "errorType": {
         "CustomErrorType": {
             "Message": "string",

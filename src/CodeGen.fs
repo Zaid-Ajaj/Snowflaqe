@@ -898,11 +898,17 @@ let sampleFableProject files =
 </Project>
 """   files
 
-let sampleFSharpProject files =
+let sampleFSharpProject files copyLocalLockFileAssemblies =
+    let attribute =
+        match copyLocalLockFileAssemblies with
+        | None -> String.empty
+        | Some true -> "\n        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>"
+        | Some false -> "\n        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>"
+
     sprintf """<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>latest</LangVersion>%s
     </PropertyGroup>
     <ItemGroup>
 %s
@@ -912,7 +918,7 @@ let sampleFSharpProject files =
         <PackageReference Include="Fable.Remoting.Json" Version="2.11.0" />
     </ItemGroup>
 </Project>
-"""  files
+    """ attribute files
 
 let sampleSharedProject files =
     sprintf """<Project Sdk="Microsoft.NET.Sdk">
@@ -929,11 +935,17 @@ let sampleSharedProject files =
 </Project>
 """  files
 
-let sampleSharedFSharpProject project =
+let sampleSharedFSharpProject project copyLocalLockFileAssemblies =
+    let attribute =
+        match copyLocalLockFileAssemblies with
+        | None -> String.empty
+        | Some true -> "\n        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>"
+        | Some false -> "\n        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>"
+
     sprintf """<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>latest</LangVersion>%s
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="%s.GraphqlClient.fs" />
@@ -944,7 +956,7 @@ let sampleSharedFSharpProject project =
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
-"""  project project
+"""  attribute project project
 
 let sampleSharedFableProject project =
     sprintf """<Project Sdk="Microsoft.NET.Sdk">
