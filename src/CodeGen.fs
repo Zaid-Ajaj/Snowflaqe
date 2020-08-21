@@ -527,8 +527,8 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                                         with nodes = fragment.selection.nodes
                                                      |> List.append [ for field in interfaceFields -> GraphqlNode.Field field ]
                                                      |> List.distinctBy (function
-                                                        | GraphqlNode.Field field -> field.name
-                                                        | _ -> Guid.NewGuid().ToString()) }
+                                                        | GraphqlNode.Field field -> (field.name, field.alias)
+                                                        | _ -> Guid.NewGuid().ToString(), None) }
 
                                 { fragment with selection = modifiedSelection }
                         ]
