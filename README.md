@@ -38,7 +38,7 @@ Where
  - `<project>` is the name of the project will be generated.
  - `<output>` is an absolute or relative path to a directory where the project will be generated
  - `<errorType>` optional custom error type to be generated. See below to learn more.
- - `<clientName>` optional name for the `GraphqlClient` class which is `{project}GraphqlClient` by default when you don't provide this property.
+ - `<overrideClientName>` optional name for the `GraphqlClient` class which is `{project}GraphqlClient` by default when you don't provide this property.
  - `<copyLocalLockFileAssemblies>` Adds the attribute to the generated F# project for scenarios where embedding the dependencies is required
  - `<target>` optional the code-generation target which can either be `fable` (default), `fsharp` or `shared`.
 
