@@ -416,13 +416,14 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
             match foundVariable with
             | None -> [ QueryError.UsedNonDeclaredVariable(fieldName, argument.name, variableName) ]
             | Some variable ->
-                match variable.variableType with
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "ID") when scalar = GraphqlScalar.ID -> [ ]
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "String") when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID ->  [ ]
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Int") when scalar = GraphqlScalar.Int -> [ ]
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float ->  [ ]
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Boolean") when scalar = GraphqlScalar.Boolean -> [ ]
-                | otherVariableType ->
+                match (variable.variableType, scalar) with
+                | (GraphqlVariableType.NonNull (GraphqlVariableType.Ref "ID"), GraphqlScalar.ID)
+                | (GraphqlVariableType.NonNull (GraphqlVariableType.Ref "String"), (GraphqlScalar.String | GraphqlScalar.ID))
+                | (GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Int"), GraphqlScalar.Int)
+                | (GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float"), GraphqlScalar.Float)
+                | (GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Boolean"), GraphqlScalar.Boolean)
+                | (_, GraphqlScalar.Custom _) -> [ ]
+                | (otherVariableType, _) ->
                     [
                         QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType)
                     ]
