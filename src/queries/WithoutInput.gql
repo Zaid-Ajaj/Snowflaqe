@@ -1,9 +1,0 @@
-query GetMoreArtistsNoParams {
-  artists {
-    name
-    biography {
-      id
-      title
-    }
-  }
-}

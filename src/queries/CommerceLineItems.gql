@@ -1,7 +1,0 @@
-query CommerceLineItems ($input: [CommerceOrderStateEnum!]) {
-  commerceLineItems(orderStates: $input) {
-    edges {
-      cursor
-    }
-  }
-}

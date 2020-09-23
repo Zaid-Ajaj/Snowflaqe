@@ -1,0 +1,20 @@
+query Artists {
+  queryArtists(byName: "Red Hot Chili Peppers") {
+    name
+    id
+    image
+    albums {
+      name
+      id
+      image
+      tracks {
+        id
+        name
+        preview_url
+        artists {
+          name
+        }
+      }
+    }
+  }
+}

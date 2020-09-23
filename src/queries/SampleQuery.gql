@@ -1,9 +1,0 @@
-query GetArtists ($token: String!, $number: Int) {
-  artists {
-    name
-    biography {
-      id
-      title
-    }
-  }
-}

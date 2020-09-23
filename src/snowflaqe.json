@@ -1,7 +1,7 @@
 {
-    "schema": "https://metaphysics-production.artsy.net",
+    "schema": "./spotify-schema.json",
     "queries": "./queries",
-    "project": "Artsy",
+    "project": "Spotify",
     "output": "./output",
     "errorType": {
         "CustomErrorType": {
