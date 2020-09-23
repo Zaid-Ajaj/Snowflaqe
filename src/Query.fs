@@ -363,28 +363,14 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float -> [ ]
                 | GraphqlVariableType.Ref "Boolean" when scalar = GraphqlScalar.Boolean -> [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Boolean") when scalar = GraphqlScalar.Boolean -> [ ]
-                | GraphqlVariableType.Ref refName ->
-                    match scalar with
-                    | GraphqlScalar.Custom customScalar when refName = customScalar -> [ ]
-                    | _  ->
-                        [
-                            QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType (GraphqlVariableType.Ref refName))
-                        ]
-
-                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref refName) ->
-                    match scalar with
-                    | GraphqlScalar.Custom customScalar when refName = customScalar -> [ ]
-                    | _  ->
-                        [
-                            QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType (GraphqlVariableType.Ref refName))
-                        ]
-
+                | GraphqlVariableType.Ref refName when scalar = GraphqlScalar.Custom refName -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref refName) when scalar = GraphqlScalar.Custom refName -> [ ]
                 | otherVariableType ->
                     [
                         QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType)
                     ]
         | other ->
-                [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+                [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
 
     | GraphqlFieldType.NonNull (GraphqlFieldType.Scalar scalar) ->
         match argument.value with
@@ -422,12 +408,13 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Int") when scalar = GraphqlScalar.Int -> [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Float") when scalar = GraphqlScalar.Float ->  [ ]
                 | GraphqlVariableType.NonNull (GraphqlVariableType.Ref "Boolean") when scalar = GraphqlScalar.Boolean -> [ ]
+                | GraphqlVariableType.NonNull (GraphqlVariableType.Ref refName) when scalar = GraphqlScalar.Custom refName -> [ ]
                 | otherVariableType ->
                     [
                         QueryError.ArgumentAndVariableTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType , variableName, formatVariableType otherVariableType)
                     ]
 
-        | _ ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+        | _ ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
 
     | GraphqlFieldType.EnumRef enumTypeName ->
         match argument.value with
@@ -562,7 +549,7 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
                 | _ ->
                     [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
         | _ ->
-            [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Uknown") ]
+            [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Unknown") ]
 
     | GraphqlFieldType.NonNull (GraphqlFieldType.InputObjectRef objectRef) ->
         match argument.value with
