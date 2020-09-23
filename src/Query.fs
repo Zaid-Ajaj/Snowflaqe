@@ -335,16 +335,16 @@ let rec formatFieldArgumentType = function
 let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument) (argumentType: GraphqlFieldType) (variables: GraphqlVariable list) (schema: GraphqlSchema) =
     match argumentType with
     | GraphqlFieldType.Scalar scalar ->
-        match argument.value with
-        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
-        | FieldArgumentValue.Int _ when scalar = GraphqlScalar.Int -> [ ]
-        | FieldArgumentValue.Boolean _  when scalar = GraphqlScalar.Boolean -> [ ]
-        | FieldArgumentValue.Float _  when scalar = GraphqlScalar.Float -> [ ]
-        | FieldArgumentValue.Null -> [ ]
-        | FieldArgumentValue.EnumCase enumCase ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, sprintf "Enum(%s)" enumCase) ]
-        | FieldArgumentValue.List _ ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "List") ]
-        | FieldArgumentValue.Object fields -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Object") ]
-        | FieldArgumentValue.Variable variableName ->
+        match (argument.value, scalar) with
+        | (FieldArgumentValue.String _, (GraphqlScalar.String | GraphqlScalar.ID | GraphqlScalar.Custom _))
+        | (FieldArgumentValue.Int _, GraphqlScalar.Int)
+        | (FieldArgumentValue.Boolean _, GraphqlScalar.Boolean)
+        | (FieldArgumentValue.Float _, GraphqlScalar.Float)
+        | (FieldArgumentValue.Null, _) -> [ ]
+        | (FieldArgumentValue.EnumCase enumCase, _) ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, sprintf "Enum(%s)" enumCase) ]
+        | (FieldArgumentValue.List _, _) ->  [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "List") ]
+        | (FieldArgumentValue.Object _, _) -> [ QueryError.ArgumentTypeMismatch(fieldName, argument.name, formatFieldArgumentType argumentType, "Object") ]
+        | (FieldArgumentValue.Variable variableName, _) ->
             let foundVariable =
                 variables
                 |> List.tryFind (fun var -> var.variableName = variableName)
