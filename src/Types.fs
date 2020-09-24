@@ -17,6 +17,12 @@ type GraphqlScalar =
     | Boolean
     | Custom of name:string
 
+    with
+        member scalar.IsCustomType() =
+            match scalar with
+            | GraphqlScalar.Custom _ -> true
+            | _ -> false
+
 type GraphqlEnumValue =  {
     name : string
     description : string option

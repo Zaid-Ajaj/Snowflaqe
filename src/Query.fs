@@ -336,7 +336,7 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
     match argumentType with
     | GraphqlFieldType.Scalar scalar ->
         match argument.value with
-        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
+        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID || scalar.IsCustomType() -> [ ]
         | FieldArgumentValue.Int _ when scalar = GraphqlScalar.Int -> [ ]
         | FieldArgumentValue.Boolean _  when scalar = GraphqlScalar.Boolean -> [ ]
         | FieldArgumentValue.Float _  when scalar = GraphqlScalar.Float -> [ ]
@@ -374,7 +374,7 @@ let rec validateFieldArgument (fieldName:string) (argument: GraphqlFieldArgument
 
     | GraphqlFieldType.NonNull (GraphqlFieldType.Scalar scalar) ->
         match argument.value with
-        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID -> [ ]
+        | FieldArgumentValue.String _ when scalar = GraphqlScalar.String || scalar = GraphqlScalar.ID || scalar.IsCustomType() -> [ ]
         | FieldArgumentValue.Int _ when scalar = GraphqlScalar.Int -> [ ]
         | FieldArgumentValue.Boolean _  when scalar = GraphqlScalar.Boolean -> [ ]
         | FieldArgumentValue.Float _  when scalar = GraphqlScalar.Float -> [ ]
