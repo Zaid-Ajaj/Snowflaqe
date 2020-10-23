@@ -893,7 +893,7 @@ let sampleFableProject files =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.11.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.16.0" />
     </ItemGroup>
 </Project>
 """   files
@@ -973,7 +973,7 @@ let sampleSharedFableProject project =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.11.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.16.0" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
@@ -992,7 +992,7 @@ let sampleClientMember query queryName hasVariables =
                 Http.request url
                 |> Http.method POST
                 |> Http.headers [ Headers.contentType "application/json"; yield! headers ]
-                |> Http.content (BodyContent.Text (Json.stringify %s))
+                |> Http.content (BodyContent.Text (Json.serialize %s))
                 |> Http.send
 
             match response.statusCode with
