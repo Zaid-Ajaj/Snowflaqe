@@ -7,7 +7,7 @@ build:
 # Install scripts. (runs after repo cloning)
 install:
   # install latest dotnet core 3 preview
-  - cmd: choco install dotnetcore-sdk --pre
+  - cmd: choco install dotnetcore-sdk
 
 os: Visual Studio 2017
 
