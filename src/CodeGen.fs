@@ -893,7 +893,7 @@ let sampleFableProject files =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.16.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.16.2" />
     </ItemGroup>
 </Project>
 """   files
@@ -973,7 +973,7 @@ let sampleSharedFableProject project =
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="4.7.0" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.16.0" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.16.2" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
