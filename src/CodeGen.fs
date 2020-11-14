@@ -342,7 +342,7 @@ let findNextTypeName fieldName objectName (selections: string list) (visitedType
     elif not (visitedTypes.Contains nestedSelectionType) && selections.Length <= 3 && selections.Length > 1 then
         nestedSelectionType
     elif not (visitedTypes.Contains (normalizeName fieldName + "From" + objectName)) then
-        objectName + normalizeName fieldName
+        normalizeName fieldName + "From" + objectName
     else
         nextTick (normalizeName fieldName + "From" + objectName) visitedTypes
 
