@@ -6,9 +6,10 @@
     <ToolCommandName>snowflaqe</ToolCommandName>
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
+    <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.13.0</Version>
-    <PackageReleaseNotes>Fix type naming collision when multiple selection sets are exactly the same</PackageReleaseNotes>
+    <Version>1.14.0</Version>
+    <PackageReleaseNotes>Rollforward option to allow NET5 SDK to run Snowflaqe</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
