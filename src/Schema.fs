@@ -99,6 +99,13 @@ let (|List|_|) (typeJson: JToken) =
     | "LIST" -> Some (typeJson.["ofType"])
     | _ -> None
 
+let containsNonNullKey (key: string) (typeJson: JToken) =
+    if typeJson.Type = JTokenType.Object then
+        let dictionary = unbox<JObject> typeJson
+        dictionary.ContainsKey key && dictionary.[key].Type <> JTokenType.Null
+    else
+        false
+
 let rec tryParseFieldType (fieldJson: JToken)  =
     match fieldJson with
     | Scalar scalar -> Some (GraphqlFieldType.Scalar scalar)
@@ -133,11 +140,12 @@ let (|Object|_|)  (typeJson: JToken) =
                 let fieldDescription = stringOrNone field "description" |> normalizeComment
                 let parsedFieldType = tryParseFieldType field.["type"]
                 let args = List.choose id [
-                    for arg in unbox<JArray> field.["args"] do
-                        let argName = arg.["name"].ToString()
-                        match tryParseFieldType arg.["type"] with
-                        | Some argType -> Some (argName, argType)
-                        | None -> None
+                    if containsNonNullKey "args" field then
+                        for arg in unbox<JArray> field.["args"] do
+                            let argName = arg.["name"].ToString()
+                            match tryParseFieldType arg.["type"] with
+                            | Some argType -> Some (argName, argType)
+                            | None -> None
                 ]
 
                 match parsedFieldType with
@@ -231,7 +239,7 @@ let (|Union|_|) (typeJson: JToken) =
 
 let (|InputObject|_|)  (typeJson: JToken) : GraphqlInputObject option =
     match typeJson.["kind"].ToString() with
-    | "INPUT_OBJECT" ->
+    | "INPUT_OBJECT" when containsNonNullKey "inputFields" typeJson  ->
         let name = typeJson.["name"].ToString()
         let description = stringOrNone typeJson "description" |> normalizeComment
         let fields = unbox<JArray> typeJson.["inputFields"]
@@ -266,17 +274,19 @@ let (|InputObject|_|)  (typeJson: JToken) : GraphqlInputObject option =
 let parse (content: string) =
     try
         let contentJson = JToken.Parse(content)
-        let graphqlTypes = [
-            for typeJson in contentJson.["data"].["__schema"].["types"] ->
-                match typeJson with
-                | Scalar scalar -> Some (GraphqlType.Scalar scalar)
-                | Object object -> Some (GraphqlType.Object object)
-                | InputObject objectDef -> Some (GraphqlType.InputObject objectDef)
-                | Enum enumDef -> Some (GraphqlType.Enum enumDef)
-                | Interface interfaceDef -> Some (GraphqlType.Interface interfaceDef)
-                | Union unionDef -> Some (GraphqlType.Union unionDef)
-                | _ -> None
-        ]
+        let parsedTypes = ResizeArray()
+
+        for typeJson in contentJson.["data"].["__schema"].["types"] do
+            match typeJson with
+            | Scalar scalar -> parsedTypes.Add (GraphqlType.Scalar scalar)
+            | Object object -> parsedTypes.Add (GraphqlType.Object object)
+            | InputObject objectDef -> parsedTypes.Add (GraphqlType.InputObject objectDef)
+            | Enum enumDef -> parsedTypes.Add (GraphqlType.Enum enumDef)
+            | Interface interfaceDef -> parsedTypes.Add (GraphqlType.Interface interfaceDef)
+            | Union unionDef -> parsedTypes.Add (GraphqlType.Union unionDef)
+            | _ -> ()
+
+        let graphqlTypes = List.ofSeq parsedTypes
 
         let query =
             if isNull contentJson.["data"].["__schema"].["queryType"]
@@ -289,7 +299,7 @@ let parse (content: string) =
             else stringOrNone contentJson.["data"].["__schema"].["mutationType"] "name"
 
         Ok {
-            types = graphqlTypes |> List.choose id
+            types = graphqlTypes
             queryType = query
             mutationType = mutation
         }

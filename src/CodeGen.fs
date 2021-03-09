@@ -888,12 +888,12 @@ let sampleFableProject files =
 %s
     </ItemGroup>
     <ItemGroup>
-        <Content Include="*.fsproj; *.fs; *.js" PackagePath="fable\" />
+        <Content Include="*.fsproj; *.fs; *.js" Exclude="**\*.fs.js" PackagePath="fable\" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.0" />
+        <PackageReference Update="FSharp.Core" Version="4.7.2" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.16.2" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.18.1" />
     </ItemGroup>
 </Project>
 """   files
@@ -914,8 +914,8 @@ let sampleFSharpProject files copyLocalLockFileAssemblies =
 %s
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.0"/>
-        <PackageReference Include="Fable.Remoting.Json" Version="2.11.0" />
+        <PackageReference Update="FSharp.Core" Version="4.7.2"/>
+        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" />
     </ItemGroup>
 </Project>
     """ attribute files
@@ -930,7 +930,7 @@ let sampleSharedProject files =
 %s
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.0" />
+        <PackageReference Update="FSharp.Core" Version="4.7.2" />
     </ItemGroup>
 </Project>
 """  files
@@ -951,8 +951,8 @@ let sampleSharedFSharpProject project copyLocalLockFileAssemblies =
         <Compile Include="%s.GraphqlClient.fs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.0" />
-        <PackageReference Include="Fable.Remoting.Json" Version="2.11.0" />
+        <PackageReference Update="FSharp.Core" Version="4.7.2" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
@@ -968,12 +968,12 @@ let sampleSharedFableProject project =
         <Compile Include="%s.GraphqlClient.fs" />
     </ItemGroup>
     <ItemGroup>
-        <Content Include="*.fsproj; *.fs; *.js" PackagePath="fable\" />
+        <Content Include="*.fsproj; *.fs; *.js" Exclude="**\*.fs.js" PackagePath="fable\" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.0" />
+        <PackageReference Update="FSharp.Core" Version="4.7.2" />
         <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.16.2" />
+        <PackageReference Include="Fable.SimpleJson" Version="3.18.1" />
         <ProjectReference Include="..\shared\%s.Shared.fsproj" />
     </ItemGroup>
 </Project>
