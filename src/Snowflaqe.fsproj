@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.15.0</Version>
-    <PackageReleaseNotes>Update dependencies of the generated dependencies</PackageReleaseNotes>
+    <Version>1.16.0</Version>
+    <PackageReleaseNotes>Improve union case normalization</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

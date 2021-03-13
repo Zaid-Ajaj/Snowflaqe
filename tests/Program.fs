@@ -648,6 +648,51 @@ type Sort =
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
 
+        test "Enum types can be converted into F# unions maintaining text casing" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Sort {
+                    ascendingOne,
+                    DescendingTwo,
+                    oneTwoThree,
+                    oneTwo123,
+                    SHA512,
+                    sha256
+                }
+
+                type Query {
+                    sorting: Sort
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+
+            let generated =
+                let globalTypes = CodeGen.createGlobalTypes schema
+                let ns = CodeGen.createNamespace [ "Test" ] globalTypes
+                let file = CodeGen.createFile "Types.fs" [ ns ]
+                CodeGen.formatAst file
+
+            let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Sort =
+    | [<CompiledName "ascendingOne">] AscendingOne
+    | [<CompiledName "DescendingTwo">] DescendingTwo
+    | [<CompiledName "oneTwoThree">] OneTwoThree
+    | [<CompiledName "oneTwo123">] OneTwo123
+    | [<CompiledName "SHA512">] Sha512
+    | [<CompiledName "sha256">] Sha256
+"""
+
+            Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
+        }
+
         test "Query types can be generated from schema" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {

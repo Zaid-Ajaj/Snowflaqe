@@ -36,7 +36,7 @@ Where
    - A relative path to a file with extension `.gql` or `.graphql` containing the schema definitions and types
  - `<queries>` is an absolute or relative path to a directory that contains `*.gql` files that contain individual GraphQL queries that `snowflaqe` will run the verification against.
  - `<project>` is the name of the project will be generated.
- - `<output>` is an absolute or relative path to a directory where the project will be generated. It is recommended to use an empty directory relative to configuration file because each time you generate and regenarate the project, this directory is cleaned. 
+ - `<output>` is an absolute or relative path to a directory where the project will be generated. It is recommended to use an empty directory relative to configuration file because each time you generate and regenarate the project, this directory is cleaned.
  - `<errorType>` optional custom error type to be generated. See below to learn more.
  - `<clientName>` optional name for the `GraphqlClient` class which is `{project}GraphqlClient` by default when you don't provide this property.
  - `<copyLocalLockFileAssemblies>` Adds the attribute to the generated F# project for scenarios where embedding the dependencies is required
@@ -62,13 +62,29 @@ snowflaqe --config ./path/to/snowflaqe.json --generate
 ```
 Will generate a full project in the designated `output` directory. You can start using the generated project by *referencing* it from another project using a reference as follows:
 ```xml
-<ProjectReference Include=".\path\to\generated\Project.fsproj" /> 
+<ProjectReference Include=".\path\to\generated\Project.fsproj" />
 ```
-You can either do this manually or using an IDE such as Visual Studio or Rider that allow you to `Right Click -> Add Existing Project`. 
+You can either do this manually or using an IDE such as Visual Studio or Rider that allow you to `Right Click -> Add Existing Project`.
 
-You don't need to reference extra packages or anything, once you `dotnet restore` the generated project will pull in the packages that it requires. 
+You don't need to reference extra packages or anything, once you `dotnet restore` the generated project will pull in the packages that it requires.
 
-It is worth mentioning that the generated project will target `netstandard2.0` which means you can use anywhere in .NET Core or even in full .NET Framework v4.7.1+ 
+It is worth mentioning that the generated project will target `netstandard2.0` which means you can use anywhere in .NET Core or even in full .NET Framework v4.7.1+
+
+### Screenshots
+
+Here are screenshots of how such generated project looks like. In this case, we have a project generated from the Github GraphQL API (Fable target):
+
+Given the query
+
+![GithubSearchQuery](GithubSearchQuery.png)
+
+The corresponding query types are generated
+
+![GithubSearch](GithubSearch.png)
+
+All queries and mutations can be called from a dedicated `GraphqlClient`
+
+![GraphqlClient](GraphqlClient.png)
 
 ## Custom Error Type
 

@@ -12,6 +12,7 @@ open FSharp.Compiler.Range
 open System.Collections.Generic
 open Newtonsoft.Json.Linq
 open GraphQLParser.AST
+open System.Text.RegularExpressions
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -30,11 +31,43 @@ let normalizeName (unionCase: string) =
         |> String.concat ""
 
 let capitalizeEnum (input: string) =
-    input.First().ToString().ToUpper() + String.Join("", input.Skip(1)).ToLowerInvariant()
+    if String.IsNullOrWhiteSpace input
+    then ""
+    else input.First().ToString().ToUpper() + String.Join("", input.Skip(1)).ToLowerInvariant()
+
 let normalizeEnumName (unionCase: string) =
-    if not(unionCase.Contains "_") then
+
+    let allUppercase =
+        unionCase
+        |> Seq.filter Char.IsLetter
+        |> Seq.forall Char.IsUpper
+
+    let allLowecase =
+        unionCase
+        |> Seq.filter Char.IsLetter
+        |> Seq.forall Char.IsLower
+
+    if (allUppercase || allLowecase) && not (unionCase.Contains "_") then
         capitalizeEnum unionCase
+    elif not(unionCase.Contains "_") then
+        // enumValue -> EnumValue
+        // EnumValue -> EnumValue
+        let firstNonUpperparts =
+            unionCase
+            |> Seq.takeWhile (fun token -> not (Char.IsUpper(token)))
+            |> Seq.map string
+            |> String.concat ""
+            |> capitalizeEnum
+
+        let splitByUpperCase =
+            Regex.Matches(unionCase, @"([A-Z][a-z]+([0-9]?)+)")
+            |> Seq.cast<Match>
+            |> Seq.map (fun matched -> capitalizeEnum matched.Value)
+            |> String.concat ""
+
+        firstNonUpperparts + splitByUpperCase
     else
+        // ENUM_VALUE -> EnumValue
         unionCase.Split [| '_'; '-' |]
         |> Array.filter String.isNotNullOrEmpty
         |> Array.map capitalizeEnum
