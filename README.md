@@ -9,6 +9,7 @@ A dotnet CLI tool for generating type-safe GraphQL clients for F#.
  - Supports GraphQL interfaces and unions
  - Resolves type name collisions when re-using types in a single query
  - Generates a HTTP client with functions that correspond to the query or mutation names. These functions handle exact JSON deserialization for the returned data.
+ - Tested with different GraphQL backends generated from [graphql-dotnet](https://github.com/graphql-dotnet/graphql-dotnet), [hasura](https://hasura.io/), [postgraphile](https://www.graphile.org/postgraphile/) and [absinthe](https://github.com/absinthe-graphql/absinthe).
 
 ## Installation
 Install as a global dotnet CLI tool
