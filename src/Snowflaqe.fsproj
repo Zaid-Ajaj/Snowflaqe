@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.17.0</Version>
-    <PackageReleaseNotes>Support scalar types Numeric from Hasura and BigFloat from Postgraphile and convert them into decimal</PackageReleaseNotes>
+    <Version>1.18.0</Version>
+    <PackageReleaseNotes>Support converting scalar type Datetime (from Postgraphile) into DateTimeOffset</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

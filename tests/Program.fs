@@ -1068,6 +1068,7 @@ let snowflakeTests = testList "Snowflaqe" [
     SampleHasuraSchema.hasuraTests
     SampleGithubSchema.githubTests
     SampleCraftSchema.tests
+    SamplePostgraphile.tests
 ]
 
 [<EntryPoint>]

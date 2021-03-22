@@ -109,7 +109,7 @@ type Root =
       userOrders: list<userOrders> }
 
 """
-                Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
+                Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code is correct"
     }
 
     test "Optional timestamptz is converted to Option<DateTimeOffset>" {
