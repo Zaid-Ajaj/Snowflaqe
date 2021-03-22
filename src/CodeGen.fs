@@ -237,6 +237,8 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
         | GraphqlScalar.Float -> SynType.Float()
         | GraphqlScalar.ID -> SynType.String()
         | GraphqlScalar.Custom "Decimal" -> SynType.Decimal()
+        | GraphqlScalar.Custom "Numeric" -> SynType.Decimal()
+        | GraphqlScalar.Custom "BigFloat" -> SynType.Decimal()
         | GraphqlScalar.Custom "DateTimeOffset" -> SynType.DateTimeOffset()
         | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
         | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
@@ -271,6 +273,8 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
             | GraphqlScalar.Float -> SynType.Float()
             | GraphqlScalar.ID -> SynType.String()
             | GraphqlScalar.Custom "Decimal" -> SynType.Decimal()
+            | GraphqlScalar.Custom "Numeric" -> SynType.Decimal()
+            | GraphqlScalar.Custom "BigFloat" -> SynType.Decimal()
             | GraphqlScalar.Custom "DateTimeOffset" -> SynType.DateTimeOffset()
             | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
             | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
@@ -698,6 +702,8 @@ let rec makeVariableType variableType  (schema: GraphqlSchema) =
         | "DateTime"-> SynType.DateTime()
         | "DateTimeOffset" -> SynType.DateTimeOffset()
         | "Decimal" -> SynType.Decimal()
+        | "Numeric" -> SynType.Decimal()
+        | "BigFloat" -> SynType.Decimal()
         | "timestamptz" -> SynType.DateTimeOffset()
         | _ when isCustomScalar name schema -> SynType.String()
         | _ -> SynType.Create name
@@ -715,6 +721,8 @@ let rec makeVariableType variableType  (schema: GraphqlSchema) =
             | "DateTimeOffset" -> SynType.DateTimeOffset()
             | "timestamptz" -> SynType.DateTimeOffset()
             | "Decimal" -> SynType.Decimal()
+            | "Numeric" -> SynType.Decimal()
+            | "BigFloat" -> SynType.Decimal()
             | _ when isCustomScalar name schema -> SynType.String()
             | _ -> SynType.Create name
 

@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.16.0</Version>
-    <PackageReleaseNotes>Improve union case normalization</PackageReleaseNotes>
+    <Version>1.17.0</Version>
+    <PackageReleaseNotes>Support scalar types Numeric from Hasura and BigFloat from Postgraphile and convert them into decimal</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
