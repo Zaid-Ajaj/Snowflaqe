@@ -27,7 +27,8 @@ Create a JSON file called `snowflaqe.json` with the following shape:
     ["target"]: "<target>",
     ["errorType"]: <custom error type>,
     ["overrideClientName"]: "<clientName>",
-    ["copyLocalLockFileAssemblies"]: <true|false>
+    ["copyLocalLockFileAssemblies"]: <true|false>,
+    ["emitMetadata"]: <true|false>
 }
 ```
 Where
@@ -41,6 +42,7 @@ Where
  - `<errorType>` optional custom error type to be generated. See below to learn more.
  - `<clientName>` optional name for the `GraphqlClient` class which is `{project}GraphqlClient` by default when you don't provide this property.
  - `<copyLocalLockFileAssemblies>` Adds the attribute to the generated F# project for scenarios where embedding the dependencies is required
+ - `<emitMetadata>` when set to `true`, emits code generation metadata as comments into the output modules. The option is set to `false` by default.
  - `<target>` optional the code-generation target which can either be `fable` (default), `fsharp` or `shared`.
 
 > Using `shared` as a code generation target actually builds 3 projects! One contains just the types and can be *shared* across platforms. The other two reference this shared projects and implement Fable specific client and dotnet specific client, respectively.

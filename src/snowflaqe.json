@@ -3,6 +3,7 @@
     "queries": "./queries",
     "project": "Spotify",
     "output": "./output",
+    "emitMetadata": true,
     "errorType": {
         "CustomErrorType": {
             "Message": "string",

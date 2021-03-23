@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.18.0</Version>
-    <PackageReleaseNotes>Support converting scalar type Datetime (from Postgraphile) into DateTimeOffset</PackageReleaseNotes>
+    <Version>1.19.0</Version>
+    <PackageReleaseNotes>Option emitMetadata to add metadata as comments in generated modules and update used Fable.SimpleJson to 3.19.0</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
