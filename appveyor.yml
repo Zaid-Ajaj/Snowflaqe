@@ -4,12 +4,11 @@ init:
 build:
   verbosity: detailed
 
-# Install scripts. (runs after repo cloning)
 install:
-  # install latest dotnet core 3 preview
-  - cmd: choco install dotnetcore-sdk
+  # install latest dotnet 5
+  - cmd: choco install dotnet
 
-os: Visual Studio 2017
+os: Visual Studio 2019
 
 build_script:
   - cmd: dotnet run --project ./tests/Snowflaqe.Tests.fsproj
