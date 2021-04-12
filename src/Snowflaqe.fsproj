@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="StringBuffer.fs" />
     <Compile Include="LinqToXmlExtensions.fs" />
     <Content Include="snowflaqe.json" />
     <None Include="Introspection.gql" />

@@ -16,6 +16,7 @@ open System.Text.RegularExpressions
 open System.Xml
 open LinqToXmlExtensions
 open System.Xml.Linq
+open StringBuffer
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -950,7 +951,7 @@ let addLines (query: string) =
     |> Array.map (fun line -> "                " + line)
     |> String.concat Environment.NewLine
 
-let sampleClientMember query queryName hasVariables =
+let sampleClientMember query queryName hasVariables = stringBuffer {
     sprintf """    member _.%s(%s) =
         async {
             let query = %s
@@ -976,8 +977,9 @@ let sampleClientMember query queryName hasVariables =
       ("\"\"\"\n" + addLines query + "\n            \"\"\"")
       (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
       queryName
+}
 
-let sampleFSharpClientMember query queryName hasVariables =
+let sampleFSharpClientMember query queryName hasVariables = stringBuffer {
     sprintf """    member _.%sAsync(%s) =
         async {
             let query = %s
@@ -1022,8 +1024,9 @@ let sampleFSharpClientMember query queryName hasVariables =
       (if hasVariables then "input: " + queryName + ".InputVariables" else "")
       queryName
       (if hasVariables then " input" else "()")
+}
 
-let sampleGraphqlClient projectName clientName errorType members =
+let sampleGraphqlClient projectName clientName errorType members = stringBuffer {
     sprintf """namespace %s
 
 open Fable.SimpleHttp
@@ -1037,8 +1040,8 @@ type %s(url: string, headers: Header list) =
     new(url: string) = %s(url, [ ])
 
 %s""" projectName errorType clientName clientName members
-
-let sampleFSharpGraphqlClient projectName clientName errorType members =
+}
+let sampleFSharpGraphqlClient projectName clientName errorType members = stringBuffer {
     sprintf """namespace %s
 
 open Fable.Remoting.Json
@@ -1058,3 +1061,4 @@ type %s(url: string, httpClient: HttpClient) =
     new(url: string) = %s(url, new HttpClient())
 
 %s""" projectName errorType clientName clientName members
+}
