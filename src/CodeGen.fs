@@ -933,28 +933,27 @@ type StringEnumAttribute() =
     inherit System.Attribute()
     """
 
-let generateProjectDocument
-    (packageReferences: XElement seq)
-    (files: XElement seq)
-    (copyLocalLockFileAssemblies: bool option)
-    (contentItems: XElement seq)
-    (projectReferences: XElement seq)=
+type PropsGenerationData =
+    { NugetPackageReferences: XElement seq
+      Files: XElement seq
+      CopyLocalLockFileAssemblies: bool option
+      ContentItems: XElement seq
+      ProjectReferences: XElement seq }
+
+let generatePropsDocument
+    { NugetPackageReferences = packageReferences
+      Files = files
+      CopyLocalLockFileAssemblies = copyLocalLockFileAssemblies
+      ContentItems = contentItems
+      ProjectReferences = projectReferences } =
     XDocument(
         XElement.ofStringName("Project",
-            XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
             seq {
-            XElement.ofStringName("PropertyGroup",
-                seq {
-                    XElement.ofStringName("TargetFramework", "netstandard2.0")
-                    XElement.ofStringName("LangVersion", "latest")
-                    if copyLocalLockFileAssemblies.IsSome then
-                        XElement.ofStringName("CopyLocalLockFileAssemblies",
-                            if copyLocalLockFileAssemblies.Value
-                            then "true"
-                            else "false"
-                        )
-                })
-            if not (Seq.isEmpty files) then
+            if copyLocalLockFileAssemblies.IsSome then
+                XElement.ofStringName("PropertyGroup",
+                    XElement.ofStringName("CopyLocalLockFileAssemblies",
+                        (copyLocalLockFileAssemblies.Value.ToString().ToLower())))
+            if not (files |> Seq.isEmpty) then
                 XElement.ofStringName("ItemGroup", files)
             if not (Seq.isEmpty contentItems) then
                 XElement.ofStringName("ItemGroup", contentItems)
