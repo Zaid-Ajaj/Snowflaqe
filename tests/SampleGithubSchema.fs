@@ -125,7 +125,7 @@ let githubTests = testList "Github tests" [
         match Query.parse validQuery with
         | Error error -> failwith error
         | Ok query ->
-            let fragments = Query.findInlineFragments query.nodes
+            let fragments = Query.findNestedInlineFragments query.nodes
             Expect.equal (List.length fragments) 2 "There are two inline fragments"
     }
 
@@ -134,7 +134,7 @@ let githubTests = testList "Github tests" [
         | Error error -> failwith error
         | Ok query ->
             let expandedNodes = Query.expandFragments query.nodes [ ]
-            let fragments = Query.findInlineFragments expandedNodes
+            let fragments = Query.findNestedInlineFragments expandedNodes
             Expect.equal 2 (List.length fragments) "There are two inline fragments"
     }
 

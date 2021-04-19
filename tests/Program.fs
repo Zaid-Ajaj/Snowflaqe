@@ -1069,6 +1069,7 @@ let snowflakeTests = testList "Snowflaqe" [
     SampleGithubSchema.githubTests
     SampleCraftSchema.tests
     SamplePostgraphile.tests
+    SampleSentiantSchema.tests
 ]
 
 [<EntryPoint>]

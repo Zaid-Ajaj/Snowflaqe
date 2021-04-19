@@ -215,17 +215,32 @@ let findOperationName (document: GraphqlDocument) =
         | _ -> None
 
 
-let rec findInlineFragments (nodes: GraphqlNode list) =
+/// <summary>
+/// Finds the inline fragments used in GraphQL unions and interfaces.
+/// The function searches one level deep
+/// </summary>
+let findInlineFragments (nodes: GraphqlNode list) =
+    nodes
+    |> List.choose (function
+        | GraphqlNode.InlineFragment fragment -> Some fragment
+        | _ -> None
+    )
+
+/// <summary>
+/// Finds the inline fragments used in GraphQL unions and interfaces recursively.
+/// This functions searches all the way down the GraphQL selection tree
+/// </summary>
+let rec findNestedInlineFragments (nodes: GraphqlNode list) =
     nodes
     |> List.collect (function
         | GraphqlNode.InlineFragment fragment -> [ fragment ]
-        | GraphqlNode.SelectionSet set -> findInlineFragments set.nodes
-        | GraphqlNode.Query query -> findInlineFragments query.selectionSet.nodes
-        | GraphqlNode.Mutation mutation -> findInlineFragments mutation.selectionSet.nodes
+        | GraphqlNode.SelectionSet set -> findNestedInlineFragments set.nodes
+        | GraphqlNode.Query query -> findNestedInlineFragments query.selectionSet.nodes
+        | GraphqlNode.Mutation mutation -> findNestedInlineFragments mutation.selectionSet.nodes
         | GraphqlNode.Field field ->
             match field.selectionSet with
             | None -> [ ]
-            | Some selection -> findInlineFragments selection.nodes
+            | Some selection -> findNestedInlineFragments selection.nodes
         | anythingElse ->
             [ ]
     )

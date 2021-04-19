@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.19.0</Version>
-    <PackageReleaseNotes>Option emitMetadata to add metadata as comments in generated modules and update used Fable.SimpleJson to 3.19.0</PackageReleaseNotes>
+    <Version>1.20.0</Version>
+    <PackageReleaseNotes>Fixes a validation issue in unions and interfaces where searching for the inline fragments was recursive instead of being one level deep</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.3" />
+    <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.5" />
     <PackageReference Include="FsAst" Version="0.4.0" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.2.7" />
     <PackageReference Include="GraphQL" Version="3.1.3" />

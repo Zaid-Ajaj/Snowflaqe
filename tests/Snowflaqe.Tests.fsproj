@@ -11,6 +11,7 @@
     <Compile Include="SampleGithubSchema.fs" />
     <Compile Include="SampleCraftSchema.fs" />
     <Compile Include="SamplePostgraphileSchema.fs" />
+    <Compile Include="SampleSentiantSchema.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
