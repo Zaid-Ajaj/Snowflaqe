@@ -73,6 +73,12 @@ let normalizeEnumName (unionCase: string) =
         |> Array.map capitalizeEnum
         |> String.concat ""
 
+let normalizeModuleName (name: string) =
+    name.Replace(" ", "").Split [| '_'; '-' |]
+    |> Array.filter String.isNotNullOrEmpty
+    |> Array.map capitalize
+    |> String.concat ""
+
 type SynAttribute with
     static member Create(idents: string list) : SynAttribute =
         {

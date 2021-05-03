@@ -1,4 +1,4 @@
-query ArtistsByName ($name: String!) {
+query ($name: String!) {
   queryArtists(byName: $name) {
     name
     id

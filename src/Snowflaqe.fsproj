@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.20.0</Version>
-    <PackageReleaseNotes>Fixes a validation issue in unions and interfaces where searching for the inline fragments was recursive instead of being one level deep</PackageReleaseNotes>
+    <Version>1.21.0</Version>
+    <PackageReleaseNotes>Normalizes query file names when they contain a dash or whitespace</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

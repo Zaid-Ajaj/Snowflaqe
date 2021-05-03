@@ -319,8 +319,8 @@ let generate (configFile: string) =
 
             let fileName file =
                 if config.project.Contains "."
-                then file
-                else config.project + "." + file
+                then CodeGen.normalizeModuleName  file
+                else config.project + "." + CodeGen.normalizeModuleName file
 
             match config.target with
             | OutputTarget.FSharp ->
@@ -357,7 +357,10 @@ let generate (configFile: string) =
                 | Ok query ->
                     let queryName = Query.findOperationName query
                     let queryFileName = Path.GetFileNameWithoutExtension queryFile
-                    let moduleName = queryName |> Option.defaultValue queryFileName
+                    let moduleName =
+                        queryName
+                        |> Option.defaultValue queryFileName
+                        |> CodeGen.normalizeModuleName
                     let queryTypes = CodeGen.generateTypes "Query" config.errorType.typeName query schema
                     let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
                     let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ])
@@ -369,14 +372,13 @@ let generate (configFile: string) =
                         write fullPath generatedModuleContent (Some queryFile)
                         generatedFiles.Add(fullPath)
                         generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
-                        ()
+
                     | OutputTarget.Shared ->
                         let fullPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName (moduleName + ".fs")))
                         colorprintfn "✏️  Generating module $green[%s]" fullPath
                         write fullPath generatedModuleContent (Some queryFile)
                         generatedFiles.Add(fullPath)
                         generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
-                        ()
 
             let clientName =
                 config.overrideClientName
