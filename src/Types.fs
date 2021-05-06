@@ -4,9 +4,15 @@ open GraphQLParser.AST
 
 [<RequireQualifiedAccess>]
 type OutputTarget =
-    | Fable
-    | FSharp
-    | Shared
+    | Fable = 0
+    | FSharp = 1
+    | Shared = 2
+
+[<RequireQualifiedAccess>]
+type SerializerType =
+    | System = 0
+    | Newtonsoft = 1
+    | Unknown = 2
 
 [<RequireQualifiedAccess>]
 type AsyncReturnType =

@@ -24,10 +24,10 @@ type Config = {
     errorType : CustomErrorType
     target : OutputTarget
     createProjectFile : bool
+    serializer : SerializerType
     overrideClientName : string option
     copyLocalLockFileAssemblies : bool option
     emitMetadata: bool
-    asyncReturnType : AsyncReturnType
 }
 
 let logo = """
@@ -88,10 +88,6 @@ let readConfig (file: string) =
                 Error "The 'copyLocalLockFileAssemblies' configuration element must be a boolean"
             elif not (isNull parsedJson.["emitMetadata"]) && parsedJson.["emitMetadata"].Type <> JTokenType.Boolean then
                 Error "The 'emitMetadata' configuration element must be a boolen"
-            elif not (isNull parsedJson.["asyncReturnType"]) && (parsedJson.["asyncReturnType"].ToObject<string>().ToLower() <> "async" && parsedJson.["asyncReturnType"].ToObject<string>().ToLower() <> "task") then
-                Error "The 'asyncReturnType' configuration element must be either 'async' (default), or 'task'"
-            elif (not (isNull parsedJson.["asyncReturnType"]) && (parsedJson.["asyncReturnType"].ToObject<string>().ToLower() = "task")) && (isNull parsedJson.["target"] || parsedJson.["target"].ToObject<string>().ToLower() = "fable") then
-                Error "The 'asyncReturnType' configuration element may not be 'task' for 'fable' targets"
             else
                 let errorType =
                     if isNull parsedJson.["errorType"]
@@ -107,22 +103,34 @@ let readConfig (file: string) =
                     let queriesPath = string parsedJson.["queries"]
                     let outputPath = string parsedJson.["output"]
 
-                    let target =
-                        if isNull parsedJson.["target"] || (string parsedJson.["target"]).ToLower() = "fable"
-                        then OutputTarget.Fable
-                        elif not (isNull parsedJson.["target"]) && (string parsedJson.["target"]).ToLower() = "fsharp"
-                        then OutputTarget.FSharp
-                        else OutputTarget.Shared
+                    let value =
+                        if isNull parsedJson.["target"] then
+                            Enum.GetName (typeof<OutputTarget>, OutputTarget.Fable)
+                        else
+                            parsedJson.["target"].Value<string> ()
 
-                    let asyncReturnType =
-                        if isNull parsedJson.["asyncReturnType"] || parsedJson.["asyncReturnType"].ToObject<string>().ToLower() = "async"
-                        then AsyncReturnType.Async
-                        else AsyncReturnType.Task
+                    let target =
+                        match  OutputTarget.TryParse
+                            (value = value, ignoreCase = true) with
+                        | true, v -> v
+                        | false, _ -> OutputTarget.Fable
 
                     let createProjectFile =
                         if isNull parsedJson.["createProjectFile"]
                         then true
                         else parsedJson.["createProjectFile"].ToObject<bool>()
+
+                    let value =
+                        if isNull parsedJson.["serializer"] then
+                            Enum.GetName (typeof<SerializerType>, SerializerType.Unknown)
+                        else
+                            parsedJson.["serializer"].Value<string> ()
+
+                    let serializer =
+                        match SerializerType.TryParse
+                            (value = value, ignoreCase = true) with
+                        | true, v -> v
+                        | false, _ -> SerializerType.Unknown
 
                     let fullQueriesPath =
                         if Path.IsPathRooted queriesPath
@@ -149,19 +157,23 @@ let readConfig (file: string) =
                         then false
                         else parsedJson.["emitMetadata"].ToObject<bool>()
 
-                    Ok {
-                        schema = string parsedJson.["schema"]
-                        queries = fullQueriesPath
-                        project = string parsedJson.["project"]
-                        output = fullOutputPath
-                        errorType = errorType
-                        target = target
-                        createProjectFile = createProjectFile
-                        overrideClientName = overrideClientName
-                        copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
-                        emitMetadata = emitMetadata
-                        asyncReturnType = asyncReturnType
-                    }
+                    if serializer = SerializerType.System && target = OutputTarget.Fable ||
+                       serializer = SerializerType.System && target = OutputTarget.Shared then
+                        Error "Fable does not support System.Text.Json"
+                    else
+                        Ok {
+                            schema = string parsedJson.["schema"]
+                            queries = fullQueriesPath
+                            project = string parsedJson.["project"]
+                            output = fullOutputPath
+                            errorType = errorType
+                            target = target
+                            createProjectFile = createProjectFile
+                            serializer = serializer
+                            overrideClientName = overrideClientName
+                            copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
+                            emitMetadata = emitMetadata
+                        }
     with
     | ex -> Error ex.Message
 
@@ -423,7 +435,6 @@ let generate (configFile: string) =
             ]
 
             let outputDirectoryName = DirectoryInfo(config.output).Name
-            let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
 
             match config.target with
             | OutputTarget.Fable ->
@@ -434,19 +445,18 @@ let generate (configFile: string) =
                     generatedModules
                     |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
-                let clientContent = CodeGen.sampleGraphqlClient config.project clientName config.errorType.typeName members
+                let clientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName members config.serializer
                 write graphqlClientPath clientContent None
                 colorprintfn "✏️  Generating Fable $green[%s]" projPath
-
-                let files = [
-                    for file in generatedFiles do
-                        createCompileXElement config.createProjectFile outputDirectoryName file
-                ]
-
+                let files =
+                    generatedFiles
+                    |> Seq.map
+                        (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
                 let packageReferences = [
                     yield! packageReferences
                     yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", "3.0.0")
                     yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", "3.21.0")
+                    yield MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", "12.0.2")
                 ]
 
                 let contentItems = [
@@ -476,12 +486,12 @@ let generate (configFile: string) =
 
                 let members =
                     generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars useTasksForAsync)
+                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
 
                 let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
                 generatedFiles.Add(graphqlClientPath)
-                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members useTasksForAsync
+                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members config.serializer
                 write graphqlClientPath clientContent None
 
                 let files =
@@ -490,10 +500,11 @@ let generate (configFile: string) =
                         (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
                 let packageReferences = [
                     yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.17.0")
-                    if useTasksForAsync then yield MSBuildXElement.PackageReferenceInclude("Ply", "0.3.1") 
+                    yield match config.serializer with
+                          | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("System.text.Json", "4.6.0")
+                          | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.17.0")
+                          | _ -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.14.0")
                 ]
-
                 let generator =
                     if config.createProjectFile
                     then CodeGen.generateProjectDocument
@@ -540,22 +551,22 @@ let generate (configFile: string) =
                 let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
                 let fsharpMembers =
                     generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars useTasksForAsync)
+                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars)
                     |> String.concat "\n"
-                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers useTasksForAsync
+                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers config.serializer
                 write fsharpGraphqlClientPath dotnetClientContent None
                 let sharedFSharpDocument =
                     if config.createProjectFile
                     then Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
                     else Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
                 colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
-
                 let packageReferences = [
                     yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.17.0")
-                    if useTasksForAsync then yield MSBuildXElement.PackageReferenceInclude("Ply", "0.3.1")
+                    yield match config.serializer with
+                          | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("System.text.Json", "4.6.0")
+                          | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.14.0")
+                          | _ -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.17.0")
                 ]
-
                 let projectReferences =
                     if config.createProjectFile
                     then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
@@ -588,7 +599,7 @@ let generate (configFile: string) =
                     |> String.concat "\n"
 
                 let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fs"))
-                let fableClientContent = CodeGen.sampleGraphqlClient config.project clientName config.errorType.typeName fableMembers
+                let fableClientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName fableMembers config.serializer
                 write fableGraphqlClientPath fableClientContent None
                 let sharedFableDocument =
                     if config.createProjectFile
@@ -597,9 +608,10 @@ let generate (configFile: string) =
                 colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
 
                 let packageReferences = [
-                    MSBuildXElement.PackageReferenceUpdate("FSharp.Core", "4.7.2")
+                    MSBuildXElement.PackageReferenceUpdate("FSharp.Core", "5.0.1")
                     MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", "3.0.0")
                     MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", "3.21.0")
+                    MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", "12.0.2")
                 ]
 
                 let files = [
@@ -666,12 +678,12 @@ let main argv =
             queries = queries;
             project = "GraphqlClient";
             output = "./output";
+            serializer = SerializerType.System;
             errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() };
             target = OutputTarget.Fable; overrideClientName = None
             createProjectFile = true
             copyLocalLockFileAssemblies = None
             emitMetadata = false
-            asyncReturnType = AsyncReturnType.Async
         }
 
         runConfig config
@@ -685,9 +697,9 @@ let main argv =
             errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() };
             target = OutputTarget.Fable; overrideClientName = None
             createProjectFile = true
+            serializer = SerializerType.System;
             copyLocalLockFileAssemblies = None
             emitMetadata = false
-            asyncReturnType = AsyncReturnType.Async
         }
 
         runConfig config
