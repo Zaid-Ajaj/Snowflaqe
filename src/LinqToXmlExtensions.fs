@@ -18,6 +18,9 @@ type XElement =
     static member ofStringName (name: string, [<ParamArray>] content) =
         XElement(XName.Get(name), content)
 
+    static member Compile(fileName: string) =
+        XElement.ofStringName("Compile", XAttribute.ofStringName("Include", fileName))
+
     static member PackageReference (include': string, version: string) =
         XElement.ofStringName("PackageReference",
             XAttribute.ofStringName("Include", include'),

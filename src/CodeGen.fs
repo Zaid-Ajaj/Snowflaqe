@@ -948,15 +948,19 @@ let generateProjectDocument
                     XElement.ofStringName("TargetFramework", "netstandard2.0")
                     XElement.ofStringName("LangVersion", "latest")
                     if copyLocalLockFileAssemblies.IsSome then
-                        XElement.ofStringName("CopyLocalLockFileAssemblies", copyLocalLockFileAssemblies.Value)
+                        XElement.ofStringName("CopyLocalLockFileAssemblies",
+                            if copyLocalLockFileAssemblies.Value
+                            then "true"
+                            else "false"
+                        )
                 })
-            if not (files |> Seq.isEmpty) then
+            if not (Seq.isEmpty files) then
                 XElement.ofStringName("ItemGroup", files)
-            if not (contentItems |> Seq.isEmpty) then
+            if not (Seq.isEmpty contentItems) then
                 XElement.ofStringName("ItemGroup", contentItems)
-            if not (packageReferences |> Seq.isEmpty) then
+            if not (Seq.isEmpty packageReferences) then
                 XElement.ofStringName("ItemGroup", packageReferences)
-            if not (projectReferences |> Seq.isEmpty) then
+            if not (Seq.isEmpty projectReferences) then
                 XElement.ofStringName("ItemGroup", projectReferences)
         }))
 

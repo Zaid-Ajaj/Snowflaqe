@@ -4,11 +4,11 @@ query HomeConfig {
     ...on Home_Home_Entry {
       __typename
       HeroLink
-  	  Grid {
+      Grid {
         ... on Grid_row_BlockType {
           __typename
           typeHandle
-        	items {
+          items {
             url
             width
             height

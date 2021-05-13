@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.21.0</Version>
-    <PackageReleaseNotes>Normalizes query file names when they contain a dash or whitespace</PackageReleaseNotes>
+    <Version>1.22.0</Version>
+    <PackageReleaseNotes>Generate projects using XML API</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

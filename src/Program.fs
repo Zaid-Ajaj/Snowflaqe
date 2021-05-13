@@ -389,11 +389,11 @@ let generate (configFile: string) =
                     else sprintf "%sGraphqlClient" config.project
                 )
 
-            let packageReferences =
+            let packageReferences = [
                 XElement.ofStringName("PackageReference",
                     XAttribute.ofStringName("Update", "FSharp.Core"),
                     XAttribute.ofStringName("Version", "4.7.2"))
-                |> List.singleton
+            ]
 
             match config.target with
             | OutputTarget.Fable ->
@@ -409,28 +409,23 @@ let generate (configFile: string) =
                 colorprintfn "✏️  Generating Fable project $green[%s]" projectPath
                 let files =
                     generatedFiles
-                    |> Seq.map
-                        (fun file ->
-                            XElement.ofStringName("Compile",
-                                XAttribute.ofStringName("Include", file |> Path.GetFileName)
-                        ))
-                let packageReferences =
-                    packageReferences
-                    |> List.append
-                        (seq {
-                            XElement.PackageReference("Fable.SimpleHttp", "3.0.0")
-                            XElement.PackageReference("Fable.SimpleJson", "3.19.0")
-                        } |> Seq.toList)
+                    |> Seq.map (fun file -> XElement.Compile (Path.GetFileName file))
 
-                let contentItems =
+                let references =
+                    packageReferences
+                    |> List.append [
+                        XElement.PackageReference("Fable.SimpleHttp", "3.0.0")
+                        XElement.PackageReference("Fable.SimpleJson", "3.19.0")
+                    ]
+
+                let contentItems = [
                     XElement.ofStringName("Content",
                         XAttribute.ofStringName("Include", "*.fsproj; *.fs; *.js"),
                         XAttribute.ofStringName("Exclude", "**\*.fs.js"),
                         XAttribute.ofStringName("PackagePath", "fable\\"))
-                    |> Seq.singleton
+                ]
 
-                let projectDocument =
-                    CodeGen.generateProjectDocument packageReferences files None contentItems Seq.empty
+                let projectDocument = CodeGen.generateProjectDocument references files None contentItems Seq.empty
                 File.WriteAllText(projectPath, projectDocument.ToString())
 
             | OutputTarget.FSharp ->
@@ -448,28 +443,21 @@ let generate (configFile: string) =
 
                 let files =
                     generatedFiles
-                    |> Seq.map
-                        (fun file ->
-                            XElement.ofStringName("Compile",
-                                XAttribute.ofStringName("Include", file |> Path.GetFileName)
-                        ))
-                let packageReferences =
+                    |> Seq.map (fun file -> XElement.Compile (Path.GetFileName file))
+
+                let references =
                     packageReferences
-                    |> List.append
-                        (XElement.PackageReference("Fable.Remoting.Json", "2.14.0")
-                         |> List.singleton)
-                let projectDocument =
-                    CodeGen.generateProjectDocument packageReferences files None Seq.empty Seq.empty
+                    |> List.append [
+                        XElement.PackageReference("Fable.Remoting.Json", "2.14.0")
+                    ]
+
+                let projectDocument = CodeGen.generateProjectDocument references files None Seq.empty Seq.empty
                 File.WriteAllText(projectPath, projectDocument.ToString())
 
             | OutputTarget.Shared ->
                 let files =
                     generatedFiles
-                    |> Seq.map
-                        (fun file ->
-                            XElement.ofStringName("Compile",
-                                XAttribute.ofStringName("Include", file |> Path.GetFileName)
-                        ))
+                    |> Seq.map (fun file -> XElement.Compile (Path.GetFileName file))
 
                 let sharedProjectPath = Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
                 colorprintfn "✏️  Generating shared F# project $green[%s]" sharedProjectPath
@@ -486,20 +474,22 @@ let generate (configFile: string) =
                 write fsharpGraphqlClientPath dotnetClientContent None
                 let sharedFSharpProject = Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
                 colorprintfn "✏️  Generating F# dotnet project $green[%s]" sharedFSharpProject
-                let packageReferences =
+                let references =
                     packageReferences
-                    |> List.append
-                        (XElement.PackageReference("Fable.Remoting.Json", "2.14.0")
-                        |> List.singleton)
-                let projectReferences =
-                    XElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    |> Seq.singleton
-                let files =
-                    XElement.ofStringName("Compile",
-                        XAttribute.ofStringName("Include", $"{config.project}.GraphqlClient.fs"))
-                    |> Seq.singleton
+                    |> List.append [
+                        XElement.PackageReference("Fable.Remoting.Json", "2.14.0")
+                    ]
+
+                let projectReferences = [
+                    XElement.ProjectReference($"..\\shared\\{config.project}.Shared.fsproj")
+                ]
+
+                let files = [
+                    XElement.Compile $"{config.project}.GraphqlClient.fs"
+                ]
+
                 let projectDocument =
-                    CodeGen.generateProjectDocument packageReferences files config.copyLocalLockFileAssemblies Seq.empty projectReferences
+                    CodeGen.generateProjectDocument references files config.copyLocalLockFileAssemblies Seq.empty projectReferences
                 File.WriteAllText(sharedFSharpProject, projectDocument.ToString())
 
                 let fableMembers =
@@ -512,27 +502,29 @@ let generate (configFile: string) =
                 write fableGraphqlClientPath fableClientContent None
                 let sharedFableProject = Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
                 colorprintfn "✏️  Generating Fable project $green[%s]" sharedFableProject
-                let packageReferences =
-                    (seq {
-                        XElement.ofStringName("PackageReference",
-                            XAttribute.ofStringName("Update", "FSharp.Core"),
-                            XAttribute.ofStringName("Version", "4.7.2"))
-                        XElement.PackageReference("Fable.SimpleHttp", "3.0.0")
-                        XElement.PackageReference("Fable.SimpleJson", "3.19.0")
-                    } |> Seq.toList)
-                let files =
-                    XElement.ofStringName("Compile",
-                        XAttribute.ofStringName("Include", $"{config.project}.GraphqlClient.fs"))
-                    |> Seq.singleton
-                let contentItems =
+                let packageReferences = [
+                    XElement.PackageReference("Fable.SimpleHttp", "3.0.0")
+                    XElement.PackageReference("Fable.SimpleJson", "3.19.0")
+                    XElement.ofStringName("PackageReference",
+                        XAttribute.ofStringName("Update", "FSharp.Core"),
+                        XAttribute.ofStringName("Version", "4.7.2")
+                    )
+                ]
+
+                let files = [
+                    XElement.Compile $"{config.project}.GraphqlClient.fs"
+                ]
+
+                let contentItems = [
                     XElement.ofStringName("Content",
                         XAttribute.ofStringName("Include", "*.fsproj; *.fs; *.js"),
-                        XAttribute.ofStringName("Exclude", "**\*.fs.js"),
+                        XAttribute.ofStringName("Exclude", "**\\*.fs.js"),
                         XAttribute.ofStringName("PackagePath", "fable\\"))
-                    |> Seq.singleton
-                let projectReferences =
-                    XElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    |> Seq.singleton
+                ]
+
+                let projectReferences = [
+                    XElement.ProjectReference($"..\\shared\\{config.project}.Shared.fsproj")
+                ]
                 let projectDocument =
                     CodeGen.generateProjectDocument packageReferences files None contentItems projectReferences
                 File.WriteAllText(sharedFableProject, projectDocument.ToString())

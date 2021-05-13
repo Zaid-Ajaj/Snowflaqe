@@ -4,7 +4,7 @@ query HomeConfigWithFragments {
     ...on Home_Home_Entry {
       __typename
       HeroLink
-  	  Grid {
+      Grid {
         ... GridItems
       }
     }
