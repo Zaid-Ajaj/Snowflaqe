@@ -13,6 +13,10 @@ open System.Collections.Generic
 open Newtonsoft.Json.Linq
 open GraphQLParser.AST
 open System.Text.RegularExpressions
+open System.Xml
+open LinqToXmlExtensions
+open System.Xml.Linq
+open StringBuffer
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -929,113 +933,39 @@ type StringEnumAttribute() =
     inherit System.Attribute()
     """
 
-let sampleFableProject files =
-    sprintf """<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>
-    </PropertyGroup>
-    <ItemGroup>
-%s
-    </ItemGroup>
-    <ItemGroup>
-        <Content Include="*.fsproj; *.fs; *.js" Exclude="**\*.fs.js" PackagePath="fable\" />
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.2" />
-        <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.19.0" />
-    </ItemGroup>
-</Project>
-"""   files
-
-let sampleFSharpProject files copyLocalLockFileAssemblies =
-    let attribute =
-        match copyLocalLockFileAssemblies with
-        | None -> String.empty
-        | Some true -> "\n        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>"
-        | Some false -> "\n        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>"
-
-    sprintf """<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>%s
-    </PropertyGroup>
-    <ItemGroup>
-%s
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.2"/>
-        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" />
-    </ItemGroup>
-</Project>
-    """ attribute files
-
-let sampleSharedProject files =
-    sprintf """<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>
-    </PropertyGroup>
-    <ItemGroup>
-%s
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.2" />
-    </ItemGroup>
-</Project>
-"""  files
-
-let sampleSharedFSharpProject project copyLocalLockFileAssemblies =
-    let attribute =
-        match copyLocalLockFileAssemblies with
-        | None -> String.empty
-        | Some true -> "\n        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>"
-        | Some false -> "\n        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>"
-
-    sprintf """<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>%s
-    </PropertyGroup>
-    <ItemGroup>
-        <Compile Include="%s.GraphqlClient.fs" />
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.2" />
-        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" />
-        <ProjectReference Include="..\shared\%s.Shared.fsproj" />
-    </ItemGroup>
-</Project>
-"""  attribute project project
-
-let sampleSharedFableProject project =
-    sprintf """<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>latest</LangVersion>
-    </PropertyGroup>
-    <ItemGroup>
-        <Compile Include="%s.GraphqlClient.fs" />
-    </ItemGroup>
-    <ItemGroup>
-        <Content Include="*.fsproj; *.fs; *.js" Exclude="**\*.fs.js" PackagePath="fable\" />
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="4.7.2" />
-        <PackageReference Include="Fable.SimpleHttp" Version="3.0.0" />
-        <PackageReference Include="Fable.SimpleJson" Version="3.19.0" />
-        <ProjectReference Include="..\shared\%s.Shared.fsproj" />
-    </ItemGroup>
-</Project>
-"""  project project
+let generateProjectDocument
+    (packageReferences: XElement seq)
+    (files: XElement seq)
+    (copyLocalLockFileAssemblies: bool option)
+    (contentItems: XElement seq)
+    (projectReferences: XElement seq)=
+    XDocument(
+        XElement.ofStringName("Project",
+            XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
+            seq {
+            XElement.ofStringName("PropertyGroup",
+                seq {
+                    XElement.ofStringName("TargetFramework", "netstandard2.0")
+                    XElement.ofStringName("LangVersion", "latest")
+                    if copyLocalLockFileAssemblies.IsSome then
+                        XElement.ofStringName("CopyLocalLockFileAssemblies", copyLocalLockFileAssemblies.Value)
+                })
+            if not (files |> Seq.isEmpty) then
+                XElement.ofStringName("ItemGroup", files)
+            if not (contentItems |> Seq.isEmpty) then
+                XElement.ofStringName("ItemGroup", contentItems)
+            if not (packageReferences |> Seq.isEmpty) then
+                XElement.ofStringName("ItemGroup", packageReferences)
+            if not (projectReferences |> Seq.isEmpty) then
+                XElement.ofStringName("ItemGroup", projectReferences)
+        }))
 
 let addLines (query: string) =
     query.Split Environment.NewLine
     |> Array.map (fun line -> "                " + line)
     |> String.concat Environment.NewLine
 
-let sampleClientMember query queryName hasVariables =
+let sampleClientMember query queryName hasVariables = stringBuffer {
     sprintf """    member _.%s(%s) =
         async {
             let query = %s
@@ -1061,8 +991,9 @@ let sampleClientMember query queryName hasVariables =
       ("\"\"\"\n" + addLines query + "\n            \"\"\"")
       (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
       queryName
+}
 
-let sampleFSharpClientMember query queryName hasVariables =
+let sampleFSharpClientMember query queryName hasVariables = stringBuffer {
     sprintf """    member _.%sAsync(%s) =
         async {
             let query = %s
@@ -1107,8 +1038,9 @@ let sampleFSharpClientMember query queryName hasVariables =
       (if hasVariables then "input: " + queryName + ".InputVariables" else "")
       queryName
       (if hasVariables then " input" else "()")
+}
 
-let sampleGraphqlClient projectName clientName errorType members =
+let sampleGraphqlClient projectName clientName errorType members = stringBuffer {
     sprintf """namespace %s
 
 open Fable.SimpleHttp
@@ -1122,8 +1054,9 @@ type %s(url: string, headers: Header list) =
     new(url: string) = %s(url, [ ])
 
 %s""" projectName errorType clientName clientName members
+}
 
-let sampleFSharpGraphqlClient projectName clientName errorType members =
+let sampleFSharpGraphqlClient projectName clientName errorType members = stringBuffer {
     sprintf """namespace %s
 
 open Fable.Remoting.Json
@@ -1143,3 +1076,4 @@ type %s(url: string, httpClient: HttpClient) =
     new(url: string) = %s(url, new HttpClient())
 
 %s""" projectName errorType clientName clientName members
+}
