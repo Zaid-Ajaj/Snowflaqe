@@ -54,7 +54,7 @@ let publish() =
         then failwith "Publish failed"
 
 let buildCraftSchema() =
-    if Shell.Exec(Tools.dotnet, "run -- --config ../samples/craft-cms/snowflaqe.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+    if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ../samples/craft-cms/snowflaqe.json --generate", path [ solutionRoot; "src" ]) <> 0 then
         failwith "Running Fable generation failed"
     else
         if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "craft-cms"; "output" ]) <> 0
@@ -67,13 +67,13 @@ let buildGithub() =
     then failwith "Failed to build the generated Github project"
 
 let buildGithubDotProject() =
-    if Shell.Exec(Tools.dotnet, "run -- --config ../samples/github/snowflaqe-dot-project.json --generate", path [ solutionRoot; "src" ]) <> 0
+    if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ../samples/github/snowflaqe-dot-project.json --generate", path [ solutionRoot; "src" ]) <> 0
     then failwith "Failed to generate Github client"
     elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
     then failwith "Failed to build the generated Github project"
 
 let buildGithubFable() =
-    if Shell.Exec(Tools.dotnet, "run -- --config ../samples/github/snowflaqe-fable.json --generate", path [ solutionRoot; "src" ]) <> 0
+    if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ../samples/github/snowflaqe-fable.json --generate", path [ solutionRoot; "src" ]) <> 0
     then failwith "Failed to generate Github client"
     elif Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
     then failwith "Failed to build the generated Github project"
@@ -97,34 +97,77 @@ let createProjectFile imports (path: string) =
     let project = generateProjectFile imports
     project.WriteTo(path)
 
-let integration() =
-    if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --generate", path [ solutionRoot; "src" ]) <> 0 then
-        failwith "Running Fable generation failed"
+let propsIntegration() =
+    Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
+    if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-props.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+        failwith "Running Fable props generation failed"
     else
         createProjectFile ("./output/Spotify.props" |> Seq.singleton) (path [ solutionRoot; "src"; "Spotify.fsproj" ])
         if Shell.Exec(Tools.dotnet, "build Spotify.fsproj", path [ solutionRoot; "src" ]) <> 0
         then failwith "Building generated Fable project failed"
         else
-            if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp.json --generate", path [ solutionRoot; "src" ]) <> 0 then
-                failwith "Running FSharp generation failed"
+            Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
+            if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp-props.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+                failwith "Running FSharp props generation failed"
             else
             createProjectFile ("./output/Spotify.props" |> Seq.singleton) (path [ solutionRoot; "src"; "Spotify.fsproj" ])
             if Shell.Exec(Tools.dotnet, "build Spotify.fsproj", path [ solutionRoot; "src" ]) <> 0
             then failwith "Building generated FSharp project failed"
             else
-                if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-shared.json --generate", path [ solutionRoot; "src" ]) <> 0 then
-                    failwith "Running Shared project generation failed"
+                Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
+                if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-shared-props.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+                    failwith "Running Shared props generation failed"
                 else
                     createProjectFile
                         (seq {
                             "./output/shared/Spotify.props"
                             "./output/fable/Spotify.props"
-                            "./output/dotnet/Spotify.props"
                         })
-                        (path [ solutionRoot; "src"; "Spotify.fsproj" ])
+                        (path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
 
                     let output =
-                        Shell.Exec(Tools.dotnet, "build Spotify.fsproj", path [ solutionRoot; "src" ])
+                        Shell.Exec(Tools.dotnet, "build Spotify.Fable.fsproj", path [ solutionRoot; "src" ])
+
+                    if output <> 0 then failwith "Building generated shared fable projects failed"
+
+                    Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
+
+                    createProjectFile
+                        (seq {
+                            "./output/shared/Spotify.props"
+                            "./output/dotnet/Spotify.props"
+                        })
+                        (path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
+
+                    let output =
+                        Shell.Exec(Tools.dotnet, "build Spotify.Dotnet.fsproj", path [ solutionRoot; "src" ])
+
+                    if output <> 0 then failwith "Building generated shared dotnet projects failed"
+
+                    Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
+
+
+let fsprojIntegration() =
+    if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --generate", path [ solutionRoot; "src" ]) <> 0 then
+        failwith "Running Fable generation failed"
+    else
+        if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
+        then failwith "Building generated Fable project failed"
+        else
+            if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+                failwith "Running FSharp generation failed"
+            else
+            if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
+            then failwith "Building generated FSharp project failed"
+            else
+                if Shell.Exec(Tools.dotnet, "run -p Snowflaqe.fsproj -- --config ./snowflaqe-shared.json --generate", path [ solutionRoot; "src" ]) <> 0 then
+                    failwith "Running Shared project generation failed"
+                else
+                    let output = List.sum [
+                        Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output"; "shared" ])
+                        Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output"; "fable" ])
+                        Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output"; "dotnet" ])
+                    ]
 
                     if output <> 0 then failwith "Building generated shared projects failed"
                     else
@@ -132,6 +175,17 @@ let integration() =
                         buildCraftSchema()
                         buildGithubDotProject()
                         buildGithubFable()
+
+let clear() =
+    File.Delete( path [ solutionRoot; "src"; "Spotify.fsproj" ])
+    File.Delete( path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
+    File.Delete( path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
+    Directory.Delete(path [ solutionRoot; "src"; "output" ], true)
+
+let integration() =
+    propsIntegration()
+    fsprojIntegration()
+    clear()
 
 [<EntryPoint>]
 let main (args: string[]) =
