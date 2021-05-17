@@ -16,11 +16,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="9.0.0" />
+    <PackageReference Include="Expecto" Version="9.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\src\Snowflaqe.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 
 </Project>

@@ -933,12 +933,40 @@ type StringEnumAttribute() =
     inherit System.Attribute()
     """
 
+type DocumentGenerationData =
+    { NugetPackageReferences: XElement seq
+      Files: XElement seq
+      CopyLocalLockFileAssemblies: bool option
+      ContentItems: XElement seq
+      ProjectReferences: XElement seq }
+
+let generatePropsDocument
+    { NugetPackageReferences = packageReferences
+      Files = files
+      CopyLocalLockFileAssemblies = copyLocalLockFileAssemblies
+      ContentItems = contentItems
+      ProjectReferences = projectReferences } =
+    XDocument(
+        XElement.ofStringName("Project",
+            seq {
+            if copyLocalLockFileAssemblies.IsSome then
+                MSBuildXElement.PropertyGroup(copyLocalLockFileAssemblies.Value)
+            if not (files |> Seq.isEmpty) then
+                XElement.ofStringName("ItemGroup", files)
+            if not (Seq.isEmpty contentItems) then
+                XElement.ofStringName("ItemGroup", contentItems)
+            if not (Seq.isEmpty packageReferences) then
+                XElement.ofStringName("ItemGroup", packageReferences)
+            if not (Seq.isEmpty projectReferences) then
+                XElement.ofStringName("ItemGroup", projectReferences)
+        }))
+
 let generateProjectDocument
-    (packageReferences: XElement seq)
-    (files: XElement seq)
-    (copyLocalLockFileAssemblies: bool option)
-    (contentItems: XElement seq)
-    (projectReferences: XElement seq)=
+    { NugetPackageReferences = packageReferences
+      Files = files
+      CopyLocalLockFileAssemblies = copyLocalLockFileAssemblies
+      ContentItems = contentItems
+      ProjectReferences = projectReferences } =
     XDocument(
         XElement.ofStringName("Project",
             XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),

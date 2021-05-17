@@ -1,4 +1,4 @@
-﻿module StringBuffer
+﻿module Snowflaqe.StringBuffer
 
 open System.Text
 

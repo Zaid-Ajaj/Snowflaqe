@@ -1,0 +1,16 @@
+{
+    "schema": "./spotify-schema.json",
+    "queries": "./queries",
+    "project": "Spotify",
+    "output": "./output",
+    "target": "fsharp",
+    "copyLocalLockFileAssemblies": true,
+    "errorType": {
+        "CustomErrorType": {
+            "Message": "string",
+            "Path": "string list",
+            "Type": "string"
+        }
+    },
+    "createProjectFile": false
+}

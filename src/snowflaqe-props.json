@@ -1,0 +1,15 @@
+{
+    "schema": "./spotify-schema.json",
+    "queries": "./queries",
+    "project": "Spotify",
+    "output": "./output",
+    "emitMetadata": true,
+    "errorType": {
+        "CustomErrorType": {
+            "Message": "string",
+            "Path": "string list",
+            "Type": "string"
+        }
+    },
+    "createProjectFile": false
+}
