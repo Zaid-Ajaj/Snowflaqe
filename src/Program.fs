@@ -10,7 +10,6 @@ open BlackFox.ColoredPrintf
 open Newtonsoft.Json.Linq
 open Snowflaqe
 open Snowflaqe.Types
-open System.Xml.Linq
 
 type CustomErrorType = {
     typeName : string
@@ -24,7 +23,7 @@ type Config = {
     output : string
     errorType : CustomErrorType
     target : OutputTarget
-    createProjectFile : bool option
+    createProjectFile : bool
     overrideClientName : string option
     copyLocalLockFileAssemblies : bool option
     emitMetadata: bool
@@ -112,8 +111,8 @@ let readConfig (file: string) =
 
                     let createProjectFile =
                         if isNull parsedJson.["createProjectFile"]
-                        then None
-                        else Some (parsedJson.["createProjectFile"].ToObject<bool>())
+                        then true
+                        else parsedJson.["createProjectFile"].ToObject<bool>()
 
                     let fullQueriesPath =
                         if Path.IsPathRooted queriesPath
@@ -326,15 +325,19 @@ let generate (configFile: string) =
             deleteFilesAndFolders config.output true
 
             let projPath =
-                match config.createProjectFile with
-                | None -> Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
-                | Some true -> Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
-                | Some false -> Path.GetFullPath(Path.Combine(config.output, config.project + ".props"))
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, config.project + ".props"))
 
             let fileName file =
                 if config.project.Contains "."
                 then CodeGen.normalizeModuleName  file
                 else config.project + "." + CodeGen.normalizeModuleName file
+
+            let inline createCompileXElement createProjectFile outputDirectoryName (file: string) =
+                if createProjectFile
+                then MSBuildXElement.Compile($".\{Path.GetFileName file}")
+                else MSBuildXElement.Compile($".\{outputDirectoryName}\{Path.GetFileName file}")
 
             match config.target with
             | OutputTarget.FSharp ->
@@ -402,11 +405,7 @@ let generate (configFile: string) =
                     else sprintf "%sGraphqlClient" config.project
                 )
 
-            let packageReferences = [
-                XElement.ofStringName("PackageReference",
-                    XAttribute.ofStringName("Update", "FSharp.Core"),
-                    XAttribute.ofStringName("Version", "5.0.1"))
-            ]
+            let packageReferences = [ MSBuildXElement.PackageReferenceUpdate("FSharp.Core", "5.0.1") ]
 
             let outputDirectoryName = DirectoryInfo(config.output).Name
 
@@ -425,15 +424,11 @@ let generate (configFile: string) =
                 let files =
                     generatedFiles
                     |> Seq.map
-                        (fun file ->
-                            match config.createProjectFile with
-                            | None -> XElement.Compile($".\{Path.GetFileName file}")
-                            | Some true -> XElement.Compile($".\{Path.GetFileName file}")
-                            | Some false -> XElement.Compile($".\{outputDirectoryName}\{Path.GetFileName file}"))
+                        (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
                 let packageReferences =
                     [ yield! packageReferences
-                      yield XElement.PackageReference("Fable.SimpleHttp", "3.0.0")
-                      yield XElement.PackageReference("Fable.SimpleJson", "3.19.0") ]
+                      yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", "3.0.0")
+                      yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", "3.19.0") ]
 
                 let contentItems = [
                     XElement.ofStringName("Content",
@@ -443,10 +438,9 @@ let generate (configFile: string) =
                 ]
 
                 let generator =
-                    match config.createProjectFile with
-                    | None -> CodeGen.generateProjectDocument
-                    | Some true -> CodeGen.generateProjectDocument
-                    | Some false -> CodeGen.generatePropsDocument
+                    if config.createProjectFile
+                    then CodeGen.generateProjectDocument
+                    else CodeGen.generatePropsDocument
 
                 let document =
                     generator
@@ -473,19 +467,14 @@ let generate (configFile: string) =
                 let files =
                     generatedFiles
                     |> Seq.map
-                        (fun file ->
-                            match config.createProjectFile with
-                            | None -> XElement.Compile($".\{Path.GetFileName file}")
-                            | Some true -> XElement.Compile($".\{Path.GetFileName file}")
-                            | Some false -> XElement.Compile($".\{outputDirectoryName}\{Path.GetFileName file}"))
+                        (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
                 let packageReferences =
                     [ yield! packageReferences
-                      yield XElement.PackageReference("Fable.Remoting.Json", "2.14.0") ]
+                      yield MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.14.0") ]
                 let generator =
-                    match config.createProjectFile with
-                    | None -> CodeGen.generateProjectDocument
-                    | Some true -> CodeGen.generateProjectDocument
-                    | Some false -> CodeGen.generatePropsDocument
+                    if config.createProjectFile
+                    then CodeGen.generateProjectDocument
+                    else CodeGen.generatePropsDocument
                 let document =
                     generator
                         { NugetPackageReferences = packageReferences
@@ -500,21 +489,18 @@ let generate (configFile: string) =
                     generatedFiles
                     |> Seq.map
                         (fun file ->
-                            match config.createProjectFile with
-                            | None -> XElement.Compile(Path.GetFileName file)
-                            | Some true -> XElement.Compile(Path.GetFileName file)
-                            | Some false -> XElement.Compile($".\{outputDirectoryName}\shared\{Path.GetFileName file}"))
+                            if config.createProjectFile
+                            then MSBuildXElement.Compile(Path.GetFileName file)
+                            else MSBuildXElement.Compile($".\{outputDirectoryName}\shared\{Path.GetFileName file}"))
                 let sharedDocPath =
-                    match config.createProjectFile with
-                    | None -> Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
-                    | Some true -> Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
-                    | Some false -> Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".props"))
+                    if config.createProjectFile
+                    then Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
+                    else Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".props"))
                 colorprintfn "✏️  Generating shared F# $green[%s]" sharedDocPath
                 let generator =
-                    match config.createProjectFile with
-                    | None -> CodeGen.generateProjectDocument
-                    | Some true -> CodeGen.generateProjectDocument
-                    | Some false -> CodeGen.generatePropsDocument
+                    if config.createProjectFile
+                    then CodeGen.generateProjectDocument
+                    else CodeGen.generatePropsDocument
                 let document =
                     generator
                         { NugetPackageReferences = packageReferences
@@ -532,31 +518,27 @@ let generate (configFile: string) =
                 let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers
                 write fsharpGraphqlClientPath dotnetClientContent None
                 let sharedFSharpDocument =
-                    match config.createProjectFile with
-                    | None -> Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
-                    | Some true -> Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
-                    | Some false -> Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
+                    if config.createProjectFile
+                    then Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
+                    else Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
                 colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
                 let packageReferences =
                     [ yield! packageReferences
-                      yield XElement.PackageReference("Fable.Remoting.Json", "2.14.0") ]
+                      yield MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.14.0") ]
                 let projectReferences =
-                    match config.createProjectFile with
-                    | None ->  XElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    | Some true ->  XElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    | Some false -> XElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
+                    if config.createProjectFile
+                    then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
+                    else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
                     |> Seq.singleton
                 let files =
-                    match config.createProjectFile with
-                    | None ->  XElement.Compile($".\{config.project}.GraphqlClient.fs")
-                    | Some true ->  XElement.Compile($".\{config.project}.GraphqlClient.fs")
-                    | Some false -> XElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fs")
+                    if config.createProjectFile
+                    then MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fs")
+                    else MSBuildXElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fs")
                     |> Seq.singleton
                 let generator =
-                    match config.createProjectFile with
-                    | None -> CodeGen.generateProjectDocument
-                    | Some true -> CodeGen.generateProjectDocument
-                    | Some false -> CodeGen.generatePropsDocument
+                    if config.createProjectFile
+                    then CodeGen.generateProjectDocument
+                    else CodeGen.generatePropsDocument
                 let document =
                     generator
                         { NugetPackageReferences = packageReferences
@@ -575,23 +557,19 @@ let generate (configFile: string) =
                 let fableClientContent = CodeGen.sampleGraphqlClient config.project clientName config.errorType.typeName fableMembers
                 write fableGraphqlClientPath fableClientContent None
                 let sharedFableDocument =
-                    match config.createProjectFile with
-                    | None ->  Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
-                    | Some true ->  Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
-                    | Some false -> Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
+                    if config.createProjectFile
+                    then Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
+                    else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
                 colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
                 let packageReferences = [
-                        XElement.ofStringName("PackageReference",
-                            XAttribute.ofStringName("Update", "FSharp.Core"),
-                            XAttribute.ofStringName("Version", "5.0.1"))
-                        XElement.PackageReference("Fable.SimpleHttp", "3.0.0")
-                        XElement.PackageReference("Fable.SimpleJson", "3.19.0")
+                        MSBuildXElement.PackageReferenceUpdate("FSharp.Core", "5.0.1")
+                        MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", "3.0.0")
+                        MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", "3.19.0")
                     ]
                 let files =
-                    match config.createProjectFile with
-                    | None ->  XElement.Compile($"{config.project}.GraphqlClient.fs")
-                    | Some true ->  XElement.Compile($"{config.project}.GraphqlClient.fs")
-                    | Some false -> XElement.Compile($".\{outputDirectoryName}\\fable\{config.project}.GraphqlClient.fs")
+                    if config.createProjectFile
+                    then MSBuildXElement.Compile($"{config.project}.GraphqlClient.fs")
+                    else MSBuildXElement.Compile($".\{outputDirectoryName}\\fable\{config.project}.GraphqlClient.fs")
                     |> Seq.singleton
                 let contentItems =
                     XElement.ofStringName("Content",
@@ -600,16 +578,14 @@ let generate (configFile: string) =
                         XAttribute.ofStringName("PackagePath", "fable\\"))
                     |> Seq.singleton
                 let projectReferences =
-                    match config.createProjectFile with
-                    | None ->  XElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    | Some true ->  XElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    | Some false -> XElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
+                    if config.createProjectFile
+                    then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
+                    else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
                     |> Seq.singleton
                 let generator =
-                    match config.createProjectFile with
-                    | None -> CodeGen.generateProjectDocument
-                    | Some true -> CodeGen.generateProjectDocument
-                    | Some false -> CodeGen.generatePropsDocument
+                    if config.createProjectFile
+                    then CodeGen.generateProjectDocument
+                    else CodeGen.generatePropsDocument
                 let document =
                     generator
                         { NugetPackageReferences = packageReferences
@@ -651,7 +627,7 @@ let main argv =
             output = "./output";
             errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() };
             target = OutputTarget.Fable; overrideClientName = None
-            createProjectFile = None
+            createProjectFile = true
             copyLocalLockFileAssemblies = None
             emitMetadata = false
         }
@@ -666,7 +642,7 @@ let main argv =
             output = "./output";
             errorType = { typeName = "ErrorType"; typeDefinition = CodeGen.defaultErrorType() };
             target = OutputTarget.Fable; overrideClientName = None
-            createProjectFile = None
+            createProjectFile = true
             copyLocalLockFileAssemblies = None
             emitMetadata = false
         }

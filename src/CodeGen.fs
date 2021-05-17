@@ -950,9 +950,7 @@ let generatePropsDocument
         XElement.ofStringName("Project",
             seq {
             if copyLocalLockFileAssemblies.IsSome then
-                XElement.ofStringName("PropertyGroup",
-                    XElement.ofStringName("CopyLocalLockFileAssemblies",
-                        (copyLocalLockFileAssemblies.Value.ToString().ToLower())))
+                MSBuildXElement.PropertyGroup(copyLocalLockFileAssemblies.Value)
             if not (files |> Seq.isEmpty) then
                 XElement.ofStringName("ItemGroup", files)
             if not (Seq.isEmpty contentItems) then

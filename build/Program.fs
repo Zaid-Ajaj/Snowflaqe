@@ -83,11 +83,7 @@ let generateProjectFile (imports: string seq) =
         XElement.ofStringName("Project",
             XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
             seq {
-                yield! imports
-                       |> Seq.map
-                           (fun path ->
-                               XElement.ofStringName("Import",
-                                   XAttribute.ofStringName("Project", path)))
+                yield! imports |> Seq.map (fun path -> MSBuildXElement.Import(path))
                 XElement.ofStringName("PropertyGroup",
                     XElement.ofStringName("OutputType", "Exe"),
                     XElement.ofStringName("TargetFramework", "netcoreapp3.1"))
@@ -124,12 +120,9 @@ let propsIntegration() =
                             "./output/fable/Spotify.props"
                         })
                         (path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
-
                     let output =
                         Shell.Exec(Tools.dotnet, "build Spotify.Fable.fsproj", path [ solutionRoot; "src" ])
-
                     if output <> 0 then failwith "Building generated shared fable projects failed"
-
                     Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
 
                     createProjectFile
@@ -138,12 +131,9 @@ let propsIntegration() =
                             "./output/dotnet/Spotify.props"
                         })
                         (path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
-
                     let output =
                         Shell.Exec(Tools.dotnet, "build Spotify.Dotnet.fsproj", path [ solutionRoot; "src" ])
-
                     if output <> 0 then failwith "Building generated shared dotnet projects failed"
-
                     Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
 
 
@@ -177,9 +167,9 @@ let fsprojIntegration() =
                         buildGithubFable()
 
 let clear() =
-    File.Delete( path [ solutionRoot; "src"; "Spotify.fsproj" ])
-    File.Delete( path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
-    File.Delete( path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
+    File.Delete(path [ solutionRoot; "src"; "Spotify.fsproj" ])
+    File.Delete(path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
+    File.Delete(path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
     Directory.Delete(path [ solutionRoot; "src"; "output" ], true)
 
 let integration() =
