@@ -8,7 +8,7 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFrameworks>netcoreapp3.1;netstandard2.0</TargetFrameworks>
-    <Version>1.22.0</Version>
+    <Version>1.23.0</Version>
     <PackageReleaseNotes>Generate projects using XML API</PackageReleaseNotes>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
