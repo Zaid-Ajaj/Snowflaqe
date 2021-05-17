@@ -8,8 +8,8 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Version>1.22.0</Version>
-    <PackageReleaseNotes>Generate projects using XML API</PackageReleaseNotes>
+    <Version>1.23.0</Version>
+    <PackageReleaseNotes>Option createProjectFile to determine whether a fsproj file is created or props file instead</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
