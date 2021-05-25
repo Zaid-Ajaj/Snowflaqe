@@ -9,7 +9,7 @@ let rec readVariableType (variableType: GraphQLType) =
     match variableType.Kind with
     | ASTNodeKind.NamedType ->
         let namedType = unbox<GraphQLNamedType> variableType
-        GraphqlVariableType.Ref namedType.Name.Value
+        GraphqlVariableType.Ref (namedType.Name.Value.ToString())
 
     | ASTNodeKind.NonNullType ->
         let nonNullType = unbox<GraphQLNonNullType> variableType
@@ -29,7 +29,7 @@ let readVariables (variables: seq<GraphQLVariableDefinition>) : GraphqlVariable 
         [
             for variable in variables ->
                 {
-                    variableName = variable.Variable.Name.Value
+                    variableName = variable.Variable.Name.Value.ToString()
                     variableType = readVariableType variable.Type
                 }
         ]
@@ -38,26 +38,26 @@ let rec readArgumentValue (argValue: GraphQLValue) : FieldArgumentValue option =
     match argValue.Kind with
     | ASTNodeKind.Variable ->
         let variable = unbox<GraphQLVariable> argValue
-        Some (FieldArgumentValue.Variable variable.Name.Value)
+        Some (FieldArgumentValue.Variable (variable.Name.Value.ToString()))
 
     | ASTNodeKind.BooleanValue ->
         let value = unbox<GraphQLScalarValue> argValue
-        Some (FieldArgumentValue.Boolean (value.Value = "true"))
+        Some (FieldArgumentValue.Boolean (value.Value = ROM.op_Implicit "true"))
 
     | ASTNodeKind.NullValue ->
         Some FieldArgumentValue.Null
 
     | ASTNodeKind.StringValue ->
         let value = unbox<GraphQLScalarValue> argValue
-        Some (FieldArgumentValue.String value.Value)
+        Some (FieldArgumentValue.String (value.Value.ToString()))
 
     | ASTNodeKind.IntValue ->
         let value = unbox<GraphQLScalarValue> argValue
-        Some (FieldArgumentValue.Int (int value.Value))
+        Some (FieldArgumentValue.Int (int (value.Value.ToString())))
 
     | ASTNodeKind.EnumValue ->
         let value = unbox<GraphQLScalarValue> argValue
-        Some (FieldArgumentValue.EnumCase value.Value)
+        Some (FieldArgumentValue.EnumCase (value.Value.ToString()))
 
     | ASTNodeKind.ListValue ->
         let value = unbox<GraphQLListValue> argValue
@@ -73,7 +73,7 @@ let rec readArgumentValue (argValue: GraphQLValue) : FieldArgumentValue option =
         |> List.choose (fun field ->
             match readArgumentValue field.Value with
             | None -> None
-            | Some fieldValue -> Some (field.Name.Value, fieldValue))
+            | Some fieldValue -> Some ((field.Name.Value.ToString()), fieldValue))
         |> FieldArgumentValue.Object
         |> Some
 
@@ -88,7 +88,7 @@ let readArguments (args: seq<GraphQLArgument>) : GraphqlFieldArgument list =
             for arg in args do
                 match readArgumentValue arg.Value with
                 | None -> ()
-                | Some argumentValue -> { name = arg.Name.Value; value = argumentValue }
+                | Some argumentValue -> { name = arg.Name.Value.ToString(); value = argumentValue }
         ]
 
 let rec readNode (node: ASTNode) =
@@ -104,8 +104,8 @@ let rec readNode (node: ASTNode) =
     | ASTNodeKind.Field ->
         let field = unbox<GraphQLFieldSelection> node
         let fieldSelection : GraphqlFieldSelection = {
-            alias = if isNull field.Alias then None else Some field.Alias.Value
-            name = field.Name.Value
+            alias = if isNull field.Alias then None else Some (field.Alias.Value.ToString())
+            name = field.Name.Value.ToString()
             arguments = if isNull field.Arguments then [ ] else readArguments field.Arguments
             selectionSet = if isNull field.SelectionSet then None else Some (readSelections field.SelectionSet)
             directives = listOrNone field.Directives
@@ -121,16 +121,16 @@ let rec readNode (node: ASTNode) =
     | ASTNodeKind.InlineFragment ->
         let inlineFragment = unbox<GraphQLInlineFragment> node
         Some (GraphqlNode.InlineFragment {
-            typeCondition = inlineFragment.TypeCondition.Name.Value
+            typeCondition = inlineFragment.TypeCondition.Name.Value.ToString()
             selection = readSelections inlineFragment.SelectionSet
         })
 
     | ASTNodeKind.FragmentDefinition ->
         let fragmentDef = unbox<GraphQLFragmentDefinition> node
         let def : GraphqlFragmentDefinition = {
-            name = if isNull fragmentDef.Name then "" else fragmentDef.Name.Value
+            name = if isNull fragmentDef.Name then "" else fragmentDef.Name.Value.ToString()
             selectionSet = if isNull fragmentDef.SelectionSet then None else Some (readSelections fragmentDef.SelectionSet)
-            typeDef = if isNull fragmentDef.TypeCondition then None else Some fragmentDef.TypeCondition.Name.Value
+            typeDef = if isNull fragmentDef.TypeCondition then None else Some (fragmentDef.TypeCondition.Name.Value.ToString())
             directives = listOrNone fragmentDef.Directives
             location = fragmentDef.Location
         }
@@ -144,7 +144,7 @@ let rec readNode (node: ASTNode) =
             let name =
                 if isNull operation.Name
                 then None
-                else Option.ofObj operation.Name.Value
+                else Option.ofObj (operation.Name.Value.ToString())
 
             let query = GraphqlNode.Query {
                 name = name
@@ -159,7 +159,7 @@ let rec readNode (node: ASTNode) =
             let name =
                 if isNull operation.Name
                 then None
-                else Option.ofObj operation.Name.Value
+                else Option.ofObj (operation.Name.Value.ToString())
 
             let mutation = GraphqlNode.Mutation {
                 name = name
@@ -180,12 +180,9 @@ and readSelections (selectionSet: GraphQLSelectionSet) : SelectionSet = {
     nodes = List.choose readNode (List.ofSeq selectionSet.Selections)
 }
 
-let private lexer = Lexer()
-let private parser = Parser(lexer)
-
 let parse (content: string) : Result<GraphqlDocument, string> =
     try
-        let ast = parser.Parse(Source content)
+        let ast = Parser.Parse(ROM.op_Implicit content)
         Ok { nodes = List.choose readNode (List.ofSeq ast.Definitions) }
     with
     | ex -> Error ex.Message
@@ -250,7 +247,7 @@ let rec expandFragments (nodes: GraphqlNode list) (fragments: GraphqlFragmentDef
     |> List.collect (function
         | GraphqlNode.FragmentSpread spread ->
             fragments
-            |> List.tryFind (fun fragment -> fragment.name = spread.Name.Value)
+            |> List.tryFind (fun fragment -> fragment.name = spread.Name.Value.ToString())
             |> function
                 | None -> [ GraphqlNode.FragmentSpread spread ]
                 | Some fragment ->

@@ -1,11 +1,11 @@
-module SampleCraftSchema
+﻿module SampleCraftSchema
 
 open System.IO
 open Expecto
 open Snowflaqe
-open FSharp.Data.LiteralProviders
 open Snowflaqe.Types
-open System
+
+let [<Literal>] typesFileName = "Types.fs"
 
 let craftSchemaPath = Utilities.path [ Utilities.tests; "CraftSchema.json" ]
 let craftSchema = File.ReadAllText craftSchemaPath
@@ -294,8 +294,8 @@ let tests = testList "Craft schema" [
             let generated =
                 let queryTypes = CodeGen.generateTypes name "ErrorType" query schema
                 let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                let file = CodeGen.createFile "Types.fs" [ ns ]
-                CodeGen.formatAst file
+                let file = CodeGen.createFile typesFileName [ ns ]
+                CodeGen.formatAst file typesFileName
 
             Expect.isNotEmpty generated "The code is generated correctly"
 
@@ -318,8 +318,8 @@ let tests = testList "Craft schema" [
           let generated =
               let queryTypes = CodeGen.generateTypes name "ErrorType" query schema
               let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-              let file = CodeGen.createFile "Types.fs" [ ns ]
-              CodeGen.formatAst file
+              let file = CodeGen.createFile typesFileName [ ns ]
+              CodeGen.formatAst file typesFileName
 
           Expect.isNotEmpty generated "The code is generated correctly"
 

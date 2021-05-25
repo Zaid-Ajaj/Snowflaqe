@@ -31,13 +31,13 @@ module CreateProcess =
             else program, args
 
         CreateProcess.fromRawCommand program' args'
-    
-let executablePath (tool: string) = 
-    let locator = 
+
+let executablePath (tool: string) =
+    let locator =
         if Environment.isWindows
         then "C:\Windows\System32\where.exe"
         else "/usr/bin/which"
-    
+
     let locatorOutput =
         CreateProcess.xplatCommand locator [ tool ]
         |> CreateProcess.redirectOutput
@@ -49,7 +49,7 @@ let executablePath (tool: string) =
     |> String.splitStr Environment.NewLine
     |> List.filter (fun path -> (Environment.isWindows && Path.HasExtension(path)) || Environment.isUnix)
     |> List.tryFind File.Exists
-    |> function 
+    |> function
         | Some executable -> executable
         | None -> failwithf "The executable paht '%s' was not found" tool
 
