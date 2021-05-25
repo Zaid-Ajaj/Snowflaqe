@@ -1,11 +1,12 @@
-module SampleHasuraSchema
+﻿module SampleHasuraSchema
 
-open System
 open Expecto
 open Snowflaqe
 open FSharp.Data.LiteralProviders
 
 let [<Literal>] firstSchema = TextFile<"./HasuraSchema.json">.Text
+let [<Literal>] typesFileName = "Types.fs"
+
 let query = """
 query GetCurrentOrderQuery($userId: Int!, $deliveryDate: timestamptz!) {
   userOrders(
@@ -77,8 +78,8 @@ let hasuraTests = testList "Hasura" [
                 let generated =
                     let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile typesFileName [ ns ]
+                    CodeGen.formatAst file typesFileName
 
                 let expected = """
 [<RequireQualifiedAccess>]
@@ -88,26 +89,19 @@ type InputVariables =
     { userId: int
       deliveryDate: System.DateTimeOffset }
 
-/// An array relationship
 type userOrderDetails =
     { amount: string
       id: int
       price: float
       status: string }
 
-/// fetch data from the table: "userOrders"
 type userOrders =
     { status: string
       id: int
       deliveryDate: System.DateTimeOffset
-      /// An array relationship
       userOrderDetails: list<userOrderDetails> }
 
-/// query root
-type Root =
-    { /// fetch data from the table: "userOrders"
-      userOrders: list<userOrders> }
-
+type Root = { userOrders: list<userOrders> }
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code is correct"
     }
@@ -129,8 +123,8 @@ type Root =
                 let generated =
                     let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile typesFileName [ ns ]
+                    CodeGen.formatAst file typesFileName
 
                 let expected = """
 [<RequireQualifiedAccess>]
@@ -140,26 +134,19 @@ type InputVariables =
     { userId: int
       deliveryDate: Option<System.DateTimeOffset> }
 
-/// An array relationship
 type userOrderDetails =
     { amount: string
       id: int
       price: float
       status: string }
 
-/// fetch data from the table: "userOrders"
 type userOrders =
     { status: string
       id: int
       deliveryDate: System.DateTimeOffset
-      /// An array relationship
       userOrderDetails: list<userOrderDetails> }
 
-/// query root
-type Root =
-    { /// fetch data from the table: "userOrders"
-      userOrders: list<userOrders> }
-
+type Root = { userOrders: list<userOrders> }
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
     }
@@ -181,35 +168,27 @@ type Root =
                 let generated =
                     let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile typesFileName [ ns ]
+                    CodeGen.formatAst file typesFileName
 
                 let expected = """
 [<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables = { userId: int; deliveryDate: string }
-
-/// An array relationship
 type userOrderDetails =
     { amount: string
       id: int
       price: float
       status: string }
 
-/// fetch data from the table: "userOrders"
 type userOrders =
     { status: string
       id: int
       deliveryDate: System.DateTimeOffset
-      /// An array relationship
       userOrderDetails: list<userOrderDetails> }
 
-/// query root
-type Root =
-    { /// fetch data from the table: "userOrders"
-      userOrders: list<userOrders> }
-
+type Root = { userOrders: list<userOrders> }
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
     }

@@ -1,12 +1,12 @@
-module SampleGithubSchema
+﻿module SampleGithubSchema
 
-open System
 open Expecto
 open Snowflaqe
 open FSharp.Data.LiteralProviders
 open Snowflaqe.Types
 
 let [<Literal>] githubSchema = TextFile<"./GithubSchema.json">.Text
+let [<Literal>] typesFileName = "Types.fs"
 
 let queryWithUnion = """
 query GithubSearch {
@@ -372,8 +372,8 @@ let githubTests = testList "Github tests" [
             let generated =
                 let queryTypes = CodeGen.generateTypes name "ErrorType" query schema
                 let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                let file = CodeGen.createFile "Types.fs" [ ns ]
-                CodeGen.formatAst file
+                let file = CodeGen.createFile typesFileName [ ns ]
+                CodeGen.formatAst file typesFileName
 
             // printfn "%s" generated
 
@@ -398,8 +398,8 @@ let githubTests = testList "Github tests" [
             let generated =
                 let queryTypes = CodeGen.generateTypes name "ErrorType" query schema
                 let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                let file = CodeGen.createFile "Types.fs" [ ns ]
-                CodeGen.formatAst file
+                let file = CodeGen.createFile typesFileName [ ns ]
+                CodeGen.formatAst file typesFileName
 
             // printfn "%s" generated
 

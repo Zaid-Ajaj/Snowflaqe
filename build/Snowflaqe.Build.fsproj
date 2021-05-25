@@ -16,7 +16,7 @@
     <PackageReference Include="Fake.Core.Environment" Version="5.20.4" />
     <PackageReference Include="Fake.Core.Target" Version="5.20.4" />
     <ProjectReference Include="..\src\Snowflaqe.fsproj" />
-    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+    <PackageReference Update="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 
 </Project>

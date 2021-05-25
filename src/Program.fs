@@ -304,9 +304,10 @@ let generate (configFile: string) =
                 yield config.errorType.typeDefinition
             ]
 
+            let typesFileName = "Types.fs"
             let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
-            let file = CodeGen.createFile "Types.fs" [ globalTypesModule ]
-            let globalTypesContent = CodeGen.formatAst file
+            let file = CodeGen.createFile typesFileName [ globalTypesModule ]
+            let globalTypesContent = CodeGen.formatAst file typesFileName
             if not (Directory.Exists config.output) then
                 Directory.CreateDirectory(config.output)
                 |> ignore
@@ -380,7 +381,7 @@ let generate (configFile: string) =
                         |> CodeGen.normalizeModuleName
                     let queryTypes = CodeGen.generateTypes "Query" config.errorType.typeName query schema
                     let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
-                    let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ])
+                    let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ]) (Path.GetFileName queryFile)
                     match config.target with
                     | OutputTarget.Fable
                     | OutputTarget.FSharp ->
