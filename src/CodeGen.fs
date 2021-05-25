@@ -1,22 +1,23 @@
-[<RequireQualifiedAccess>]
+﻿[<RequireQualifiedAccess>]
 module Snowflaqe.CodeGen
 
 open System
+open System.Collections.Generic
 open System.Linq
+open System.Text.RegularExpressions
 open FsAst
 open Fantomas
 open Snowflaqe.Types
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.XmlDoc
 open FSharp.Compiler.Range
-open System.Collections.Generic
+open FSharp.Compiler.XmlDoc
 open Newtonsoft.Json.Linq
 open GraphQLParser.AST
-open System.Text.RegularExpressions
-open System.Xml
 open LinqToXmlExtensions
+open System.Xml
 open System.Xml.Linq
 open StringBuffer
+open FSharp.Compiler.Range
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -846,8 +847,8 @@ let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
     ParsedImplFileInput.ParsedImplFileInput(fileName, false, qualfiedNameOfFile, [], [], modules, (false, false))
 
-let formatAst file =
-    formatAst (ParsedInput.ImplFile file)
+let formatAst file fileName =
+    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], None, FormatConfig.FormatConfig.Default)
     |> Async.RunSynchronously
 
 let defaultErrorType() =
@@ -993,7 +994,7 @@ let generateProjectDocument
         }))
 
 let addLines (query: string) =
-    query.Split Environment.NewLine
+    query.Split ([| Environment.NewLine |], StringSplitOptions.RemoveEmptyEntries)
     |> Array.map (fun line -> "                " + line)
     |> String.concat Environment.NewLine
 

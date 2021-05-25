@@ -3,6 +3,9 @@ open Snowflaqe
 open Snowflaqe.Types
 open System
 
+[<Literal>]
+let TypesFileName = "Types.fs"
+
 let trimContentEnd (content: string) = Utilities.trimContentEnd content
 
 let queryParsing =
@@ -560,12 +563,11 @@ let queryParsing =
             match schema with
             | Error error -> failwith error
             | Ok schema ->
-
                 let generated =
                     let globalTypes = CodeGen.createGlobalTypes schema
                     let ns = CodeGen.createNamespace [ "Test" ] globalTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile TypesFileName [ ns ]
+                    CodeGen.formatAst file TypesFileName
 
                 let expected = """
 namespace rec Test
@@ -629,12 +631,11 @@ type LoginCredentials =
             match schema with
             | Error error -> failwith error
             | Ok schema ->
-
                 let generated =
                     let globalTypes = CodeGen.createGlobalTypes schema
                     let ns = CodeGen.createNamespace [ "Test" ] globalTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile TypesFileName [ ns ]
+                    CodeGen.formatAst file TypesFileName
 
                 let expected = """
 namespace rec Test
@@ -674,8 +675,8 @@ type Sort =
             let generated =
                 let globalTypes = CodeGen.createGlobalTypes schema
                 let ns = CodeGen.createNamespace [ "Test" ] globalTypes
-                let file = CodeGen.createFile "Types.fs" [ ns ]
-                CodeGen.formatAst file
+                let file = CodeGen.createFile TypesFileName [ ns ]
+                CodeGen.formatAst file TypesFileName
 
             let expected = """
 namespace rec Test
@@ -747,8 +748,8 @@ type Sort =
                 let generated =
                     let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile TypesFileName [ ns ]
+                    CodeGen.formatAst file TypesFileName
 
                 let expected = """
 [<RequireQualifiedAccess>]
