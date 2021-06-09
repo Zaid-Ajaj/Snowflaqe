@@ -1025,18 +1025,28 @@ let sampleClientMember query queryName hasVariables = stringBuffer {
       queryName
 }
 
-let sampleFSharpClientMember query queryName hasVariables = stringBuffer {
-    sprintf """    member _.%sAsync(%s) =
-        async {
-            let query = %s
-
-            let inputJson = JsonConvert.SerializeObject(%s, [| converter |])
-
+let asyncRequestBody =
+    """
             let! response =
                 httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
                 |> Async.AwaitTask
 
             let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
+    """
+
+let taskRequestBody =
+    """
+            let! response = httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
+            let! responseContent = response.Content.ReadAsStringAsync()
+    """
+
+let sampleFSharpAsyncClientMember query queryName hasVariables useTasks = stringBuffer {
+    sprintf """    member _.%sAsync(%s) =
+        %s {
+            let query = %s
+
+            let inputJson = JsonConvert.SerializeObject(%s, [| converter |])
+            %s
             let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
 
             match response.IsSuccessStatusCode with
@@ -1058,18 +1068,37 @@ let sampleFSharpClientMember query queryName hasVariables = stringBuffer {
                 return Error response.errors
         }
 
-    member this.%s(%s) = Async.RunSynchronously(this.%sAsync%s)
 """
-      queryName
-      (if hasVariables then "input: " + queryName + ".InputVariables" else "")
-      ("\"\"\"\n" + addLines query + "\n            \"\"\"")
-      (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
-      queryName
 
-      queryName
-      (if hasVariables then "input: " + queryName + ".InputVariables" else "")
-      queryName
-      (if hasVariables then " input" else "()")
+        queryName
+        (if hasVariables then "input: " + queryName + ".InputVariables" else "")
+        (if useTasks then "task" else "async")
+        ("\"\"\"\n" + addLines query + "\n            \"\"\"")
+        (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
+        (if useTasks then taskRequestBody else asyncRequestBody)
+        queryName
+}
+
+let sampleFSharpSyncClientMember queryName hasVariables useTasks = 
+    let template = 
+        if useTasks then 
+            sprintf """    member this.%s(%s) = 
+        this.%sAsync%s
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+            """
+        else
+            sprintf """    member this.%s(%s) = Async.RunSynchronously(this.%sAsync%s)
+            """        
+    template
+        queryName
+        (if hasVariables then "input: " + queryName + ".InputVariables" else "")
+        queryName
+        (if hasVariables then " input" else "()")
+
+let sampleFSharpClientMember query queryName hasVariables useTasks = stringBuffer {
+    sampleFSharpAsyncClientMember query queryName hasVariables useTasks
+    sampleFSharpSyncClientMember queryName hasVariables useTasks
 }
 
 let sampleGraphqlClient projectName clientName errorType members = stringBuffer {
@@ -1088,7 +1117,7 @@ type %s(url: string, headers: Header list) =
 %s""" projectName errorType clientName clientName members
 }
 
-let sampleFSharpGraphqlClient projectName clientName errorType members = stringBuffer {
+let sampleFSharpGraphqlClient projectName clientName errorType members useTasks = stringBuffer {
     sprintf """namespace %s
 
 open Fable.Remoting.Json
@@ -1096,6 +1125,7 @@ open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open System.Net.Http
 open System.Text
+%s
 
 type GraphqlInput<'T> = { query: string; variables: Option<'T> }
 type GraphqlSuccessResponse<'T> = { data: 'T }
@@ -1107,5 +1137,5 @@ type %s(url: string, httpClient: HttpClient) =
 
     new(url: string) = %s(url, new HttpClient())
 
-%s""" projectName errorType clientName clientName members
+%s""" projectName (if useTasks then "open FSharp.Control.Tasks" else "") errorType clientName clientName members
 }
