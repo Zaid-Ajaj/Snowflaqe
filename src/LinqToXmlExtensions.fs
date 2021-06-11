@@ -2,8 +2,21 @@
 module Snowflaqe.LinqToXmlExtensions
 
 open System
+open System.Collections.Generic
 open System.Xml
 open System.Xml.Linq
+
+type MSBuildTask =
+    { Name : string
+      FullName : string
+      AssemblyFile : string
+      Parameters : KeyValuePair<string, obj> seq }
+
+type MSBuildTarget =
+    { Name : string
+      AfterTargets : string option
+      BeforeTargets : string option
+      Tasks : MSBuildTask seq }
 
 type XAttribute with
 
@@ -44,6 +57,26 @@ type MSBuildXElement () =
         XElement.ofStringName("PropertyGroup",
             XElement.ofStringName("CopyLocalLockFileAssemblies",
                 (copyLocalLockFileAssemblies.ToString().ToLower())))
+
+    static member Task (task: MSBuildTask) =
+        XElement.ofStringName(task.Name,
+            task.Parameters |> Seq.map (fun p -> XAttribute.ofStringName(p.Key, p.Value)))
+
+    static member Target (target: MSBuildTarget) =
+        XElement.ofStringName("Target",
+            seq {
+                yield XAttribute.ofStringName("Name", target.Name) :> obj
+                if target.AfterTargets.IsSome
+                then yield XAttribute.ofStringName("AfterTargets", target.AfterTargets.Value) :> obj
+                if target.BeforeTargets.IsSome
+                then yield XAttribute.ofStringName("BeforeTargets", target.BeforeTargets.Value) :> obj
+                yield! target.Tasks |> Seq.map (fun task -> MSBuildXElement.Task(task) :> obj)
+            })
+
+    static member UsingTask (taskName: string, assemblyFile: string) =
+        XElement.ofStringName("UsingTask",
+            XAttribute.ofStringName("TaskName", taskName),
+            XAttribute.ofStringName("AssemblyFile", assemblyFile))
 
 type XDocument with
 

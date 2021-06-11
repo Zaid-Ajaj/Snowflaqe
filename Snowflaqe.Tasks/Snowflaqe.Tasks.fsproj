@@ -1,0 +1,72 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net48</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+	  <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <PackageType>MSBuildSdk</PackageType>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <PackageReference>
+      <PrivateAssets>All</PrivateAssets>
+      <Publish>true</Publish>
+    </PackageReference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup />
+
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="6.5.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FSharp.Compiler.Service" Version="38.0.2" />
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
+		<PackageReference Include="ModuleInit.Fody" Version="2.1.1" />
+    <PackageReference Update="FSharp.Core" Verion="5.0.1" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+     <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
+    <PackageReference Include="System.Collections.Immutable" Version="1.7.1" CopyLocal="false" Publish="false" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.6.*" CopyLocal="false" Publish="false" /><!--ExcludeAssets="runtime"-->
+    <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="1.16.30" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <Target Name="RemoveMicrosoftBuildDllsFromOutput" AfterTargets="ResolveReferences">
+    <!--
+    Don't place build dlls in the output dir or else the ContextAwareTask will resolve them
+    and may not be able to cast the TaskHost to IBuildEngine
+    -->
+    <PropertyGroup>
+      <NonCopyLocalPackageReferences Condition="'%(PackageReference.CopyLocal)' == 'false'">;@(PackageReference);</NonCopyLocalPackageReferences>
+    </PropertyGroup>
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="$(NonCopyLocalPackageReferences.Contains(';%(ReferenceCopyLocalPaths.NuGetPackageId);'))" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Include="build\**" Pack="true" PackagePath="build" />
+    <Content Include="FodyWeavers.xml" />
+    <Compile Include="AssemblyResolver.fs" />
+    <Compile Include="ModuleInitializer.fs" />
+    <Compile Include="ContextAwareTask.fs" />
+    <Compile Include="GenerateGraphQLClient.fs" />
+  </ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\src\Snowflaqe.fsproj" />
+	</ItemGroup>
+
+</Project>

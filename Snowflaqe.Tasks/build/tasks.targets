@@ -1,0 +1,23 @@
+﻿<Project>
+    <PropertyGroup>
+        <SnowflaqeGeneratedFiles />
+    </PropertyGroup>
+    <UsingTask
+        TaskName="Snowflaqe.Tasks.GenerateGraphQLClient"
+        AssemblyFile="C:\Users\Public\source\repos\Snowflaqe\Snowflaqe.Tasks\bin\Debug\net48\Snowflaqe.Tasks.dll" />
+    <Target Name="GenerateGraphQLClient" BeforeTargets="Rebuild">
+        <GenerateGraphQLClient
+            Project="Spotify"
+            Queries="C:\Users\Public\source\repos\Snowflaqe\src\queries"
+            Schema="C:\Users\Public\source\repos\Snowflaqe\src\spotify-schema.json"
+            Configuration="$(Configuration)"
+            Platform="$(Platform)"
+            Target="fsharp">
+            <Output TaskParameter="GeneratedFiles" PropertyName="SnowflaqeGeneratedFiles" />
+        </GenerateGraphQLClient>
+    </Target>
+  <Target Name="msg" AfterTargets="GenerateGraphQLClient">
+    <Message Text="Generated files:" Importance="high" />
+    <Message Text="$(SnowflaqeGeneratedFiles)" />
+  </Target>
+</Project>
