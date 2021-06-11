@@ -5,29 +5,5 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <CustomTasksEnabled Condition="'$(CustomTasksEnabled)' == ''">False</CustomTasksEnabled>
-    <!--<SnowflaqeGeneratedFiles />-->
   </PropertyGroup>
-  <!--<PropertyGroup Condition="'$(DisableAutoSetFscCompilerPath)' != 'true' and '$(DOTNET_HOST_PATH)' != ''">
-    <FscToolPath Condition="'$(FscToolPath)' == ''">$([System.IO.Path]::GetDirectoryName($(DOTNET_HOST_PATH)))\..\</FscToolPath>
-    <FscToolExe Condition="'$(FscToolExe)' == ''">$([System.IO.Path]::GetFileName($(DOTNET_HOST_PATH)))\..\</FscToolExe>
-    <DotnetFscCompilerPath Condition="'$(DotnetFscCompilerPath)' == ''">"$(MSBuildThisFileDirectory)fsc.exe"</DotnetFscCompilerPath>
-
-    <FsiToolPath Condition="'$(FsiToolPath)' == ''">$([System.IO.Path]::GetDirectoryName($(DOTNET_HOST_PATH)))\..\</FsiToolPath>
-    <FsiToolExe Condition="'$(FsiToolExe)' == ''">$([System.IO.Path]::GetFileName($(DOTNET_HOST_PATH)))\..\</FsiToolExe>
-    <DotnetFsiCompilerPath Condition="'$(DotnetFscCompilerPath)' == ''">"$(MSBuildThisFileDirectory)fsi.exe"</DotnetFsiCompilerPath>
-  </PropertyGroup>-->
-  <!--<UsingTask TaskName="Snowflaqe.Tasks.GenerateGraphQLClient" AssemblyFile="C:\Users\Public\source\repos\Snowflaqe\Snowflaqe.Tasks\bin\Debug\net48\Snowflaqe.Tasks.dll" />
-  <Target Name="GenerateGraphQLClient" BeforeTargets="Rebuild">
-    <GenerateGraphQLClient Project="Spotify" Queries="C:\Users\Public\source\repos\Snowflaqe\src\queries" Schema="C:\Users\Public\source\repos\Snowflaqe\src\spotify-schema.json" Configuration="$(Configuration)" Platform="$(Platform)" Target="fsharp">
-      <Output TaskParameter="GeneratedFiles" PropertyName="SnowflaqeGeneratedFiles" />
-    </GenerateGraphQLClient>
-  </Target>-->
-  <ItemGroup>
-    <Compile Include="@(SnowflaqeGeneratedFiles)" />
-    <Compile Include="Test.fs" />
-  </ItemGroup>
-  <!--<Target Name="msg" AfterTargets="GenerateGraphQLClient">
-    <Message Text="Generated files:" Importance="high" />
-    <Message Text="$(SnowflaqeGeneratedFiles)" />
-  </Target>-->
 </Project>

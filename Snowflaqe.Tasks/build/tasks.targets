@@ -1,11 +1,19 @@
 ﻿<Project>
     <PropertyGroup>
-        <SnowflaqeGeneratedFiles />
+        <!--<SnowflaqeGeneratedFiles />-->
+        <BuildDependsOn>
+            GenerateGraphQLClient;
+            $(BuildDependsOn)
+        </BuildDependsOn>
     </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="5.0.1" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" />
+    </ItemGroup>
     <UsingTask
         TaskName="Snowflaqe.Tasks.GenerateGraphQLClient"
         AssemblyFile="C:\Users\Public\source\repos\Snowflaqe\Snowflaqe.Tasks\bin\Debug\net48\Snowflaqe.Tasks.dll" />
-    <Target Name="GenerateGraphQLClient" BeforeTargets="Rebuild">
+    <Target Name="GenerateGraphQLClient" BeforeTargets="BeforeRebuild">
         <GenerateGraphQLClient
             Project="Spotify"
             Queries="C:\Users\Public\source\repos\Snowflaqe\src\queries"
@@ -13,11 +21,12 @@
             Configuration="$(Configuration)"
             Platform="$(Platform)"
             Target="fsharp">
-            <Output TaskParameter="GeneratedFiles" PropertyName="SnowflaqeGeneratedFiles" />
+            <Output TaskParameter="GeneratedFiles" ItemName="SnowflaqeGeneratedFiles" />
         </GenerateGraphQLClient>
+        <Message Text="Generated files:" Importance="high" />
+        <Message Text="@(SnowflaqeGeneratedFiles)" />
+        <ItemGroup>
+            <Compile Include="@(SnowflaqeGeneratedFiles)" />
+        </ItemGroup>
     </Target>
-  <Target Name="msg" AfterTargets="GenerateGraphQLClient">
-    <Message Text="Generated files:" Importance="high" />
-    <Message Text="$(SnowflaqeGeneratedFiles)" />
-  </Target>
 </Project>
