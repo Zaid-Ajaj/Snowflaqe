@@ -11,30 +11,33 @@ open Microsoft.Build.Framework;
 open Microsoft.Build.Utilities;
 
 [<AbstractClass>]
-type public ContextAwareTask () =
+type public ContextAwareTask () as cat =
     inherit Task()
 
+    let ``type`` = cat.GetType()
+    let typeInfo = ``type``.GetTypeInfo()
+
     abstract ManagedDllDirectory : string with get
-    default this.ManagedDllDirectory
+    default _.ManagedDllDirectory
         with get() =
-            let codeBase = this.GetType().GetTypeInfo().Assembly.CodeBase
+            let codeBase = typeInfo.Assembly.CodeBase
             let uri = new Uri(codeBase)
             Path.GetDirectoryName(uri.LocalPath)
 
     abstract UnmanagedDllDirectory : string with get
-    default this.UnmanagedDllDirectory with get() = null
+    default _.UnmanagedDllDirectory with get () = null
 
     abstract member ExecuteInner: unit -> bool
 
     override this.Execute() =
 #if NETCOREAPP2_0
-        let taskAssemblyPath = Uri(this.GetType().GetTypeInfo().Assembly.CodeBase).LocalPath
+        let taskAssemblyPath = Uri(typeInfo.Assembly.CodeBase).LocalPath
         let ctxt = CustomAssemblyLoader(this)
         let inContextAssembly = ctxt.LoadFromAssemblyPath(taskAssemblyPath)
-        let innerTaskType = inContextAssembly.GetType(this.GetType().FullName)
+        let innerTaskType = inContextAssembly.GetType(``type``.FullName)
         let innerTask = Activator.CreateInstance(innerTaskType)
 
-        let outerProperties = this.GetType().GetRuntimeProperties().ToDictionary(fun i -> i.Name);
+        let outerProperties = ``type``.GetRuntimeProperties().ToDictionary(fun i -> i.Name);
         let innerProperties = innerTaskType.GetRuntimeProperties().ToDictionary(fun i -> i.Name);
         let propertiesDiscovery =
             outerProperties.Values
@@ -46,7 +49,7 @@ type public ContextAwareTask () =
         let propertiesMap = propertiesDiscovery |> Seq.toArray
         let outputPropertiesMap =
             propertiesDiscovery
-            |> Seq.filter (fun pair -> (fst pair).GetCustomAttribute<OutputAttribute>() != null)
+            |> Seq.filter (fun (outerProperty, _) -> outerProperty.GetCustomAttribute<OutputAttribute>() != null)
 
         let propertiesMap =
             propertiesMap
