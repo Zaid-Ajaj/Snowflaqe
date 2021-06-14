@@ -18,6 +18,7 @@ open System.Xml
 open System.Xml.Linq
 open StringBuffer
 open FSharp.Compiler.Range
+open Fantomas.FormatConfig
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -847,8 +848,10 @@ let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
     ParsedImplFileInput.ParsedImplFileInput(fileName, false, qualfiedNameOfFile, [], [], modules, (false, false))
 
+let private formatConfig = { FormatConfig.FormatConfig.Default with EndOfLine = EndOfLineStyle.CRLF; NewlineBetweenTypeDefinitionAndMembers = true; StrictMode = true }
+
 let formatAst file fileName =
-    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], None, FormatConfig.FormatConfig.Default)
+    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], Some (SourceOrigin.SourceString file.ToRcd.File), formatConfig)
     |> Async.RunSynchronously
 
 let defaultErrorType() =

@@ -1,10 +1,11 @@
-module SamplePostgraphile
+﻿module SamplePostgraphile
 
-open System
 open System.IO
 open Expecto
 open Snowflaqe
 open Snowflaqe.Types
+
+let [<Literal>] typesFileName = "Types.fs"
 
 let schemaPath = Utilities.path [ Utilities.tests; "PostgraphileSchema.json" ]
 let schema = File.ReadAllText schemaPath
@@ -63,8 +64,8 @@ let tests = testList "Postgraphile" [
                 let generated =
                     let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
-                    let file = CodeGen.createFile "Types.fs" [ ns ]
-                    CodeGen.formatAst file
+                    let file = CodeGen.createFile typesFileName [ ns ]
+                    CodeGen.formatAst file typesFileName
 
                 let expected = """
 [<RequireQualifiedAccess>]
@@ -82,7 +83,6 @@ type AggregatedMeterReadingsConnection =
 
 /// Reads a single `MeterType` that is related to this `Meter`.
 type MeterType = { description: string }
-
 /// Reads a single `Meter` that is related to this `Object`.
 type Meter =
     { objectId: int

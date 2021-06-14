@@ -1,7 +1,6 @@
 ﻿module Program
 
 open System
-open System.Collections.Generic
 open System.IO
 open System.Text
 open System.Xml.Linq

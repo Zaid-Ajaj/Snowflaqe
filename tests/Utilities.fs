@@ -3,6 +3,7 @@ module Utilities
 open System
 open System.IO
 open System.Linq
+
 let trimContentEnd (content: string) =
     let lines =
       content
