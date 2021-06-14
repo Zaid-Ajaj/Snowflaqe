@@ -9,6 +9,11 @@ type OutputTarget =
     | Shared
 
 [<RequireQualifiedAccess>]
+type AsyncReturnType =
+    | Async
+    | Task
+
+[<RequireQualifiedAccess>]
 type GraphqlScalar =
     | ID
     | Int

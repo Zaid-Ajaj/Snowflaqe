@@ -27,6 +27,7 @@ type Config = {
     overrideClientName : string option
     copyLocalLockFileAssemblies : bool option
     emitMetadata: bool
+    asyncReturnType : AsyncReturnType
 }
 
 let logo = """
@@ -87,6 +88,10 @@ let readConfig (file: string) =
                 Error "The 'copyLocalLockFileAssemblies' configuration element must be a boolean"
             elif not (isNull parsedJson.["emitMetadata"]) && parsedJson.["emitMetadata"].Type <> JTokenType.Boolean then
                 Error "The 'emitMetadata' configuration element must be a boolen"
+            elif not (isNull parsedJson.["asyncReturnType"]) && (parsedJson.["asyncReturnType"].ToObject<string>().ToLower() <> "async" && parsedJson.["asyncReturnType"].ToObject<string>().ToLower() <> "task") then
+                Error "The 'asyncReturnType' configuration element must be either 'async' (default), or 'task'"
+            elif (not (isNull parsedJson.["asyncReturnType"]) && (parsedJson.["asyncReturnType"].ToObject<string>().ToLower() = "task")) && (isNull parsedJson.["target"] || parsedJson.["target"].ToObject<string>().ToLower() = "fable") then
+                Error "The 'asyncReturnType' configuration element may not be 'task' for 'fable' targets"
             else
                 let errorType =
                     if isNull parsedJson.["errorType"]
@@ -108,6 +113,11 @@ let readConfig (file: string) =
                         elif not (isNull parsedJson.["target"]) && (string parsedJson.["target"]).ToLower() = "fsharp"
                         then OutputTarget.FSharp
                         else OutputTarget.Shared
+
+                    let asyncReturnType =
+                        if isNull parsedJson.["asyncReturnType"] || parsedJson.["asyncReturnType"].ToObject<string>().ToLower() = "async"
+                        then AsyncReturnType.Async
+                        else AsyncReturnType.Task
 
                     let createProjectFile =
                         if isNull parsedJson.["createProjectFile"]
@@ -150,6 +160,7 @@ let readConfig (file: string) =
                         overrideClientName = overrideClientName
                         copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
                         emitMetadata = emitMetadata
+                        asyncReturnType = asyncReturnType
                     }
     with
     | ex -> Error ex.Message
@@ -412,6 +423,7 @@ let generate (configFile: string) =
             ]
 
             let outputDirectoryName = DirectoryInfo(config.output).Name
+            let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
 
             match config.target with
             | OutputTarget.Fable ->
@@ -464,12 +476,12 @@ let generate (configFile: string) =
 
                 let members =
                     generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars)
+                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars useTasksForAsync)
                     |> String.concat "\n"
 
                 let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
                 generatedFiles.Add(graphqlClientPath)
-                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members
+                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members useTasksForAsync
                 write graphqlClientPath clientContent None
 
                 let files =
@@ -479,6 +491,7 @@ let generate (configFile: string) =
                 let packageReferences = [
                     yield! packageReferences
                     yield MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.17.0")
+                    if useTasksForAsync then yield MSBuildXElement.PackageReferenceInclude("Ply", "0.3.1") 
                 ]
 
                 let generator =
@@ -527,9 +540,9 @@ let generate (configFile: string) =
                 let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
                 let fsharpMembers =
                     generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars)
+                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember (File.ReadAllText(path)) name hasVars useTasksForAsync)
                     |> String.concat "\n"
-                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers
+                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers useTasksForAsync
                 write fsharpGraphqlClientPath dotnetClientContent None
                 let sharedFSharpDocument =
                     if config.createProjectFile
@@ -540,6 +553,7 @@ let generate (configFile: string) =
                 let packageReferences = [
                     yield! packageReferences
                     yield MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", "2.17.0")
+                    if useTasksForAsync then yield MSBuildXElement.PackageReferenceInclude("Ply", "0.3.1")
                 ]
 
                 let projectReferences =
@@ -657,6 +671,7 @@ let main argv =
             createProjectFile = true
             copyLocalLockFileAssemblies = None
             emitMetadata = false
+            asyncReturnType = AsyncReturnType.Async
         }
 
         runConfig config
@@ -672,6 +687,7 @@ let main argv =
             createProjectFile = true
             copyLocalLockFileAssemblies = None
             emitMetadata = false
+            asyncReturnType = AsyncReturnType.Async
         }
 
         runConfig config
