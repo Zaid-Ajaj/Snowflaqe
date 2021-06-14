@@ -48,6 +48,5 @@ type MSBuildXElement () =
 type XDocument with
 
     member this.WriteTo (outputFileName: string) =
-        use writer = XmlWriter.Create(outputFileName)
-        this.WriteTo(writer)
+        System.IO.File.WriteAllText(outputFileName, this.ToString())
 
