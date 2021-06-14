@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <Description>A dotnet CLI tool to generate F# source code for Fable and F# projects as GraphQL clients based on the schema and input queries.</Description>
@@ -8,14 +7,9 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFramework>net5.0</TargetFramework>
-    <Version>1.24.0</Version>
-    <PackageReleaseNotes>
-      Fix copyLocalLockFileAssemblies option.
-      Update Fable.Remoting.Json and SimpleJson to latest.
-      Lower required FSharp.Core version to v4.7.2
-    </PackageReleaseNotes>
+    <Version>1.25.0</Version>
+    <PackageReleaseNotes>Add option asyncReturnType for F# targets</PackageReleaseNotes>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="LinqToXmlExtensions.fs" />
     <Compile Include="StringBuffer.fs" />
