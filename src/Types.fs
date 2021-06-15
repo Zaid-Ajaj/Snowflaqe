@@ -12,7 +12,6 @@ type OutputTarget =
 type SerializerType =
     | System = 0
     | Newtonsoft = 1
-    | Unknown = 2
 
 [<RequireQualifiedAccess>]
 type AsyncReturnType =
