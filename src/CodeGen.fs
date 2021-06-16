@@ -1,22 +1,24 @@
-[<RequireQualifiedAccess>]
+﻿[<RequireQualifiedAccess>]
 module Snowflaqe.CodeGen
 
 open System
+open System.Collections.Generic
 open System.Linq
+open System.Text.RegularExpressions
 open FsAst
 open Fantomas
 open Snowflaqe.Types
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.XmlDoc
 open FSharp.Compiler.Range
-open System.Collections.Generic
+open FSharp.Compiler.XmlDoc
 open Newtonsoft.Json.Linq
 open GraphQLParser.AST
-open System.Text.RegularExpressions
-open System.Xml
 open LinqToXmlExtensions
+open System.Xml
 open System.Xml.Linq
 open StringBuffer
+open Fantomas.FormatConfig
+open System.Text
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -846,8 +848,14 @@ let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
     ParsedImplFileInput.ParsedImplFileInput(fileName, false, qualfiedNameOfFile, [], [], modules, (false, false))
 
-let formatAst file =
-    formatAst (ParsedInput.ImplFile file)
+let private formatConfig =
+    { FormatConfig.FormatConfig.Default with
+        EndOfLine = EndOfLineStyle.CRLF;
+        NewlineBetweenTypeDefinitionAndMembers = true;
+        StrictMode = true }
+
+let formatAst file fileName =
+    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], Some (SourceOrigin.SourceString file.ToRcd.File), formatConfig)
     |> Async.RunSynchronously
 
 let defaultErrorType() =
@@ -893,7 +901,7 @@ let parseErrorType (typeInfo: JObject) =
     | [ ] -> Error "Missing type name from the custom error type"
     | property :: _  ->
         if property.Value.Type <> JTokenType.Object then
-            Error (sprintf "Property %s must be an object containing the fields of the custom error" property.Name)
+            Error ($"Property {property.Name} must be an object containing the fields of the custom error")
         else
         let info : SynComponentInfoRcd = {
             Access = None
@@ -912,10 +920,10 @@ let parseErrorType (typeInfo: JObject) =
         for prop in errorFields.Properties() do
             if errorMessage.IsNone && prop.Value.Type = JTokenType.String then
                 match readTypeSegment (string prop.Value) with
-                | Error errorType -> errorMessage <- Some (sprintf "Could not create field %s : %s for the custom error type" property.Name errorType)
+                | Error errorType -> errorMessage <- Some ($"Could not create field {property.Name} : {errorType} for the custom error type")
                 | Ok fieldType -> fields.Add(SynFieldRcd.Create(prop.Name, fieldType))
             elif prop.Value.Type <> JTokenType.String then
-                errorMessage <- Some (sprintf "Custom error property '%s' must be a string" prop.Name)
+                errorMessage <- Some ($"Custom error property '{prop.Name}' must be a string")
             else
                 ()
 
@@ -993,37 +1001,44 @@ let generateProjectDocument
         }))
 
 let addLines (query: string) =
-    query.Split Environment.NewLine
+    query.Split ([| Environment.NewLine |], StringSplitOptions.RemoveEmptyEntries)
     |> Array.map (fun line -> "                " + line)
     |> String.concat Environment.NewLine
 
-let sampleClientMember query queryName hasVariables = stringBuffer {
-    sprintf """    member _.%s(%s) =
-        async {
-            let query = %s
+let private toPascalCase str =
+    let firstChar = str |> Seq.head
+    if Char.IsUpper(firstChar)
+    then str
+    else
+        let sb = StringBuilder str
+        sb.[0] <- Char.ToUpperInvariant(firstChar)
+        sb.ToString()
+
+let sampleClientMember query queryName hasVariables =
+    let queryName = toPascalCase queryName
+    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
+    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
+    $"""    member _.{queryName}({args}) =
+        async {{
+            let query = {query}
             let! response =
                 Http.request url
                 |> Http.method POST
                 |> Http.headers [ Headers.contentType "application/json"; yield! headers ]
-                |> Http.content (BodyContent.Text (Json.serialize %s))
+                |> Http.content (BodyContent.Text (Json.serialize {body}))
                 |> Http.send
 
             match response.statusCode with
             | 200 ->
-                let response = Json.parseNativeAs<GraphqlSuccessResponse<%s.Query>> response.responseText
+                let response = Json.parseNativeAs<GraphqlSuccessResponse<{queryName}.Query>> response.responseText
                 return Ok response.data
 
             | errorStatus ->
                 let response = Json.parseNativeAs<GraphqlErrorResponse> response.responseText
                 return Error response.errors
-        }
+        }}
 """
-      queryName
-      (if hasVariables then "input: " + queryName + ".InputVariables" else "")
-      ("\"\"\"\n" + addLines query + "\n            \"\"\"")
-      (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
-      queryName
-}
 
 let asyncRequestBody =
     """
@@ -1040,13 +1055,20 @@ let taskRequestBody =
             let! responseContent = response.Content.ReadAsStringAsync()
     """
 
-let sampleFSharpAsyncClientMember query queryName hasVariables useTasks = stringBuffer {
-    sprintf """    member _.%sAsync(%s) =
-        %s {
-            let query = %s
+let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
+    let queryName = toPascalCase queryName
+    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
+    let builder = if useTasks then "task" else "async"
+    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let requestBody = if useTasks then taskRequestBody else asyncRequestBody
+    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
+    let queryArgs = if hasVariables then " input" else "()"
+    $"""    member _.{queryName}Async({args}) =
+        {builder} {{
+            let query = {query}
 
-            let inputJson = JsonConvert.SerializeObject(%s, [| converter |])
-            %s
+            let inputJson = JsonConvert.SerializeObject({body}, settings)
+            {requestBody}
             let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
 
             match response.IsSuccessStatusCode with
@@ -1060,82 +1082,127 @@ let sampleFSharpAsyncClientMember query queryName hasVariables useTasks = string
                     let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
                     return Error response.errors
                 else
-                    let response = responseJson.ToObject<GraphqlSuccessResponse<%s.Query>>(JsonSerializer.Create(settings))
+                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(JsonSerializer.Create(settings))
                     return Ok response.data
 
             | errorStatus ->
                 let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
                 return Error response.errors
-        }
+        }}
 
+    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
 """
 
-        queryName
-        (if hasVariables then "input: " + queryName + ".InputVariables" else "")
-        (if useTasks then "task" else "async")
-        ("\"\"\"\n" + addLines query + "\n            \"\"\"")
-        (if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }")
-        (if useTasks then taskRequestBody else asyncRequestBody)
-        queryName
-}
+let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
+    let queryName = toPascalCase queryName
+    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
+    let builder = if useTasks then "task" else "async"
+    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let requestBody = if useTasks then taskRequestBody else asyncRequestBody
+    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
+    let queryArgs = if hasVariables then " input" else "()"
+    $"""    member _.{queryName}Async({args}) =
+        {builder} {{
+            let query = {query}
 
-let sampleFSharpSyncClientMember queryName hasVariables useTasks = 
-    let template = 
-        if useTasks then 
-            sprintf """    member this.%s(%s) = 
-        this.%sAsync%s
-        |> Async.AwaitTask
-        |> Async.RunSynchronously
-            """
-        else
-            sprintf """    member this.%s(%s) = Async.RunSynchronously(this.%sAsync%s)
-            """        
-    template
-        queryName
-        (if hasVariables then "input: " + queryName + ".InputVariables" else "")
-        queryName
-        (if hasVariables then " input" else "()")
+            let inputJson = JsonSerializer.Serialize({body}, options)
+            {requestBody}
+            let responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent, options)
 
-let sampleFSharpClientMember query queryName hasVariables useTasks = stringBuffer {
-    sampleFSharpAsyncClientMember query queryName hasVariables useTasks
-    sampleFSharpSyncClientMember queryName hasVariables useTasks
-}
+            match response.IsSuccessStatusCode with
+            | true ->
+                let errorsReturned =
+                    match responseJson.TryGetProperty ("errors") with
+                    | true, value -> value.GetArrayLength() > 0
+                    | false, _ -> false
 
-let sampleGraphqlClient projectName clientName errorType members = stringBuffer {
-    sprintf """namespace %s
+                if errorsReturned then
+                    let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
+                    return Error response.errors
+                else
+                    let response = JsonSerializer.Deserialize<GraphqlSuccessResponse<{queryName}.Query>> (responseContent, options)
+                    return Ok response.data
+
+            | errorStatus ->
+                let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
+
+                return Error response.errors
+        }}
+
+    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
+"""
+
+let inline sampleFSharpClientMember serializer query queryName hasVariables useTasks =
+        match serializer with
+        | SerializerType.System -> sampleFSharpSystemClientMember query queryName hasVariables useTasks
+        | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks
+        | _ -> sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks
+
+let sampleFableGraphqlClient projectName clientName errorType members =
+    $"""namespace {projectName}
 
 open Fable.SimpleHttp
 open Fable.SimpleJson
-
-type GraphqlInput<'T> = { query: string; variables: Option<'T> }
-type GraphqlSuccessResponse<'T> = { data: 'T }
-type GraphqlErrorResponse = { errors: %s list }
-
-type %s(url: string, headers: Header list) =
-    new(url: string) = %s(url, [ ])
-
-%s""" projectName errorType clientName clientName members
-}
-
-let sampleFSharpGraphqlClient projectName clientName errorType members useTasks = stringBuffer {
-    sprintf """namespace %s
-
-open Fable.Remoting.Json
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
+
+type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
+type GraphqlSuccessResponse<'T> = {{ data: 'T }}
+type GraphqlErrorResponse = {{ errors: {errorType} list }}
+
+type {clientName}(url: string, headers: Header list, settings: JsonSerializerSettings) =
+    new(url: string, settings: JsonSerializerSettings) = {clientName}(url, [ ], settings)
+    new(url: string) = {clientName}(url, [ ], new JsonSerializerSettings ())
+
+{members}"""
+
+let private sampleFSharpSystemGraphqlClient projectName clientName errorType members useTasks =
+    $"""namespace {projectName}
+
 open System.Net.Http
 open System.Text
-%s
+open System.Text.Json
+{if useTasks then "open FSharp.Control.Tasks" else ""}
 
-type GraphqlInput<'T> = { query: string; variables: Option<'T> }
-type GraphqlSuccessResponse<'T> = { data: 'T }
-type GraphqlErrorResponse = { errors: %s list }
+type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
+type GraphqlSuccessResponse<'T> = {{ data: 'T }}
+type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
-type %s(url: string, httpClient: HttpClient) =
-    let converter = FableJsonConverter() :> JsonConverter
-    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| converter |])
+type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
+    new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), options)
+    new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerOptions())
 
-    new(url: string) = %s(url, new HttpClient())
+    {members}"""
 
-%s""" projectName (if useTasks then "open FSharp.Control.Tasks" else "") errorType clientName clientName members
-}
+let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members useTasks =
+        $"""namespace {projectName}
+
+open Newtonsoft.Json
+open Newtonsoft.Json.Linq
+open Fable.Remoting.Json
+open System.Net.Http
+open System.Text
+{if useTasks then "open FSharp.Control.Tasks" else ""}
+
+type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
+type GraphqlSuccessResponse<'T> = {{ data: 'T }}
+type GraphqlErrorResponse = {{ errors: {errorType} list }}
+
+type {clientName}(url: string, httpClient: HttpClient, settings: JsonSerializerSettings) =
+    let fableJsonConverter = FableJsonConverter() :> JsonConverter
+    let settings =
+        settings.Converters.Insert (0, fableJsonConverter)
+        settings
+    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = settings.Converters)
+
+    new(url: string, settings: JsonSerializerSettings) = {clientName}(url, new HttpClient(), settings)
+
+    new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerSettings())
+
+    {members}"""
+
+let sampleFSharpGraphqlClient projectName clientName errorType members serializer =
+    match serializer with
+    | SerializerType.System -> sampleFSharpSystemGraphqlClient projectName clientName errorType members
+    | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
+    | _ ->  sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
