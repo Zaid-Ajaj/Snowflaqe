@@ -11,13 +11,13 @@ open Newtonsoft.Json.Linq
 open Snowflaqe
 open Snowflaqe.Types
 
-[<Literal>] let FableRemotingJsonVersion = "2.17.0"
-[<Literal>] let FableSimpleHttpVersion = "3.0.0"
-[<Literal>] let FableSimpleJsonVersion = "3.21.0"
-[<Literal>] let FSharpCoreVersion = "4.7.2"
-[<Literal>] let NewtonsoftJsonVersion = "12.0.2"
-[<Literal>] let SystemTextJsonVersion = "4.6.0"
-
+let [<Literal>] FableRemotingJsonVersion = "2.17.0"
+let [<Literal>] FableSimpleHttpVersion = "3.0.0"
+let [<Literal>] FableSimpleJsonVersion = "3.21.0"
+let [<Literal>] FSharpCoreVersion = "4.7.2"
+let [<Literal>] NewtonsoftJsonVersion = "12.0.2"
+let [<Literal>] SystemTextJsonVersion = "4.6.0"
+let [<Literal>] PlyVersion = "0.3.1"
 
 type CustomErrorType = {
     typeName : string
@@ -116,17 +116,16 @@ let readConfig (file: string) =
                     let queriesPath = string parsedJson.["queries"]
                     let outputPath = string parsedJson.["output"]
 
-                    let value =
-                        if isNull parsedJson.["target"] then
-                            Enum.GetName (typeof<OutputTarget>, OutputTarget.Fable)
-                        else
-                            parsedJson.["target"].Value<string> ()
+                    let targetValue =
+                        if isNull parsedJson.["target"]
+                        then nameof OutputTarget.Fable
+                        else parsedJson.["target"].Value<string> ()
 
                     let target =
-                        match  OutputTarget.TryParse
-                            (value = value, ignoreCase = true) with
-                        | true, v -> v
-                        | false, _ -> OutputTarget.Fable
+                        match targetValue.ToLower() with
+                        | "fsharp" -> OutputTarget.FSharp
+                        | "shared" -> OutputTarget.Shared
+                        | _ -> OutputTarget.Fable
 
                     let asyncReturnType =
                         if isNull parsedJson.["asyncReturnType"] || parsedJson.["asyncReturnType"].ToObject<string>().ToLower() = "async"
@@ -138,17 +137,15 @@ let readConfig (file: string) =
                         then true
                         else parsedJson.["createProjectFile"].ToObject<bool>()
 
-                    let value =
-                        if isNull parsedJson.["serializer"] then
-                            Enum.GetName (typeof<SerializerType>, SerializerType.Newtonsoft)
-                        else
-                            parsedJson.["serializer"].Value<string> ()
+                    let serializerValue =
+                        if isNull parsedJson.["serializer"]
+                        then nameof SerializerType.Newtonsoft
+                        else parsedJson.["serializer"].Value<string> ()
 
                     let serializer =
-                        match SerializerType.TryParse
-                            (value = value, ignoreCase = true) with
-                        | true, v -> v
-                        | false, _ -> SerializerType.Newtonsoft
+                        match serializerValue.ToLowerInvariant() with
+                        | "system" -> SerializerType.System
+                        | _ -> SerializerType.Newtonsoft
 
                     let fullQueriesPath =
                         if Path.IsPathRooted queriesPath
@@ -468,15 +465,16 @@ let generate (configFile: string) =
                 let clientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName members
                 write graphqlClientPath clientContent None
                 colorprintfn "✏️  Generating Fable $green[%s]" projPath
-                let files = seq {
+
+                let files = [
                     for file in generatedFiles do
                         yield createCompileXElement config.createProjectFile outputDirectoryName file
-                }
+                ]
+
                 let packageReferences = [
                     yield! packageReferences
                     yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
                     yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
-                    yield MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
                 ]
 
                 let contentItems = [
@@ -514,18 +512,22 @@ let generate (configFile: string) =
                 let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members config.serializer useTasksForAsync
                 write graphqlClientPath clientContent None
 
-                let files =
-                    generatedFiles
-                    |> Seq.map
-                        (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
+                let files = [
+                    for file in generatedFiles do
+                        createCompileXElement config.createProjectFile outputDirectoryName file
+                ]
+
                 let packageReferences = [
                     yield! packageReferences
-                    yield match config.serializer with
-                          | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("System.Text.Json", SystemTextJsonVersion)
-                          | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
-                          | _ -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
-                    if useTasksForAsync then yield MSBuildXElement.PackageReferenceInclude("Ply", "0.3.1")
+                    yield
+                        match config.serializer with
+                        | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("System.Text.Json", SystemTextJsonVersion)
+                        | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
+
+                    if useTasksForAsync
+                    then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
                 ]
+
                 let generator =
                     if config.createProjectFile
                     then CodeGen.generateProjectDocument
@@ -583,11 +585,12 @@ let generate (configFile: string) =
                 colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
                 let packageReferences = [
                     yield! packageReferences
-                    yield match config.serializer with
-                          | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("System.text.Json", SystemTextJsonVersion)
-                          | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
-                          | _ -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
-                    if useTasksForAsync then yield MSBuildXElement.PackageReferenceInclude("Ply", "0.3.1")
+                    yield
+                        match config.serializer with
+                        | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("System.text.Json", SystemTextJsonVersion)
+                        | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
+                    if useTasksForAsync
+                    then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
                 ]
                 let projectReferences =
                     if config.createProjectFile

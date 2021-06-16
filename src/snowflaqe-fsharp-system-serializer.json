@@ -1,0 +1,17 @@
+{
+    "schema": "./spotify-schema.json",
+    "queries": "./queries",
+    "project": "Spotify",
+    "output": "./output",
+    "target": "fsharp",
+    "asyncReturnType": "task",
+    "serializer": "system",
+    "copyLocalLockFileAssemblies": true,
+    "errorType": {
+        "CustomErrorType": {
+            "Message": "string",
+            "Path": "string list",
+            "Type": "string"
+        }
+    }
+}

@@ -81,11 +81,11 @@
                 {
                     "kind": "OBJECT",
                     "name": "Artist",
-                    "description": null,
+                    "description": "An object representing an Artist",
                     "fields": [
                         {
                             "name": "name",
-                            "description": null,
+                            "description": "Returns the name of the artist",
                             "args": [],
                             "type": {
                                 "kind": "NON_NULL",
@@ -101,7 +101,7 @@
                         },
                         {
                             "name": "id",
-                            "description": null,
+                            "description": "Returns the unique ID of the artist",
                             "args": [],
                             "type": {
                                 "kind": "SCALAR",

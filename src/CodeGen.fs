@@ -1063,7 +1063,13 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
     let requestBody = if useTasks then taskRequestBody else asyncRequestBody
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let queryArgs = if hasVariables then " input" else "()"
-    $"""    member _.{queryName}Async({args}) =
+    let syncMember =
+        if useTasks
+        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
+        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
+
+    $"""
+    member _.{queryName}Async({args}) =
         {builder} {{
             let query = {query}
 
@@ -1090,9 +1096,8 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
                 return Error response.errors
         }}
 
-    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
+    {syncMember}
 """
-
 let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
@@ -1101,7 +1106,13 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let requestBody = if useTasks then taskRequestBody else asyncRequestBody
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let queryArgs = if hasVariables then " input" else "()"
-    $"""    member _.{queryName}Async({args}) =
+    let syncMember =
+        if useTasks
+        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
+        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
+
+    $"""
+    member _.{queryName}Async({args}) =
         {builder} {{
             let query = {query}
 
@@ -1125,35 +1136,29 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
 
             | errorStatus ->
                 let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
-
                 return Error response.errors
         }}
 
-    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
+    {syncMember}
 """
 
 let inline sampleFSharpClientMember serializer query queryName hasVariables useTasks =
-        match serializer with
-        | SerializerType.System -> sampleFSharpSystemClientMember query queryName hasVariables useTasks
-        | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks
-        | _ -> sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks
+    match serializer with
+    | SerializerType.System -> sampleFSharpSystemClientMember query queryName hasVariables useTasks
+    | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks
 
 let sampleFableGraphqlClient projectName clientName errorType members =
     $"""namespace {projectName}
 
 open Fable.SimpleHttp
 open Fable.SimpleJson
-open Newtonsoft.Json
-open Newtonsoft.Json.Linq
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
 type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
-type {clientName}(url: string, headers: Header list, settings: JsonSerializerSettings) =
-    new(url: string, settings: JsonSerializerSettings) = {clientName}(url, [ ], settings)
-    new(url: string) = {clientName}(url, [ ], new JsonSerializerSettings ())
-
+type {clientName}(url: string, headers: Header list) =
+    new(url: string) = {clientName}(url, [ ])
 {members}"""
 
 let private sampleFSharpSystemGraphqlClient projectName clientName errorType members useTasks =
@@ -1171,8 +1176,7 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), options)
     new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerOptions())
-
-    {members}"""
+{members}"""
 
 let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members useTasks =
         $"""namespace {projectName}
@@ -1188,16 +1192,11 @@ type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
 type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
-type {clientName}(url: string, httpClient: HttpClient, settings: JsonSerializerSettings) =
+type {clientName}(url: string, httpClient: HttpClient) =
     let fableJsonConverter = FableJsonConverter() :> JsonConverter
-    let settings =
-        settings.Converters.Insert (0, fableJsonConverter)
-        settings
-    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = settings.Converters)
+    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| fableJsonConverter |])
 
-    new(url: string, settings: JsonSerializerSettings) = {clientName}(url, new HttpClient(), settings)
-
-    new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerSettings())
+    new(url: string) = {clientName}(url, new HttpClient())
 
     {members}"""
 
@@ -1205,4 +1204,3 @@ let sampleFSharpGraphqlClient projectName clientName errorType members serialize
     match serializer with
     | SerializerType.System -> sampleFSharpSystemGraphqlClient projectName clientName errorType members
     | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
-    | _ ->  sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
