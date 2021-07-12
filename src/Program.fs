@@ -11,7 +11,7 @@ open Newtonsoft.Json.Linq
 open Snowflaqe
 open Snowflaqe.Types
 
-let [<Literal>] FableRemotingJsonVersion = "2.17.0"
+let [<Literal>] FableRemotingJsonVersion = "2.18.0"
 let [<Literal>] FableSimpleHttpVersion = "3.0.0"
 let [<Literal>] FableSimpleJsonVersion = "3.21.0"
 let [<Literal>] FSharpCoreVersion = "4.7.2"

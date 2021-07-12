@@ -256,6 +256,7 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
         | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
         | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
         | GraphqlScalar.Custom "Date" -> SynType.DateTime()
+        | GraphqlScalar.Custom "Long" -> SynType.Int64()
         | GraphqlScalar.Custom custom -> SynType.String()
 
     | GraphqlFieldType.NonNull(GraphqlFieldType.List innerType) ->
@@ -293,6 +294,7 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
             | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
             | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
             | GraphqlScalar.Custom "Date" -> SynType.String()
+            | GraphqlScalar.Custom "Long" -> SynType.Int64()
             | GraphqlScalar.Custom custom -> SynType.String()
 
         SynType.Option(innerFSharpType)
@@ -720,6 +722,7 @@ let rec makeVariableType variableType  (schema: GraphqlSchema) =
         | "Numeric" -> SynType.Decimal()
         | "BigFloat" -> SynType.Decimal()
         | "timestamptz" -> SynType.DateTimeOffset()
+        | "Long" -> SynType.Int64()
         | _ when isCustomScalar name schema -> SynType.String()
         | _ -> SynType.Create name
 
@@ -739,6 +742,7 @@ let rec makeVariableType variableType  (schema: GraphqlSchema) =
             | "Decimal" -> SynType.Decimal()
             | "Numeric" -> SynType.Decimal()
             | "BigFloat" -> SynType.Decimal()
+            | "Long" -> SynType.Int64()
             | _ when isCustomScalar name schema -> SynType.String()
             | _ -> SynType.Create name
 
