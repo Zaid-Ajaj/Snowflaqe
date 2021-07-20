@@ -83,6 +83,7 @@ type AggregatedMeterReadingsConnection =
 
 /// Reads a single `MeterType` that is related to this `Meter`.
 type MeterType = { description: string }
+
 /// Reads a single `Meter` that is related to this `Object`.
 type Meter =
     { objectId: int

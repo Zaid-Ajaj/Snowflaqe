@@ -15,11 +15,11 @@
 	<ItemGroup>
 		<PackageReference Include="Fake.Core.Environment" Version="5.20.4" />
 		<PackageReference Include="Fake.Core.Target" Version="5.20.4" />
-		<PackageReference Update="FSharp.Core" Version="5.0.0" />
+		<PackageReference Update="FSharp.Core" Version="5.0.1" />
 	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\src\Snowflaqe.fsproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\src\Snowflaqe.fsproj" />
+	</ItemGroup>
 
 </Project>

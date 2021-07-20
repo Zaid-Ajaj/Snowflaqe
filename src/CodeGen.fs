@@ -9,7 +9,6 @@ open FsAst
 open Fantomas
 open Snowflaqe.Types
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Range
 open FSharp.Compiler.XmlDoc
 open Newtonsoft.Json.Linq
 open GraphQLParser.AST
@@ -19,6 +18,9 @@ open System.Xml.Linq
 open StringBuffer
 open Fantomas.FormatConfig
 open System.Text
+
+type range = FSharp.Compiler.Text.Range
+let range0 = FSharp.Compiler.Text.Range.Zero
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -834,7 +836,7 @@ let createNamespace (names: seq<string>) declarations =
         )
 
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range0)
 
 let createQualifiedModule (idens: seq<string>) declarations =
     let nameParts =
@@ -846,7 +848,7 @@ let createQualifiedModule (idens: seq<string>) declarations =
         )
 
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range.Zero)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range0)
 
 let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)

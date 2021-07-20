@@ -183,10 +183,12 @@ type Root =
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
 
-                let expected = """[<RequireQualifiedAccess>]
+                let expected = """
+[<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables = { userId: int; deliveryDate: string }
+
 /// An array relationship
 type userOrderDetails =
     { amount: string
@@ -206,7 +208,6 @@ type userOrders =
 type Root =
     { /// fetch data from the table: "userOrders"
       userOrders: list<userOrders> }
-
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
     }

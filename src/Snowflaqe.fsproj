@@ -8,11 +8,13 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFrameworks>netcoreapp3.1; net5.0</TargetFrameworks>
-    <Version>1.27.0</Version>
-    <PackageReleaseNotes>Update Fable.Remoting.Json to fix int64 overflow issue and add custom type mapping of Long to int64</PackageReleaseNotes>
+    <Version>1.28.0</Version>
+    <PackageReleaseNotes>Update Fantomas to fix issue with generating invalid long union cases</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="./FsAst/AstRcd.fs" />
+    <Compile Include="./FsAst/AstCreate.fs" />
     <Compile Include="LinqToXmlExtensions.fs" />
     <Compile Include="StringBuffer.fs" />
     <Content Include="snowflaqe.json" />
@@ -28,8 +30,8 @@
 
   <ItemGroup>
     <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.5" />
-    <PackageReference Include="Fantomas" Version="4.4.0" />
-    <PackageReference Include="FsAst" Version="0.9.0" />
+    <PackageReference Include="Fantomas" Version="4.5.0" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.3.5" />
     <PackageReference Include="GraphQL" Version="4.5.0" />
     <PackageReference Include="GraphQL.NewtonsoftJson" Version="4.5.0" />
@@ -37,7 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.0" />
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 
 </Project>

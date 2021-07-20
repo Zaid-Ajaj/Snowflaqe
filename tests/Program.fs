@@ -692,6 +692,47 @@ type Sort =
             Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
 
+        test "Long enum types can be converted into F# unions" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Sort {
+                    transport_distance,
+                    transport_duration,
+                    stationary_location_significance_day_part_duration,
+                    stationary_location_significance_day_part_day_count
+                }
+
+                type Query {
+                    sorting: Sort
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+
+            let generated =
+                let globalTypes = CodeGen.createGlobalTypes schema
+                let ns = CodeGen.createNamespace [ "Test" ] globalTypes
+                let file = CodeGen.createFile typesFileName [ ns ]
+                CodeGen.formatAst file typesFileName
+
+            let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Sort =
+    | [<CompiledName "transport_distance">] TransportDistance
+    | [<CompiledName "transport_duration">] TransportDuration
+    | [<CompiledName "stationary_location_significance_day_part_duration">] StationaryLocationSignificanceDayPartDuration
+    | [<CompiledName "stationary_location_significance_day_part_day_count">] StationaryLocationSignificanceDayPartDayCount
+"""
+
+            Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
+        }
+
         test "Query types can be generated from schema" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {
@@ -756,6 +797,7 @@ module rec Test.QueryName
 type User = { email: string }
 type NextUser = { email: string; username: string }
 type OptionalUser = { username: string }
+
 type Root =
     { sorting: Option<Sort>
       firstName: string
