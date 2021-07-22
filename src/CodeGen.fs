@@ -4,21 +4,21 @@ module Snowflaqe.CodeGen
 open System
 open System.Collections.Generic
 open System.Linq
+open System.Text
 open System.Text.RegularExpressions
+open System.Xml
+open System.Xml.Linq
 open FsAst
 open Fantomas
-open Snowflaqe.Types
+open Fantomas.FormatConfig
 open FSharp.Compiler.SyntaxTree
 open FSharp.Compiler.Range
 open FSharp.Compiler.XmlDoc
-open Newtonsoft.Json.Linq
 open GraphQLParser.AST
+open Newtonsoft.Json.Linq
 open LinqToXmlExtensions
-open System.Xml
-open System.Xml.Linq
 open StringBuffer
-open Fantomas.FormatConfig
-open System.Text
+open Snowflaqe.Types
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -1047,59 +1047,19 @@ let sampleClientMember query queryName hasVariables =
         }}
 """
 
-let asyncRequestBody serializer body =
+let asyncRequestBody serializer body queryName =
     match serializer with
     | SerializerType.System ->
         $"""
-            let! response =
-                httpClient.PostAsJsonAsync(url, {body}, options)
-                |> Async.AwaitTask
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
+            let! response = httpClient.PostAsJsonAsync(url, {body}, options)
+            let! responseContent = response.Content.ReadAsStringAsync()
     """
     | SerializerType.Newtonsoft ->
         $"""
             let inputJson = JsonConvert.SerializeObject({body}, settings)
             let! response =
                 httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
-                |> Async.AwaitTask
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
-    """
-    
-
-let taskRequestBody serializer body =
-    match serializer with
-    | SerializerType.System ->
-        $"""
-            let! response = httpClient.PostAsJsonAsync(url, {body}, options)
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
-    """
-    | SerializerType.Newtonsoft ->
-        $"""
-            let inputJson = JsonConvert.SerializeObject({body}, settings)
-            let! response = httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
-    """
-    
-
-let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
-    let queryName = toPascalCase queryName
-    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
-    let builder = if useTasks then "task" else "async"
-    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
-    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
-    let requestBody = if useTasks then taskRequestBody SerializerType.Newtonsoft body else asyncRequestBody SerializerType.Newtonsoft body
-    let queryArgs = if hasVariables then " input" else "()"
-    let syncMember =
-        if useTasks
-        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
-        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
-
-    $"""
-    member _.{queryName}Async({args}) =
-        {builder} {{
-            let query = {query}
-
-            {requestBody}
+            let! responseContent = response.Content.ReadAsStringAsync()
             let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
 
             match response.IsSuccessStatusCode with
@@ -1119,9 +1079,45 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
             | errorStatus ->
                 let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
                 return Error response.errors
+
+    """
+
+
+let taskRequestBody serializer body =
+    match serializer with
+    | SerializerType.System ->
+        $"""
+            let! response = httpClient.PostAsJsonAsync(url, {body}, options)
+            let! responseContent = response.Content.ReadAsStringAsync()
+    """
+    | SerializerType.Newtonsoft ->
+        $"""
+            let inputJson = JsonConvert.SerializeObject({body}, settings)
+            let! response = httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
+    """
+
+
+let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
+    let queryName = toPascalCase queryName
+    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
+    let builder = if useTasks then "task" else "async"
+    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
+    let requestBody =
+        if useTasks
+        then taskRequestBody SerializerType.Newtonsoft body
+        else asyncRequestBody SerializerType.Newtonsoft body queryName
+    let queryArgs = if hasVariables then " input" else "()"
+
+    $"""
+    member _.{queryName}Async({args}) =
+        {builder} {{
+            let query = {query}
+
+            {requestBody}
         }}
 
-    {syncMember}
+    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
 """
 let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
@@ -1129,13 +1125,9 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let builder = if useTasks then "task" else "async"
     let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
-    let requestBody = if useTasks then taskRequestBody SerializerType.System body else asyncRequestBody SerializerType.System body
+    let requestBody = if useTasks then taskRequestBody SerializerType.System body else asyncRequestBody SerializerType.System body queryName
     let queryArgs = if hasVariables then " input" else "()"
-    let syncMember =
-        if useTasks
-        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
-        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
-
+    
     $"""
     member _.{queryName}Async({args}) =
         {builder} {{
@@ -1163,7 +1155,7 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
                 return Error response.errors
         }}
 
-    {syncMember}
+    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
 """
 
 let inline sampleFSharpClientMember serializer query queryName hasVariables useTasks =
@@ -1178,6 +1170,7 @@ open System
 open System.Net.Http
 open Fable.SimpleHttp
 open Fable.SimpleJson
+open Microsoft.FSharp.Control
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}

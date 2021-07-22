@@ -16,6 +16,7 @@ let [<Literal>] FableSimpleHttpVersion = "3.0.0"
 let [<Literal>] FableSimpleJsonVersion = "3.21.0"
 let [<Literal>] FSharpCoreVersion = "4.7.2"
 let [<Literal>] FSharpSystemTextJsonVersion = "0.17.4"
+let [<Literal>] FSharpControlFusionTasks = "2.2.0"
 let [<Literal>] NewtonsoftJsonVersion = "12.0.2"
 let [<Literal>] SystemTextJsonVersion = "4.6.0"
 let [<Literal>] SystemNetHttpJsonVersion = "5.0.0"
@@ -450,6 +451,7 @@ let generate (configFile: string) =
                 // use a low version of FSharp.Core
                 // for better compatibility
                 MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+                MSBuildXElement.PackageReferenceUpdate("FSharp.Control.FusionTasks", FSharpControlFusionTasks)
             ]
 
             let outputDirectoryName = DirectoryInfo(config.output).Name
@@ -618,7 +620,7 @@ let generate (configFile: string) =
                     |> Seq.singleton
                 let files =
                     if config.createProjectFile
-                    then 
+                    then
                         seq {
                             MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fsi")
                             MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fs")
@@ -662,6 +664,7 @@ let generate (configFile: string) =
 
                 let packageReferences = [
                     MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+                    MSBuildXElement.PackageReferenceUpdate("FSharp.Control.FusionTasks", FSharpControlFusionTasks)
                     MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
                     MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
                     MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
