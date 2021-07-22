@@ -1,7 +1,8 @@
 ﻿open Expecto
 open Snowflaqe
 open Snowflaqe.Types
-open System
+
+let [<Literal>] typesFileName = "Types.fs"
 
 
 let [<Literal>] typesFileName = "Types.fs"

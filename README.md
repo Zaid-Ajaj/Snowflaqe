@@ -29,7 +29,9 @@ Create a JSON file called `snowflaqe.json` with the following shape:
     ["overrideClientName"]: "<clientName>",
     ["copyLocalLockFileAssemblies"]: <true|false>,
     ["emitMetadata"]: <true|false>,
-    ["createProjectFile"]: <true|false>
+    ["createProjectFile"]: <true|false>,
+    ["asyncReturnType"]: <"async" | "task">
+    ["serializer"]: <"newtonsoft" | "system">
 }
 ```
 Where
@@ -45,6 +47,8 @@ Where
  - `<copyLocalLockFileAssemblies>` Adds the attribute to the generated F# project for scenarios where embedding the dependencies is required
  - `<emitMetadata>` when set to `true`, emits code generation metadata as comments into the output modules. The option is set to `false` by default.
  - `createProjectFile` determines whether snowflaqe should output a `.fsproj` file when set to `true` (default value) or output a `.props` file instead when set to `false`
+ - `asyncReturnType` when targetting F# on dotnet, determines the output type of the client functions, whether they return `Async<'T>` when this option is set to "async" or return `Task<'T>` when set to "task". This option is not compatible for Fable projects since Fable doesn't support tasks.
+ - `serializer`: for `fsharp` targets, determines whether to use Newtonsoft.Json (default) as the JSON serializer or System.Text.Json when set to "system".
  - `<target>` optional the code-generation target which can either be `fable` (default), `fsharp` or `shared`.
 
 > Using `shared` as a code generation target actually builds 3 projects! One contains just the types and can be *shared* across platforms. The other two reference this shared projects and implement Fable specific client and dotnet specific client, respectively.

@@ -58,6 +58,9 @@ type MSBuildXElement () =
             XElement.ofStringName("CopyLocalLockFileAssemblies",
                 (copyLocalLockFileAssemblies.ToString().ToLower())))
 
+    static member PropertyGroup ([<ParamArray>] content) =
+        XElement.ofStringName("PropertyGroup", content)
+
     static member Task (task: MSBuildTask) =
         XElement.ofStringName(task.Name,
             task.Parameters |> Seq.map (fun p -> XAttribute.ofStringName(p.Key, p.Value)))
@@ -81,6 +84,5 @@ type MSBuildXElement () =
 type XDocument with
 
     member this.WriteTo (outputFileName: string) =
-        use writer = XmlWriter.Create(outputFileName)
-        this.WriteTo(writer)
+        System.IO.File.WriteAllText(outputFileName, this.ToString())
 

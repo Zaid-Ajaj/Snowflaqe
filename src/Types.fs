@@ -9,6 +9,16 @@ type OutputTarget =
     | Shared
 
 [<RequireQualifiedAccess>]
+type SerializerType =
+    | System
+    | Newtonsoft
+
+[<RequireQualifiedAccess>]
+type AsyncReturnType =
+    | Async
+    | Task
+
+[<RequireQualifiedAccess>]
 type GraphqlScalar =
     | ID
     | Int

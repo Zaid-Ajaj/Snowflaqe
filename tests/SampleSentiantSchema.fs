@@ -1,11 +1,9 @@
 module SampleSentiantSchema
 
-open System
 open System.IO
 open Expecto
 open Snowflaqe
 open Snowflaqe.Types
-
 
 let schemaPath = Utilities.path [ Utilities.tests; "SentiantSchema.json" ]
 let schema = File.ReadAllText schemaPath

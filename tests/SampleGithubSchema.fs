@@ -1,8 +1,8 @@
 ﻿module SampleGithubSchema
 
+open FSharp.Data.LiteralProviders
 open Expecto
 open Snowflaqe
-open FSharp.Data.LiteralProviders
 open Snowflaqe.Types
 
 let [<Literal>] githubSchema = TextFile<"./GithubSchema.json">.Text
