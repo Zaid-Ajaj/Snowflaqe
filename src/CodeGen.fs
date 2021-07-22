@@ -4,20 +4,20 @@ module Snowflaqe.CodeGen
 open System
 open System.Collections.Generic
 open System.Linq
+open System.Text
 open System.Text.RegularExpressions
-open FsAst
-open Fantomas
-open Snowflaqe.Types
-open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.XmlDoc
-open Newtonsoft.Json.Linq
-open GraphQLParser.AST
-open LinqToXmlExtensions
 open System.Xml
 open System.Xml.Linq
-open StringBuffer
+open FsAst
+open Fantomas
 open Fantomas.FormatConfig
-open System.Text
+open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.XmlDoc
+open GraphQLParser.AST
+open Newtonsoft.Json.Linq
+open LinqToXmlExtensions
+open StringBuffer
+open Snowflaqe.Types
 
 type range = FSharp.Compiler.Text.Range
 let range0 = FSharp.Compiler.Text.Range.Zero
@@ -963,6 +963,12 @@ let generatePropsDocument
     XDocument(
         XElement.ofStringName("Project",
             seq {
+            MSBuildXElement.PropertyGroup(
+                seq {
+                    if copyLocalLockFileAssemblies.IsSome then
+                        XElement.ofStringName("CopyLocalLockFileAssemblies", (copyLocalLockFileAssemblies.ToString().ToLower()))
+                    XElement.ofStringName("GenerateDocumentationFile", true)
+                    })
             if copyLocalLockFileAssemblies.IsSome then
                 MSBuildXElement.PropertyGroup(copyLocalLockFileAssemblies.Value)
             if not (files |> Seq.isEmpty) then
@@ -985,7 +991,7 @@ let generateProjectDocument
         XElement.ofStringName("Project",
             XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
             seq {
-            XElement.ofStringName("PropertyGroup",
+            MSBuildXElement.PropertyGroup(
                 seq {
                     XElement.ofStringName("TargetFramework", "netstandard2.0")
                     XElement.ofStringName("LangVersion", "latest")
@@ -995,6 +1001,7 @@ let generateProjectDocument
                             then "true"
                             else "false"
                         )
+                    XElement.ofStringName("GenerateDocumentationFile", true)
                 })
             if not (Seq.isEmpty files) then
                 XElement.ofStringName("ItemGroup", files)
@@ -1046,41 +1053,19 @@ let sampleClientMember query queryName hasVariables =
         }}
 """
 
-let asyncRequestBody =
-    """
-            let! response =
-                httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
-                |> Async.AwaitTask
-
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStringAsync())
-    """
-
-let taskRequestBody =
-    """
-            let! response = httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
+let asyncRequestBody serializer body queryName =
+    match serializer with
+    | SerializerType.System ->
+        $"""
+            let! response = httpClient.PostAsJsonAsync(url, {body}, options)
             let! responseContent = response.Content.ReadAsStringAsync()
     """
-
-let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
-    let queryName = toPascalCase queryName
-    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
-    let builder = if useTasks then "task" else "async"
-    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
-    let requestBody = if useTasks then taskRequestBody else asyncRequestBody
-    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
-    let queryArgs = if hasVariables then " input" else "()"
-    let syncMember =
-        if useTasks
-        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
-        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
-
-    $"""
-    member _.{queryName}Async({args}) =
-        {builder} {{
-            let query = {query}
-
+    | SerializerType.Newtonsoft ->
+        $"""
             let inputJson = JsonConvert.SerializeObject({body}, settings)
-            {requestBody}
+            let! response =
+                httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
+            let! responseContent = response.Content.ReadAsStringAsync()
             let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
 
             match response.IsSuccessStatusCode with
@@ -1100,29 +1085,60 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
             | errorStatus ->
                 let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
                 return Error response.errors
-        }}
 
-    {syncMember}
-"""
-let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
+    """
+
+
+let taskRequestBody serializer body =
+    match serializer with
+    | SerializerType.System ->
+        $"""
+            let! response = httpClient.PostAsJsonAsync(url, {body}, options)
+            let! responseContent = response.Content.ReadAsStringAsync()
+    """
+    | SerializerType.Newtonsoft ->
+        $"""
+            let inputJson = JsonConvert.SerializeObject({body}, settings)
+            let! response = httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
+    """
+
+
+let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
     let builder = if useTasks then "task" else "async"
     let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
-    let requestBody = if useTasks then taskRequestBody else asyncRequestBody
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
-    let queryArgs = if hasVariables then " input" else "()"
-    let syncMember =
+    let requestBody =
         if useTasks
-        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
-        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
+        then taskRequestBody SerializerType.Newtonsoft body
+        else asyncRequestBody SerializerType.Newtonsoft body queryName
+    let queryArgs = if hasVariables then " input" else "()"
 
     $"""
     member _.{queryName}Async({args}) =
         {builder} {{
             let query = {query}
 
-            let inputJson = JsonSerializer.Serialize({body}, options)
+            {requestBody}
+        }}
+
+    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
+"""
+let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
+    let queryName = toPascalCase queryName
+    let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
+    let builder = if useTasks then "task" else "async"
+    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
+    let requestBody = if useTasks then taskRequestBody SerializerType.System body else asyncRequestBody SerializerType.System body queryName
+    let queryArgs = if hasVariables then " input" else "()"
+    
+    $"""
+    member _.{queryName}Async({args}) =
+        {builder} {{
+            let query = {query}
+
             {requestBody}
             let responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent, options)
 
@@ -1145,7 +1161,7 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
                 return Error response.errors
         }}
 
-    {syncMember}
+    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
 """
 
 let inline sampleFSharpClientMember serializer query queryName hasVariables useTasks =
@@ -1156,8 +1172,11 @@ let inline sampleFSharpClientMember serializer query queryName hasVariables useT
 let sampleFableGraphqlClient projectName clientName errorType members =
     $"""namespace {projectName}
 
+open System
+open System.Net.Http
 open Fable.SimpleHttp
 open Fable.SimpleJson
+open Microsoft.FSharp.Control
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
@@ -1173,6 +1192,8 @@ let private sampleFSharpSystemGraphqlClient projectName clientName errorType mem
 open System.Net.Http
 open System.Text
 open System.Text.Json
+open System.Net.Http.Json
+open System.Text.Json.Serialization
 {if useTasks then "open FSharp.Control.Tasks" else ""}
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
@@ -1181,7 +1202,11 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
 type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), options)
-    new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerOptions())
+    new(url: string, client: HttpClient) =
+        let options = JsonSerializerOptions()
+        options.Converters.Add(JsonFSharpConverter())
+        {clientName}(url, client, options)
+    new(url: string) = {clientName}(url, new HttpClient())
 {members}"""
 
 let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members useTasks =
@@ -1191,6 +1216,7 @@ open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open Fable.Remoting.Json
 open System.Net.Http
+open System.Net.Http.Json
 open System.Text
 {if useTasks then "open FSharp.Control.Tasks" else ""}
 
@@ -1210,3 +1236,117 @@ let sampleFSharpGraphqlClient projectName clientName errorType members serialize
     match serializer with
     | SerializerType.System -> sampleFSharpSystemGraphqlClient projectName clientName errorType members
     | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
+
+let sampleFableGraphqlClientFsi projectName clientName =
+        $"""namespace {projectName}
+
+open System.Net.Http
+open Fable.SimpleHttp
+open Fable.SimpleJson
+
+type {clientName} =
+    class
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see>
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package yourself
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: url: string * headers: Header list -> SpotifyGraphqlClient
+
+        /// <summary>Creates {clientName}</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see> is added
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// </remarks>
+        new: url: string -> SpotifyGraphqlClient
+    end
+"""
+
+let private sampleFSharpSystemGraphqlClientFsi projectName clientName =
+    $"""namespace {projectName}
+
+open System.Net.Http
+open System.Text
+open System.Text.Json
+
+type {clientName} =
+    class
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: url: string * client: HttpClient * options: JsonSerializerOptions -> SpotifyGraphqlClient
+
+        /// <summary>
+        /// Creates {clientName} specifying <see href="T:JsonSerializerOptions">JsonSerializerOptions</see>
+        /// </summary>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        new: url: string * options: JsonSerializerOptions -> SpotifyGraphqlClient
+
+        /// <summary>
+        /// Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance
+        /// </summary>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: url: string * client: HttpClient -> SpotifyGraphqlClient
+
+        /// <summary>Creates {clientName}</summary>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: url: string -> SpotifyGraphqlClient
+    end
+"""
+
+let private sampleFSharpNewtonsoftGraphqlClientFsi projectName clientName =
+        $"""namespace {projectName}
+
+open Newtonsoft.Json
+open Newtonsoft.Json.Linq
+open Fable.Remoting.Json
+open System.Net.Http
+open System.Text
+
+type {clientName} =
+    class
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: url: string * client: HttpClient -> SpotifyGraphqlClient
+
+        /// <summary>Creates {clientName}</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see> is added
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// </remarks>
+        new: string -> SpotifyGraphqlClient
+    end
+"""
+
+let sampleFSharpGraphqlClientFsi projectName clientName serializer =
+    match serializer with
+    | SerializerType.System -> sampleFSharpSystemGraphqlClientFsi projectName clientName
+    | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClientFsi projectName clientName
