@@ -15,23 +15,27 @@
     </PackageReference>
   </ItemDefinitionGroup>
 
-  <ItemGroup />
-
   <ItemGroup>
     <PackageReference Include="Fody" Version="6.5.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FSharp.Compiler.Service" Version="38.0.2" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" />
 		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
 		<PackageReference Include="ModuleInit.Fody" Version="2.1.1" />
-    <PackageReference Update="FSharp.Core" Verion="5.0.1" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Verion="5.0.1" Version="5.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; compile; build; native; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
      <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
-    <PackageReference Include="System.Collections.Immutable" Version="1.7.1" CopyLocal="false" Publish="false" />
-    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.6.*" CopyLocal="false" Publish="false" /><!--ExcludeAssets="runtime"-->
+    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.10.0" CopyLocal="false" Publish="false" /><!--ExcludeAssets="runtime"-->
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" CopyLocal="false" Publish="false" />
   </ItemGroup>
 
@@ -67,6 +71,10 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\src\Snowflaqe.fsproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.Build.Framework" Version="16.10.0" />
 	</ItemGroup>
 
 </Project>

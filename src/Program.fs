@@ -359,8 +359,6 @@ let generate (config: Config) =
                 if not (Directory.Exists path) then
                     ignore (Directory.CreateDirectory path)
 
-        deleteFilesAndFolders config.output true
-
         let projPath =
             if config.createProjectFile
             then Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
@@ -427,6 +425,7 @@ let generate (config: Config) =
                     generatedFiles.Add(fullPath)
                     generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
 
+
                 | OutputTarget.Shared ->
                     let fullPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName (moduleName + ".fs")))
                     colorprintfn "✏️  Generating module $green[%s]" fullPath
@@ -442,45 +441,45 @@ let generate (config: Config) =
                 else sprintf "%sGraphqlClient" config.project
             )
 
+        let packageReferences = [
+            // use a low version of FSharp.Core
+            // for better compatibility
+            MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+            MSBuildXElement.PackageReferenceUpdate("FSharp.Control.FusionTasks", FSharpControlFusionTasks)
+        ]
+
+        let outputDirectoryName = DirectoryInfo(config.output).Name
+        let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
+
+        match config.target with
+        | OutputTarget.Fable ->
+            let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
+            let graphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fsi"))
+            colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
+            generatedFiles.AddRange [|
+                graphqlClientFsiPath
+                graphqlClientPath
+            |]
+            let members =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
+                |> String.concat "\n"
+            let clientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName members
+            let fsiContent = CodeGen.sampleFableGraphqlClientFsi config.project clientName
+            write graphqlClientPath clientContent None
+            write graphqlClientFsiPath fsiContent None
+            colorprintfn "✏️  Generating Fable $green[%s]" projPath
+
+            let files =
+                generatedFiles
+                |> Seq.map
+                    (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
+
             let packageReferences = [
-                // use a low version of FSharp.Core
-                // for better compatibility
-                MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
-                MSBuildXElement.PackageReferenceUpdate("FSharp.Control.FusionTasks", FSharpControlFusionTasks)
+                yield! packageReferences
+                yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
+                yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
             ]
-
-            let outputDirectoryName = DirectoryInfo(config.output).Name
-            let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
-
-            match config.target with
-            | OutputTarget.Fable ->
-                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
-                let graphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fsi"))
-                colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
-                generatedFiles.AddRange [|
-                    graphqlClientFsiPath
-                    graphqlClientPath
-                |]
-                let members =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
-                    |> String.concat "\n"
-                let clientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName members
-                let fsiContent = CodeGen.sampleFableGraphqlClientFsi config.project clientName
-                write graphqlClientPath clientContent None
-                write graphqlClientFsiPath fsiContent None
-                colorprintfn "✏️  Generating Fable $green[%s]" projPath
-
-                let files = [
-                    for file in generatedFiles do
-                        yield createCompileXElement config.createProjectFile outputDirectoryName file
-                ]
-
-                let packageReferences = [
-                    yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
-                    yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
-                ]
 
             let contentItems = [
                 XElement.ofStringName("Content",
@@ -494,212 +493,212 @@ let generate (config: Config) =
                 then CodeGen.generateProjectDocument
                 else CodeGen.generatePropsDocument
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
-                    ContentItems = contentItems
-                    ProjectReferences = Seq.empty
-                }
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
+                ContentItems = contentItems
+                ProjectReferences = Seq.empty
+            }
 
-                document.WriteTo(projPath)
-                files
+            document.WriteTo(projPath)
+            files
 
         | OutputTarget.FSharp ->
             colorprintfn "✏️  Generating F# $green[%s]" projPath
 
-                let members =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
-                    |> String.concat "\n"
+            let members =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
+                |> String.concat "\n"
 
-                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
-                let graphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fsi"))
-                generatedFiles.AddRange [|
-                    graphqlClientFsiPath
-                    graphqlClientPath
-                |]
-                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members config.serializer useTasksForAsync
-                let fsiContent = CodeGen.sampleFSharpGraphqlClientFsi config.project clientName config.serializer
-                write graphqlClientPath clientContent None
-                write graphqlClientFsiPath fsiContent None
+            let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
+            let graphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fsi"))
+            generatedFiles.AddRange [|
+                graphqlClientFsiPath
+                graphqlClientPath
+            |]
+            let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members config.serializer useTasksForAsync
+            let fsiContent = CodeGen.sampleFSharpGraphqlClientFsi config.project clientName config.serializer
+            write graphqlClientPath clientContent None
+            write graphqlClientFsiPath fsiContent None
 
-                let files = [
-                    for file in generatedFiles do
-                        createCompileXElement config.createProjectFile outputDirectoryName file
-                ]
+            let files =
+                generatedFiles
+                |> Seq.map
+                    (fun file -> createCompileXElement config.createProjectFile outputDirectoryName file)
+            let packageReferences = [
+                yield! packageReferences
+                yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
+                yield
+                    match config.serializer with
+                    | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
+                    | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
 
-                let packageReferences = [
-                    yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
-                    yield
-                        match config.serializer with
-                        | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
-                        | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
+                if useTasksForAsync
+                then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
+            ]
 
-                    if useTasksForAsync
-                    then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
-                ]
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
+                ContentItems = Seq.empty
+                ProjectReferences = Seq.empty
+            }
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
-                    ContentItems = Seq.empty
-                    ProjectReferences = Seq.empty
-                }
+            document.WriteTo(projPath)
+            files
 
-                document.WriteTo(projPath)
+        | OutputTarget.Shared ->
+            let files =
+                generatedFiles
+                |> Seq.map
+                    (fun file ->
+                        if config.createProjectFile
+                        then MSBuildXElement.Compile(Path.GetFileName file)
+                        else MSBuildXElement.Compile($".\{outputDirectoryName}\shared\{Path.GetFileName file}"))
+            let sharedDocPath =
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".props"))
+            colorprintfn "✏️  Generating shared F# $green[%s]" sharedDocPath
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-            | OutputTarget.Shared ->
-                let files =
-                    generatedFiles
-                    |> Seq.map
-                        (fun file ->
-                            if config.createProjectFile
-                            then MSBuildXElement.Compile(Path.GetFileName file)
-                            else MSBuildXElement.Compile($".\{outputDirectoryName}\shared\{Path.GetFileName file}"))
-                let sharedDocPath =
-                    if config.createProjectFile
-                    then Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
-                    else Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".props"))
-                colorprintfn "✏️  Generating shared F# $green[%s]" sharedDocPath
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = None
+                ContentItems = Seq.empty
+                ProjectReferences = Seq.empty
+            }
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = None
-                    ContentItems = Seq.empty
-                    ProjectReferences = Seq.empty
-                }
+            document.WriteTo(sharedDocPath)
 
-                document.WriteTo(sharedDocPath)
+            let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
+            let fsharpGraphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fsi"))
+            let fsharpMembers =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
+                |> String.concat "\n"
+            let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers config.serializer useTasksForAsync
+            let dotnetClientFsiContent = CodeGen.sampleFSharpGraphqlClientFsi config.project clientName config.serializer
+            write fsharpGraphqlClientPath dotnetClientContent None
+            write fsharpGraphqlClientFsiPath dotnetClientFsiContent None
+            let sharedFSharpDocument =
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
+            colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
+            let packageReferences = [
+                yield! packageReferences
+                yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
+                yield
+                    match config.serializer with
+                    | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
+                    | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
+                if useTasksForAsync
+                then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
+            ]
+            let projectReferences =
+                if config.createProjectFile
+                then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
+                else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
+                |> Seq.singleton
+            let files =
+                if config.createProjectFile
+                then
+                    seq {
+                        MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fsi")
+                        MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fs")
+                    }
+                else
+                    seq {
+                        MSBuildXElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fsi")
+                        MSBuildXElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fs")
+                    }
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-                let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
-                let fsharpGraphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fsi"))
-                let fsharpMembers =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
-                    |> String.concat "\n"
-                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers config.serializer useTasksForAsync
-                let dotnetClientFsiContent = CodeGen.sampleFSharpGraphqlClientFsi config.project clientName config.serializer
-                write fsharpGraphqlClientPath dotnetClientContent None
-                write fsharpGraphqlClientFsiPath dotnetClientFsiContent None
-                let sharedFSharpDocument =
-                    if config.createProjectFile
-                    then Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
-                    else Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
-                colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
-                let packageReferences = [
-                    yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
-                    yield
-                        match config.serializer with
-                        | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
-                        | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
-                    if useTasksForAsync
-                    then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
-                ]
-                let projectReferences =
-                    if config.createProjectFile
-                    then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
-                    |> Seq.singleton
-                let files =
-                    if config.createProjectFile
-                    then
-                        seq {
-                            MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fsi")
-                            MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fs")
-                        }
-                    else
-                        seq {
-                            MSBuildXElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fsi")
-                            MSBuildXElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fs")
-                        }
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
-
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
-                    ContentItems = Seq.empty
-                    ProjectReferences = projectReferences
-                }
-
-                document.WriteTo(sharedFSharpDocument)
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
+                ContentItems = Seq.empty
+                ProjectReferences = projectReferences
+            }
 
             let fableMembers =
                 generatedModules
                 |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
                 |> String.concat "\n"
 
-                let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fs"))
-                let fableGraphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fsi"))
-                let fableClientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName fableMembers
-                let fableClientFsiContent = CodeGen.sampleFableGraphqlClientFsi config.project clientName
-                write fableGraphqlClientPath fableClientContent None
-                write fableGraphqlClientFsiPath fableClientFsiContent None
-                let sharedFableDocument =
-                    if config.createProjectFile
-                    then Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
-                    else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
-                colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
+            let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fs"))
+            let fableGraphqlClientFsiPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fsi"))
+            let fableClientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName fableMembers
+            let fableClientFsiContent = CodeGen.sampleFableGraphqlClientFsi config.project clientName
+            write fableGraphqlClientPath fableClientContent None
+            write fableGraphqlClientFsiPath fableClientFsiContent None
+            let sharedFableDocument =
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
+            colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
 
-                let packageReferences = [
-                    MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
-                    MSBuildXElement.PackageReferenceUpdate("FSharp.Control.FusionTasks", FSharpControlFusionTasks)
-                    MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
-                    MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
-                    MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
-                ]
+            let packageReferences = [
+                MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+                MSBuildXElement.PackageReferenceUpdate("FSharp.Control.FusionTasks", FSharpControlFusionTasks)
+                MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
+                MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
+                MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
+            ]
 
-                let files = [
-                    if config.createProjectFile
-                    then MSBuildXElement.Compile($"{config.project}.GraphqlClient.fs")
-                    else MSBuildXElement.Compile($".\{outputDirectoryName}\\fable\{config.project}.GraphqlClient.fs")
-                ]
+            let files =
+                if config.createProjectFile
+                then MSBuildXElement.Compile($"{config.project}.GraphqlClient.fs")
+                else MSBuildXElement.Compile($".\{outputDirectoryName}\\fable\{config.project}.GraphqlClient.fs")
+                |> Seq.singleton
 
-                let contentItems = [
-                    XElement.ofStringName("Content",
-                        XAttribute.ofStringName("Include", "*.fs; *.js"),
-                        XAttribute.ofStringName("Exclude", "**\*.fs.js"),
-                        XAttribute.ofStringName("PackagePath", "fable\\"))
-                ]
+            let contentItems = [
+                XElement.ofStringName("Content",
+                    XAttribute.ofStringName("Include", "*.fs; *.js"),
+                    XAttribute.ofStringName("Exclude", "**\*.fs.js"),
+                    XAttribute.ofStringName("PackagePath", "fable\\"))
+            ]
 
-                let projectReferences = [
-                    if config.createProjectFile
-                    then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
-                ]
+            let projectReferences = [
+                if config.createProjectFile
+                then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
+                else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
+            ]
 
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = None
-                    ContentItems = contentItems
-                    ProjectReferences = projectReferences
-                }
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = None
+                ContentItems = contentItems
+                ProjectReferences = projectReferences
+            }
 
-                document.WriteTo(sharedFableDocument)
-            0
+            document.WriteTo(sharedFableDocument)
+            Seq.empty
+        |> Seq.map (fun xel -> xel.Attribute(XName.Get("Include")).Value)
+        |> Ok
 
 [<EntryPoint>]
 let main argv =

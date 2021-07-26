@@ -4,9 +4,6 @@ open Snowflaqe.Types
 
 let [<Literal>] typesFileName = "Types.fs"
 
-
-let [<Literal>] typesFileName = "Types.fs"
-
 let trimContentEnd (content: string) = Utilities.trimContentEnd content
 
 let queryParsing =

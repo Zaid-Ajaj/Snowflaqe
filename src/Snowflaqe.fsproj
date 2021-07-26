@@ -29,7 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.5" />
-    <PackageReference Include="Fantomas" Version="4.4.0" />
+    <PackageReference Include="Fantomas" Version="4.5.1" />
     <PackageReference Include="FsAst" Version="0.9.0" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.3.5" />
     <PackageReference Include="GraphQL" Version="4.5.0" />
@@ -38,7 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.0" />
+    <PackageReference Update="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 
 </Project>
