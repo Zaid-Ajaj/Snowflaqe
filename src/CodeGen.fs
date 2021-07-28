@@ -1054,7 +1054,6 @@ let asyncRequestBody serializer body queryName =
             let! response =
                 httpClient.PostAsJsonAsync(url, {body}, options)
                 |> Async.AwaitTask
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
     """
     | SerializerType.Newtonsoft ->
         $"""
@@ -1062,42 +1061,18 @@ let asyncRequestBody serializer body queryName =
             let! response =
                 httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
                 |> Async.AwaitTask
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
-            let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
-
-            match response.IsSuccessStatusCode with
-            | true ->
-                let errorsReturned =
-                    responseJson.ContainsKey "errors"
-                    && responseJson.["errors"].Type = JTokenType.Array
-                    && responseJson.["errors"].HasValues
-
-                if errorsReturned then
-                    let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
-                    return Error response.errors
-                else
-                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(JsonSerializer.Create(settings))
-                    return Ok response.data
-
-            | errorStatus ->
-                let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
-                return Error response.errors
-
     """
-
 
 let taskRequestBody serializer body =
     match serializer with
     | SerializerType.System ->
         $"""
             let! response = httpClient.PostAsJsonAsync(url, {body}, options)
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
     """
     | SerializerType.Newtonsoft ->
         $"""
             let inputJson = JsonConvert.SerializeObject({body}, settings)
             let! response = httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
-            let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
     """
 
 
@@ -1123,6 +1098,28 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
             let query = {query}
 
             {requestBody}
+            let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
+            use sr = new StreamReader(responseContent)
+            use tr = new JsonTextReader(sr)
+            let responseJson = serializer.Deserialize<JObject>(tr)
+
+            match response.IsSuccessStatusCode with
+            | true ->
+                let errorsReturned =
+                    responseJson.ContainsKey "errors"
+                    && responseJson.["errors"].Type = JTokenType.Array
+                    && responseJson.["errors"].HasValues
+
+                if errorsReturned then
+                    let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                    return Error response.errors
+                else
+                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(JsonSerializer.Create(settings))
+                    return Ok response.data
+
+            | errorStatus ->
+                let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                return Error response.errors
         }}
 
     {syncMember}
@@ -1146,7 +1143,8 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
             let query = {query}
 
             {requestBody}
-            let responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent, options)
+            let! responseContent = response.Content.ReadAsStreamAsync() |> Async.AwaitTask
+            let! responseJson = JsonSerializer.DeserializeAsync<JsonElement>(responseContent, options)
 
             match response.IsSuccessStatusCode with
             | true ->
@@ -1156,14 +1154,14 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
                     | false, _ -> false
 
                 if errorsReturned then
-                    let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
+                    let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse> (responseContent, options)
                     return Error response.errors
                 else
-                    let response = JsonSerializer.Deserialize<GraphqlSuccessResponse<{queryName}.Query>> (responseContent, options)
+                    let! response = JsonSerializer.DeserializeAsync<GraphqlSuccessResponse<{queryName}.Query>> (responseContent, options)
                     return Ok response.data
 
             | errorStatus ->
-                let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
+                let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse> (responseContent, options)
                 return Error response.errors
         }}
 
@@ -1191,10 +1189,13 @@ type {clientName}(url: string, headers: Header list) =
 
 let private sampleFSharpSystemGraphqlClient projectName clientName errorType members useTasks =
     $"""namespace {projectName}
-
+open System
+open System.IO
 open System.Net.Http
+open System.Net.Http.Json
 open System.Text
 open System.Text.Json
+open System.Text.Json.Serialization
 {if useTasks then "open FSharp.Control.Tasks" else ""}
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
@@ -1203,7 +1204,11 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
 type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), options)
+    new(url: string, httpClient: HttpClient) = {clientName}(url, httpClient, new JsonSerializerOptions())
     new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerOptions())
+    new(httpClient: HttpClient, options: JsonSerializerOptions) = {clientName}(String.Empty, httpClient, options)
+    new(httpClient: HttpClient) = {clientName}(String.Empty, httpClient, new JsonSerializerOptions())
+
 {members}"""
 
 let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members useTasks =
@@ -1212,9 +1217,11 @@ let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open Fable.Remoting.Json
+open System
 open System.Net.Http
 open System.Net.Http.Json
 open System.Text
+open System.IO
 {if useTasks then "open FSharp.Control.Tasks" else ""}
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
@@ -1224,8 +1231,10 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 type {clientName}(url: string, httpClient: HttpClient) =
     let fableJsonConverter = FableJsonConverter() :> JsonConverter
     let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| fableJsonConverter |])
+    let serializer = JsonSerializer.Create(settings)
 
     new(url: string) = {clientName}(url, new HttpClient())
+    new(httpClient: HttpClient) = {clientName}(String.Empty, httpClient)
 
     {members}"""
 
@@ -1237,13 +1246,12 @@ let sampleFSharpGraphqlClient projectName clientName errorType members serialize
 let sampleFableGraphqlClientFsi projectName clientName =
         $"""namespace {projectName}
 
-open System.Net.Http
 open Fable.SimpleHttp
 open Fable.SimpleJson
 
 type {clientName} =
     class
-        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <summary>Creates {clientName} specifying list of headers</summary>
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization <b>you must</b> add
         /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see>
@@ -1310,6 +1318,23 @@ type {clientName} =
         /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
         /// </remarks>
         new: url: string -> {clientName}
+
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: client: HttpClient * options: JsonSerializerOptions -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: client: HttpClient -> {clientName}
     end
 """
 
@@ -1335,6 +1360,9 @@ type {clientName} =
 
         /// <summary>Creates {clientName}</summary>
         new: string -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        new: client: HttpClient -> {clientName}
     end
 """
 
