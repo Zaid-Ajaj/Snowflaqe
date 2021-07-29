@@ -1206,8 +1206,18 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), options)
     new(url: string, httpClient: HttpClient) = {clientName}(url, httpClient, new JsonSerializerOptions())
     new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerOptions())
-    new(httpClient: HttpClient, options: JsonSerializerOptions) = {clientName}(String.Empty, httpClient, options)
-    new(httpClient: HttpClient) = {clientName}(String.Empty, httpClient, new JsonSerializerOptions())
+    new(httpClient: HttpClient, options: JsonSerializerOptions) =
+        if httpClient.BaseAddress <> null then
+            {clientName}(httpClient.BaseAddress.OriginalString, httpClient, options)
+        else
+            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            {clientName}(String.Empty, httpClient, options)
+    new(httpClient: HttpClient) =
+        if httpClient.BaseAddress <> null then
+            {clientName}(httpClient.BaseAddress.OriginalString, httpClient, new JsonSerializerOptions())
+        else
+            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            {clientName}(String.Empty, httpClient, new JsonSerializerOptions())
 
 {members}"""
 
@@ -1234,7 +1244,12 @@ type {clientName}(url: string, httpClient: HttpClient) =
     let serializer = JsonSerializer.Create(settings)
 
     new(url: string) = {clientName}(url, new HttpClient())
-    new(httpClient: HttpClient) = {clientName}(String.Empty, httpClient)
+    new(httpClient: HttpClient) =
+        if httpClient.BaseAddress <> null then
+            {clientName}(httpClient.BaseAddress.OriginalString, httpClient)
+        else
+            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            {clientName}(String.Empty, httpClient)
 
     {members}"""
 
@@ -1253,9 +1268,7 @@ type {clientName} =
     class
         /// <summary>Creates {clientName} specifying list of headers</summary>
         /// <remarks>
-        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see>
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package yourself
+        /// In order to enable all F# types serialization and deserialization, this client uses Fable.SimpleJson from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a>
         /// </remarks>
         /// <param name="url">GraphQL endpoint URL</param>
         new: url: string * headers: Header list -> {clientName}
@@ -1264,7 +1277,7 @@ type {clientName} =
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization
         /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see> is added
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
         /// </remarks>
         new: url: string -> {clientName}
     end
@@ -1353,7 +1366,7 @@ type {clientName} =
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization
         /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
         /// </remarks>
         /// <param name="url">GraphQL endpoint URL</param>
         new: url: string * client: HttpClient -> {clientName}
