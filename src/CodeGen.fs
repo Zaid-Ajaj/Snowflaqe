@@ -1054,44 +1054,23 @@ let asyncRequestBody serializer body queryName =
     match serializer with
     | SerializerType.System ->
         $"""
-            let! response = httpClient.PostAsJsonAsync(url, {body}, options)
-            let! responseContent = response.Content.ReadAsStringAsync()
+            let! response =
+                httpClient.PostAsJsonAsync(url, {body}, options)
+                |> Async.AwaitTask
     """
     | SerializerType.Newtonsoft ->
         $"""
             let inputJson = JsonConvert.SerializeObject({body}, settings)
             let! response =
                 httpClient.PostAsync(url, new StringContent(inputJson, Encoding.UTF8, "application/json"))
-            let! responseContent = response.Content.ReadAsStringAsync()
-            let responseJson = JsonConvert.DeserializeObject<JObject>(responseContent, settings)
-
-            match response.IsSuccessStatusCode with
-            | true ->
-                let errorsReturned =
-                    responseJson.ContainsKey "errors"
-                    && responseJson.["errors"].Type = JTokenType.Array
-                    && responseJson.["errors"].HasValues
-
-                if errorsReturned then
-                    let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
-                    return Error response.errors
-                else
-                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(JsonSerializer.Create(settings))
-                    return Ok response.data
-
-            | errorStatus ->
-                let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
-                return Error response.errors
-
+                |> Async.AwaitTask
     """
-
 
 let taskRequestBody serializer body =
     match serializer with
     | SerializerType.System ->
         $"""
             let! response = httpClient.PostAsJsonAsync(url, {body}, options)
-            let! responseContent = response.Content.ReadAsStringAsync()
     """
     | SerializerType.Newtonsoft ->
         $"""
@@ -1111,6 +1090,10 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
         then taskRequestBody SerializerType.Newtonsoft body
         else asyncRequestBody SerializerType.Newtonsoft body queryName
     let queryArgs = if hasVariables then " input" else "()"
+    let syncMember =
+        if useTasks
+        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
+        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
 
     $"""
     member _.{queryName}Async({args}) =
@@ -1118,9 +1101,31 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
             let query = {query}
 
             {requestBody}
+            let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
+            use sr = new StreamReader(responseContent)
+            use tr = new JsonTextReader(sr)
+            let responseJson = serializer.Deserialize<JObject>(tr)
+
+            match response.IsSuccessStatusCode with
+            | true ->
+                let errorsReturned =
+                    responseJson.ContainsKey "errors"
+                    && responseJson.["errors"].Type = JTokenType.Array
+                    && responseJson.["errors"].HasValues
+
+                if errorsReturned then
+                    let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                    return Error response.errors
+                else
+                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(JsonSerializer.Create(settings))
+                    return Ok response.data
+
+            | errorStatus ->
+                let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                return Error response.errors
         }}
 
-    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
+    {syncMember}
 """
 let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
@@ -1130,6 +1135,10 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let requestBody = if useTasks then taskRequestBody SerializerType.System body else asyncRequestBody SerializerType.System body queryName
     let queryArgs = if hasVariables then " input" else "()"
+    let syncMember =
+        if useTasks
+        then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
+        else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
 
     $"""
     member _.{queryName}Async({args}) =
@@ -1137,7 +1146,8 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
             let query = {query}
 
             {requestBody}
-            let responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent, options)
+            let! responseContent = response.Content.ReadAsStreamAsync() |> Async.AwaitTask
+            let! responseJson = JsonSerializer.DeserializeAsync<JsonElement>(responseContent, options)
 
             match response.IsSuccessStatusCode with
             | true ->
@@ -1147,18 +1157,18 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
                     | false, _ -> false
 
                 if errorsReturned then
-                    let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
+                    let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse> (responseContent, options)
                     return Error response.errors
                 else
-                    let response = JsonSerializer.Deserialize<GraphqlSuccessResponse<{queryName}.Query>> (responseContent, options)
+                    let! response = JsonSerializer.DeserializeAsync<GraphqlSuccessResponse<{queryName}.Query>> (responseContent, options)
                     return Ok response.data
 
             | errorStatus ->
-                let response = JsonSerializer.Deserialize<GraphqlErrorResponse> (responseContent, options)
+                let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse> (responseContent, options)
                 return Error response.errors
         }}
 
-    member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})
+    {syncMember}
 """
 
 let inline sampleFSharpClientMember serializer query queryName hasVariables useTasks =
@@ -1169,11 +1179,8 @@ let inline sampleFSharpClientMember serializer query queryName hasVariables useT
 let sampleFableGraphqlClient projectName clientName errorType members =
     $"""namespace {projectName}
 
-open System
-open System.Net.Http
 open Fable.SimpleHttp
 open Fable.SimpleJson
-open Microsoft.FSharp.Control
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
@@ -1185,11 +1192,12 @@ type {clientName}(url: string, headers: Header list) =
 
 let private sampleFSharpSystemGraphqlClient projectName clientName errorType members useTasks =
     $"""namespace {projectName}
-
+open System
+open System.IO
 open System.Net.Http
+open System.Net.Http.Json
 open System.Text
 open System.Text.Json
-open System.Net.Http.Json
 open System.Text.Json.Serialization
 {if useTasks then "open FSharp.Control.Tasks" else ""}
 
@@ -1199,11 +1207,21 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
 type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), options)
-    new(url: string, client: HttpClient) =
-        let options = JsonSerializerOptions()
-        options.Converters.Add(JsonFSharpConverter())
-        {clientName}(url, client, options)
-    new(url: string) = {clientName}(url, new HttpClient())
+    new(url: string, httpClient: HttpClient) = {clientName}(url, httpClient, new JsonSerializerOptions())
+    new(url: string) = {clientName}(url, new HttpClient(), new JsonSerializerOptions())
+    new(httpClient: HttpClient, options: JsonSerializerOptions) =
+        if httpClient.BaseAddress <> null then
+            {clientName}(httpClient.BaseAddress.OriginalString, httpClient, options)
+        else
+            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            {clientName}(String.Empty, httpClient, options)
+    new(httpClient: HttpClient) =
+        if httpClient.BaseAddress <> null then
+            {clientName}(httpClient.BaseAddress.OriginalString, httpClient, new JsonSerializerOptions())
+        else
+            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            {clientName}(String.Empty, httpClient, new JsonSerializerOptions())
+
 {members}"""
 
 let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members useTasks =
@@ -1212,9 +1230,11 @@ let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType
 open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open Fable.Remoting.Json
+open System
 open System.Net.Http
 open System.Net.Http.Json
 open System.Text
+open System.IO
 {if useTasks then "open FSharp.Control.Tasks" else ""}
 
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
@@ -1224,8 +1244,15 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 type {clientName}(url: string, httpClient: HttpClient) =
     let fableJsonConverter = FableJsonConverter() :> JsonConverter
     let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| fableJsonConverter |])
+    let serializer = JsonSerializer.Create(settings)
 
     new(url: string) = {clientName}(url, new HttpClient())
+    new(httpClient: HttpClient) =
+        if httpClient.BaseAddress <> null then
+            {clientName}(httpClient.BaseAddress.OriginalString, httpClient)
+        else
+            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            {clientName}(String.Empty, httpClient)
 
     {members}"""
 
@@ -1237,28 +1264,25 @@ let sampleFSharpGraphqlClient projectName clientName errorType members serialize
 let sampleFableGraphqlClientFsi projectName clientName =
         $"""namespace {projectName}
 
-open System.Net.Http
 open Fable.SimpleHttp
 open Fable.SimpleJson
 
 type {clientName} =
     class
-        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <summary>Creates {clientName} specifying list of headers</summary>
         /// <remarks>
-        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see>
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package yourself
+        /// In order to enable all F# types serialization and deserialization, this client uses Fable.SimpleJson from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a>
         /// </remarks>
         /// <param name="url">GraphQL endpoint URL</param>
-        new: url: string * headers: Header list -> SpotifyGraphqlClient
+        new: url: string * headers: Header list -> {clientName}
 
         /// <summary>Creates {clientName}</summary>
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization
         /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see> is added
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
         /// </remarks>
-        new: url: string -> SpotifyGraphqlClient
+        new: url: string -> {clientName}
     end
 """
 
@@ -1278,7 +1302,7 @@ type {clientName} =
         /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
         /// </remarks>
         /// <param name="url">GraphQL endpoint URL</param>
-        new: url: string * client: HttpClient * options: JsonSerializerOptions -> SpotifyGraphqlClient
+        new: url: string * client: HttpClient * options: JsonSerializerOptions -> {clientName}
 
         /// <summary>
         /// Creates {clientName} specifying <see href="T:JsonSerializerOptions">JsonSerializerOptions</see>
@@ -1289,7 +1313,7 @@ type {clientName} =
         /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
         /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
         /// </remarks>
-        new: url: string * options: JsonSerializerOptions -> SpotifyGraphqlClient
+        new: url: string * options: JsonSerializerOptions -> {clientName}
 
         /// <summary>
         /// Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance
@@ -1300,7 +1324,7 @@ type {clientName} =
         /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
         /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
         /// </remarks>
-        new: url: string * client: HttpClient -> SpotifyGraphqlClient
+        new: url: string * client: HttpClient -> {clientName}
 
         /// <summary>Creates {clientName}</summary>
         /// <param name="url">GraphQL endpoint URL</param>
@@ -1309,7 +1333,24 @@ type {clientName} =
         /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
         /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
         /// </remarks>
-        new: url: string -> SpotifyGraphqlClient
+        new: url: string -> {clientName}
+
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: client: HttpClient * options: JsonSerializerOptions -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: client: HttpClient -> {clientName}
     end
 """
 
@@ -1328,18 +1369,16 @@ type {clientName} =
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization
         /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
         /// </remarks>
         /// <param name="url">GraphQL endpoint URL</param>
-        new: url: string * client: HttpClient -> SpotifyGraphqlClient
+        new: url: string * client: HttpClient -> {clientName}
 
         /// <summary>Creates {clientName}</summary>
-        /// <remarks>
-        /// In order to enable all F# types serialization and deserealization
-        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see> is added
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a> NuGet package
-        /// </remarks>
-        new: string -> SpotifyGraphqlClient
+        new: string -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        new: client: HttpClient -> {clientName}
     end
 """
 
