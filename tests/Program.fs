@@ -756,6 +756,7 @@ module rec Test.QueryName
 type User = { email: string }
 type NextUser = { email: string; username: string }
 type OptionalUser = { username: string }
+
 type Root =
     { sorting: Option<Sort>
       firstName: string

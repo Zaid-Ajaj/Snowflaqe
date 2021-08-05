@@ -373,6 +373,7 @@ let generate (config: Config) =
             then MSBuildXElement.Compile($".\{Path.GetFileName file}")
             else MSBuildXElement.Compile($".\{outputDirectoryName}\{Path.GetFileName file}")
 
+
         match config.target with
         | OutputTarget.FSharp ->
             let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, fileName "StringEnum.fs"));
@@ -440,11 +441,11 @@ let generate (config: Config) =
                 else sprintf "%sGraphqlClient" config.project
             )
 
-            let packageReferences = [
-                // use a low version of FSharp.Core
-                // for better compatibility
-                MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
-            ]
+        let packageReferences = [
+            // use a low version of FSharp.Core
+            // for better compatibility
+            MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+        ]
 
         let outputDirectoryName = DirectoryInfo(config.output).Name
         let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
@@ -636,6 +637,8 @@ let generate (config: Config) =
                 ProjectReferences = projectReferences
             }
 
+            document.WriteTo(sharedFSharpDocument)
+
             let fableMembers =
                 generatedModules
                 |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
@@ -653,12 +656,12 @@ let generate (config: Config) =
                 else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
             colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
 
-                let packageReferences = [
-                    MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
-                    MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
-                    MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
-                    MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
-                ]
+            let packageReferences = [
+                MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+                MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
+                MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
+                MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
+            ]
 
             let files =
                 if config.createProjectFile

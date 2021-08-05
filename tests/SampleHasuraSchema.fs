@@ -1,8 +1,9 @@
 ﻿module SampleHasuraSchema
 
-open FSharp.Data.LiteralProviders
+open System
 open Expecto
 open Snowflaqe
+open FSharp.Data.LiteralProviders
 
 let [<Literal>] firstSchema = TextFile<"./HasuraSchema.json">.Text
 let [<Literal>] typesFileName = "Types.fs"
@@ -81,26 +82,34 @@ let hasuraTests = testList "Hasura" [
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
 
-                let expected = """[<RequireQualifiedAccess>]
+                let expected = """
+[<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables =
     { userId: int
       deliveryDate: System.DateTimeOffset }
 
+/// An array relationship
 type userOrderDetails =
     { amount: string
       id: int
       price: float
       status: string }
 
+/// fetch data from the table: "userOrders"
 type userOrders =
     { status: string
       id: int
       deliveryDate: System.DateTimeOffset
+      /// An array relationship
       userOrderDetails: list<userOrderDetails> }
 
-type Root = { userOrders: list<userOrders> }
+/// query root
+type Root =
+    { /// fetch data from the table: "userOrders"
+      userOrders: list<userOrders> }
+
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code is correct"
     }
@@ -125,26 +134,34 @@ type Root = { userOrders: list<userOrders> }
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
 
-                let expected = """[<RequireQualifiedAccess>]
+                let expected = """
+[<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables =
     { userId: int
       deliveryDate: Option<System.DateTimeOffset> }
 
+/// An array relationship
 type userOrderDetails =
     { amount: string
       id: int
       price: float
       status: string }
 
+/// fetch data from the table: "userOrders"
 type userOrders =
     { status: string
       id: int
       deliveryDate: System.DateTimeOffset
+      /// An array relationship
       userOrderDetails: list<userOrderDetails> }
 
-type Root = { userOrders: list<userOrders> }
+/// query root
+type Root =
+    { /// fetch data from the table: "userOrders"
+      userOrders: list<userOrders> }
+
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
     }
@@ -169,10 +186,12 @@ type Root = { userOrders: list<userOrders> }
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
 
-                let expected = """[<RequireQualifiedAccess>]
+                let expected = """
+[<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables = { userId: int; deliveryDate: string }
+
 /// An array relationship
 type userOrderDetails =
     { amount: string

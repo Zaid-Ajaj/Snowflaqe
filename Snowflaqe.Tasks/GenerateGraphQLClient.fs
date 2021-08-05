@@ -30,6 +30,10 @@ type public GenerateGraphQLClient() =
 
     member val public Schema = "" with get, set
 
+    member val public Serializer = SerializerType.System with get, set
+
+    member val public AsyncType = AsyncReturnType.Async with get, set
+
     member val public Target = "fable" with get, set
 
     [<Output>]
@@ -46,6 +50,8 @@ type public GenerateGraphQLClient() =
         System.Diagnostics.Debugger.Launch() |> ignore
         let config =
             { schema = this.Schema
+              serializer = this.Serializer
+              asyncReturnType = this.AsyncType
               queries = this.Queries
               project = this.Project
               output =

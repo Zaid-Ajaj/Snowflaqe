@@ -1,5 +1,6 @@
 ﻿module SamplePostgraphile
 
+open System
 open System.IO
 open Expecto
 open Snowflaqe
@@ -78,47 +79,48 @@ type AggregatedMeterReading =
 
 /// Reads and enables pagination through a set of `AggregatedMeterReading`.
 type AggregatedMeterReadingsConnection =
-    { nodes: list<Option<AggregatedMeterReading>> }
+    { /// A list of `AggregatedMeterReading` objects.
+      nodes: list<Option<AggregatedMeterReading>> }
 
 /// Reads a single `MeterType` that is related to this `Meter`.
 type MeterType = { description: string }
-/// Reads a single `Meter` that is related to this `Object`.
+
 /// Reads a single `Meter` that is related to this `Object`.
 type Meter =
     { objectId: int
       ean: Option<string>
       importCode: Option<string>
-      /// Reads a single `MeterType` that is related to this `Meter`.
       meterFunction: int
+      /// Reads a single `MeterType` that is related to this `Meter`.
       meterTypeByMeterTypeId: Option<MeterType> }
-/// Reads a single `ObjectType` that is related to this `Object`.
 
+/// Reads a single `ObjectType` that is related to this `Object`.
 type ObjectType =
     { objectTypeId: int
       description: string }
-/// A list of `Object` objects.
 
+/// A list of `Object` objects.
 type Object =
     { name: string
-      /// Reads and enables pagination through a set of `AggregatedMeterReading`.
       path: string
-      /// Reads a single `Meter` that is related to this `Object`.
+      /// Reads and enables pagination through a set of `AggregatedMeterReading`.
       aggregatedMeterReadingsByObjectId: AggregatedMeterReadingsConnection
-      /// Reads a single `ObjectType` that is related to this `Object`.
+      /// Reads a single `Meter` that is related to this `Object`.
       meterByObjectId: Option<Meter>
+      /// Reads a single `ObjectType` that is related to this `Object`.
       objectTypeByObjectTypeId: Option<ObjectType> }
-/// Reads and enables pagination through a set of `Object`.
 
+/// Reads and enables pagination through a set of `Object`.
+type ObjectsConnection =
     { /// The count of *all* `Object` you could get from the connection.
       totalCount: int
       /// A list of `Object` objects.
-    { totalCount: int
       nodes: list<Option<Object>> }
-/// The root query type which gives access points into the data universe.
 
+/// The root query type which gives access points into the data universe.
+type Root =
     { /// Reads and enables pagination through a set of `Object`.
       allObjects: Option<ObjectsConnection> }
-    { allObjects: Option<ObjectsConnection> }
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code is correct"
 

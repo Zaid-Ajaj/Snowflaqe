@@ -12,7 +12,7 @@ open FsAst
 open Fantomas
 open Fantomas.FormatConfig
 open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open FSharp.Compiler.XmlDoc
 open GraphQLParser.AST
 open Newtonsoft.Json.Linq
@@ -20,7 +20,7 @@ open LinqToXmlExtensions
 open System.Xml
 open System.Xml.Linq
 open StringBuffer
-open FSharp.Compiler.Range
+open FSharp.Compiler.Text
 open Snowflaqe.Types
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
@@ -35,7 +35,7 @@ let normalizeName (unionCase: string) =
         capitalize unionCase
     else
         unionCase.Split [| '_'; '-' |]
-        |> Array.filter String.isNotNullOrEmpty
+        |> Array.filter (String.IsNullOrEmpty >> not)
         |> Array.map capitalize
         |> String.concat ""
 
@@ -78,13 +78,13 @@ let normalizeEnumName (unionCase: string) =
     else
         // ENUM_VALUE -> EnumValue
         unionCase.Split [| '_'; '-' |]
-        |> Array.filter String.isNotNullOrEmpty
+        |> Array.filter (String.IsNullOrEmpty >> not)
         |> Array.map capitalizeEnum
         |> String.concat ""
 
 let normalizeModuleName (name: string) =
     name.Replace(" ", "").Split [| '_'; '-' |]
-    |> Array.filter String.isNotNullOrEmpty
+    |> Array.filter (String.IsNullOrEmpty >> not)
     |> Array.map capitalize
     |> String.concat ""
 
@@ -92,8 +92,8 @@ type SynAttribute with
     static member Create(idents: string list) : SynAttribute =
         {
            AppliesToGetterAndSetter = false
-           ArgExpr = SynExpr.Const (SynConst.Unit, range0)
-           Range = range0
+           ArgExpr = SynExpr.Const (SynConst.Unit, Range.range0)
+           Range = Range.range0
            Target = None
            TypeName = LongIdentWithDots(List.map Ident.Create idents, [ ])
         }
@@ -113,7 +113,7 @@ let createEnumType (enumType: GraphqlEnum) =
         Parameters = [ ]
         Constraints = [ ]
         PreferPostfix = false
-        Range = range0
+        Range = Range.range0
     }
 
     let values = enumType.values |> List.filter (fun enumValue -> not enumValue.deprecated)
@@ -122,7 +122,7 @@ let createEnumType (enumType: GraphqlEnum) =
         for value in values ->
             let attrs = [ SynAttributeList.Create(compiledName value.name) ]
             let docs = PreXmlDoc.Create value.description
-            SynUnionCase.UnionCase(attrs, Ident.Create (normalizeEnumName value.name), SynUnionCaseType.UnionCaseFields [], docs, None, range0)
+            SynUnionCase.UnionCase(attrs, Ident.Create (normalizeEnumName value.name), SynUnionCaseType.UnionCaseFields [], docs, None, Range.range0)
     ])
 
     let simpleType = SynTypeDefnSimpleReprRcd.Union(enumRepresentation)
@@ -147,7 +147,7 @@ type SynType with
             typeArgs=[ inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=range0,
+            range=Range.range0,
             greaterRange=None,
             lessRange=None
         )
@@ -158,7 +158,7 @@ type SynType with
             typeArgs=[ key; value ],
             commaRanges = [ ],
             isPostfix = false,
-            range=range0,
+            range=Range.range0,
             greaterRange=None,
             lessRange=None
         )
@@ -169,7 +169,7 @@ type SynType with
             typeArgs=[ SynType.Create inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=range0,
+            range=Range.range0,
             greaterRange=None,
             lessRange=None
         )
@@ -180,7 +180,7 @@ type SynType with
             typeArgs=[ inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=range0,
+            range=Range.range0,
             greaterRange=None,
             lessRange=None
         )
@@ -191,7 +191,7 @@ type SynType with
             typeArgs=[ SynType.Create inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=range0,
+            range=Range.range0,
             greaterRange=None,
             lessRange=None
         )
@@ -225,7 +225,7 @@ type SynFieldRcd with
             Id = Some (Ident.Create name)
             IsMutable = false
             IsStatic = false
-            Range = range0
+            Range = Range.range0
             Type = fieldType
             XmlDoc= PreXmlDoc.Empty
         }
@@ -237,7 +237,7 @@ type SynFieldRcd with
             Id = Some (Ident.Create name)
             IsMutable = false
             IsStatic = false
-            Range = range0
+            Range = Range.range0
             Type = SynType.Create fieldType
             XmlDoc= PreXmlDoc.Empty
         }
@@ -331,7 +331,7 @@ let createInputRecord (input: GraphqlInputObject) =
         Parameters = [ ]
         Constraints = [ ]
         PreferPostfix = false
-        Range = range0
+        Range = Range.range0
     }
 
     let fields = input.fields |> List.filter (fun field -> not field.deprecated)
@@ -431,7 +431,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
         Parameters = [ ]
         Constraints = [ ]
         PreferPostfix = false
-        Range = range0
+        Range = Range.range0
     }
 
     let selectedFields =
@@ -532,7 +532,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             Parameters = [ ]
                             Constraints = [ ]
                             PreferPostfix = false
-                            Range = range0
+                            Range = Range.range0
                         }
 
                         let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
@@ -628,7 +628,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             Parameters = [ ]
                             Constraints = [ ]
                             PreferPostfix = false
-                            Range = range0
+                            Range = Range.range0
                         }
 
                         let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
@@ -674,7 +674,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                         Parameters = [ ]
                         Constraints = [ ]
                         PreferPostfix = false
-                        Range = range0
+                        Range = Range.range0
                     }
 
                     let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
@@ -762,7 +762,7 @@ let generateInputVariablesType (variables: GraphqlVariable list) (schema: Graphq
         Parameters = [ ]
         Constraints = [ ]
         PreferPostfix = false
-        Range = range0
+        Range = Range.range0
     }
 
     let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create([
@@ -858,7 +858,7 @@ let private formatConfig =
         StrictMode = true }
 
 let formatAst file fileName =
-    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], None, FormatConfig.FormatConfig.Default)
+    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], Some (SourceOrigin.SourceString file.ToRcd.File), formatConfig)
     |> Async.RunSynchronously
 
 let defaultErrorType() =
@@ -870,7 +870,7 @@ let defaultErrorType() =
         Parameters = [ ]
         Constraints = [ ]
         PreferPostfix = false
-        Range = range0
+        Range = Range.range0
     }
 
     let recordRepresentation =  SynTypeDefnSimpleReprRecordRcd.Create [
@@ -914,7 +914,7 @@ let parseErrorType (typeInfo: JObject) =
             Parameters = [ ]
             Constraints = [ ]
             PreferPostfix = false
-            Range = range0
+            Range = Range.range0
         }
 
         let errorFields = unbox<JObject> property.Value

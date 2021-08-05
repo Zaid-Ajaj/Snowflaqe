@@ -29,4 +29,7 @@
             <Compile Include="@(SnowflaqeGeneratedFiles)" />
         </ItemGroup>
     </Target>
+  <Target Name="IncludeGraphQLClient" BeforeTargets="BeforeBuild">
+    <Import Project="Spotify" Include="$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props" />
+  </Target>
 </Project>
