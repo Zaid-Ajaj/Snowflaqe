@@ -1,0 +1,123 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net48</TargetFrameworks>
+    <!--
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <developmentDependency>true</developmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackBuildOutputs</TargetsForTfmSpecificContentInPackage>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>    -->
+    <LangVersion>latest</LangVersion>
+    <PackageType>MSBuildSdk</PackageType>
+    <!--<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>-->
+
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackBuildOutputs</TargetsForTfmSpecificContentInPackage>
+    <BuildOutputTargetFolder>build</BuildOutputTargetFolder>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <MinClientVersion>2.8</MinClientVersion>
+  </PropertyGroup>
+
+  <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
+    <PropertyGroup>
+      <BuildSubDir Condition=" '$(TargetFramework)' == 'netstandard2.0' ">MSBuildCore\</BuildSubDir>
+      <BuildSubDir Condition=" '$(TargetFramework)' == 'net48' ">MSBuildFull\</BuildSubDir>
+    </PropertyGroup>
+    <Error Text="Unrecognized TargetFramework" Condition=" '$(BuildSubDir)' == '' " />
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="&#xD;&#xA;                        $(OutputPath)Snowflaqe.Tasks.dll*;&#xD;&#xA;                        $(OutputPath)Snowflaqe.dll*;&#xD;&#xA;                        $(OutputPath)Fantomas.dll*;&#xD;&#xA;                        $(OutputPath)FsAst.dll*;&#xD;&#xA;                        $(OutputPath)Microsoft.Build.Tasks.Core.dll*;&#xD;&#xA;                        $(OutputPath)FSharp.Compiler.Service.dll*;&#xD;&#xA;                        $(OutputPath)FSharp.Core.dll*;&#xD;&#xA;                        $(OutputPath)FSharp.Data.LiteralProviders.Runtime.dll*;&#xD;&#xA;                        $(OutputPath)GraphQL.dll*;&#xD;&#xA;                        $(OutputPath)System.Net.Http.Json.dll*;&#xD;&#xA;                        $(OutputPath)System.Text.Json.dll*;&#xD;&#xA;                        $(OutputPath)Newtonsoft.Json.dll*;&#xD;&#xA;                        $(OutputPath)BlackFox.ColoredPrintf.dll*;&#xD;&#xA;                        $(OutputPath)BlackFox.MasterOfFoo.dll*;&#xD;&#xA;                        $(OutputPath)GraphQL.NewtonsoftJson.dll*;&#xD;&#xA;                        $(OutputPath)GraphQL-Parser.dll*;&#xD;&#xA;               ">
+        <PackagePath>build\$(BuildSubDir)</PackagePath>
+      </TfmSpecificPackageFile>
+      <!-- Package up the libgit2 native binaries -->
+      <TfmSpecificPackageFile Include="@(ContentWithTargetPath)" Condition=" '%(ContentWithTargetPath.CopyToOutputDirectory)' == 'PreserveNewest' ">
+        <PackagePath>build\$(BuildSubDir)%(ContentWithTargetPath.TargetPath)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Include="build\**">
+      <Pack>true</Pack>
+      <PackagePath>build\</PackagePath>
+    </None>
+    <None Include="buildCrossTargeting\**">
+      <Pack>true</Pack>
+      <PackagePath>buildCrossTargeting\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemDefinitionGroup>
+    <PackageReference>
+      <PrivateAssets>All</PrivateAssets>
+      <Publish>true</Publish>
+    </PackageReference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="6.5.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" CopyLocal="true" Publish="false" />
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" CopyLocal="true" Publish="false" />
+		<PackageReference Include="ModuleInit.Fody" Version="2.1.1" CopyLocal="false" Publish="false" />
+		<PackageReference Include="System.Net.Http.Json" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Verion="5.0.1" Version="5.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; compile; build; native; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+     <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
+    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.10.0" CopyLocal="false" Publish="false" /><!--ExcludeAssets="runtime"-->
+    <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="1.16.30" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <Target Name="RemoveMicrosoftBuildDllsFromOutput" AfterTargets="ResolveReferences">
+    <!--
+    Don't place build dlls in the output dir or else the ContextAwareTask will resolve them
+    and may not be able to cast the TaskHost to IBuildEngine
+    -->
+    <PropertyGroup>
+      <NonCopyLocalPackageReferences Condition="'%(PackageReference.CopyLocal)' == 'false'">;@(PackageReference);</NonCopyLocalPackageReferences>
+    </PropertyGroup>
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="$(NonCopyLocalPackageReferences.Contains(';%(ReferenceCopyLocalPaths.NuGetPackageId);'))" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Include="build\**" Pack="true" PackagePath="build" />
+    <Content Include="FodyWeavers.xml" />
+    <Compile Include="AssemblyResolver.fs" />
+    <Compile Include="ModuleInitializer.fs" />
+    <Compile Include="ContextAwareTask.fs" />
+    <Compile Include="GenerateGraphQLClient.fs" />
+  </ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\src\Snowflaqe.fsproj" PrivateAssets="All" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="Microsoft.Build.Framework" Version="16.10.0" />
+	</ItemGroup>
+
+</Project>

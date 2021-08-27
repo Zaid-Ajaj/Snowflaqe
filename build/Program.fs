@@ -16,6 +16,7 @@ let solutionRoot = Files.findParent __SOURCE_DIRECTORY__ "Snowflaqe.sln";
 
 let src = path [ solutionRoot; "src" ]
 let tests = path [ solutionRoot; "tests" ]
+let tasks = path [ solutionRoot; "tasks" ]
 
 let [<Literal>] TargetFramework = "netcoreapp3.1"
 
@@ -36,6 +37,12 @@ let pack() =
         let outputPath = path [ src; "bin"; "Release" ]
         if Shell.Exec(Tools.dotnet, sprintf "tool install -g snowflaqe --add-source %s" outputPath) <> 0
         then failwith "Local install failed"
+
+let packTask () =
+    Shell.deleteDir (path [ "tasks"; "bin" ])
+    Shell.deleteDir (path [ "tasks"; "obj" ])
+    if Shell.Exec(Tools.dotnet, "pack --configuration Release", tasks) <> 0 then
+        failwith "Pack failed"
 
 let publish() =
     Shell.deleteDir (path [ src; "bin" ])
@@ -91,7 +98,7 @@ let generateTasksUsings (targets: MSBuildTarget seq) =
         let (fullName, assemblyFile) = key
         MSBuildXElement.UsingTask(fullName, assemblyFile))
 
-let generateProjectFile (imports: string seq) (defaultTargets: string option) (targets: MSBuildTarget seq) =
+let generateProjectFile (imports: string seq) (defaultTargets: string option) (targets: MSBuildTarget seq)=
     XDocument(
         XElement.ofStringName("Project",
             XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
@@ -108,12 +115,59 @@ let generateProjectFile (imports: string seq) (defaultTargets: string option) (t
                     (fun target -> MSBuildXElement.Target(target) :> obj)
             }))
 
+let generateProjectFileForTask ()=
+    let createPackageReference name version =
+        {  Name = name
+           Version = version
+           PrivateAssets = None
+           IncludeAssets = None}
+    let packageReferences =  [{  Name = "Snowflaqe.Tasks"
+                                 Version = "1.0.0"
+                                 PrivateAssets = Some "all"
+                                 IncludeAssets = Some "build"};
+                                 createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
+                                 createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
+                                 createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion;]
+    XDocument(
+        XElement.ofStringName("Project",
+            XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
+            seq {
+                yield XElement.ofStringName("PropertyGroup",
+                        XElement.ofStringName("OutputType", "Exe"),
+                        XElement.ofStringName("TargetFramework", "netcoreapp3.1")) :> obj
+                yield XElement.ofStringName("ItemGroup",
+                    packageReferences
+                    |> Seq.map (fun packageReference -> MSBuildXElement.Target(packageReference) :> obj)) :> obj
+            }))
+
 let createProjectFile imports defaultTargets targets (path: string) =
     let project = generateProjectFile imports defaultTargets targets
     project.WriteTo(path)
 
-let createProjectFileAndRun imports defaultTargets targets (directory: string) (projectFileName : string) =
-    createProjectFile imports defaultTargets targets (path[directory; projectFileName])
+let createProjectFileAndRun imports defaultTargets (directory: string) (projectFileName : string) =
+    createProjectFile imports defaultTargets Seq.empty (path[directory; projectFileName])
+    let p = path [ solutionRoot; "src"; "output"; "nuget.config"]
+    let p1 = path[directory; projectFileName]
+
+    if Shell.Exec(Tools.dotnet, $"build {projectFileName}", src) <> 0 then
+        failwith $"Running {projectFileName} generation failed"
+    //if Shell.Exec(Tools.dotnet,$"dotnet restore {p1} -s { p }", src) <> 0 then
+    //    failwith "Running Fable props generation failed"
+    Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", src) |> ignore
+
+let createProjectFileForTaskAndRun (directory: string) (projectFileName : string) =
+    let project = generateProjectFileForTask ()
+    project.WriteTo(path[directory; projectFileName])
+
+    if Shell.Exec(Tools.dotnet, $"build {projectFileName}", src) <> 0 then
+        failwith $"Running {projectFileName} generation failed"
+    Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", src) |> ignore
+
+let createProjectFileAndRebuild (directory: string) (projectFileName : string) =
+    let project = generateProjectFileForTask ()
+    project.Save (path[directory; projectFileName])
+    if Shell.Exec(Tools.dotnet, $"build {projectFileName} --no-incremental", src) <> 0 then
+        failwith $"Running {projectFileName} generation failed"
     if Shell.Exec(Tools.dotnet, $"build {projectFileName}", src) <> 0 then
         failwith $"Running {projectFileName} generation failed"
     Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", src) |> ignore
@@ -122,7 +176,7 @@ let tasksIntegration() =
     let generateGQLClientTask =
         { Name = "GenerateGraphQLClient"
           FullName = "Snowflaqe.Tasks.GenerateGraphQLClient"
-          AssemblyFile = path [ solutionRoot; "Snowflaqe.Tasks"; "bin"; "Debug"; "netcoreapp3.1"; "Snowflaqe.Tasks.dll" ]
+          AssemblyFile = path [ solutionRoot; "tasks"; "bin"; "Release"; "netcoreapp3.1"; "Snowflaqe.Tasks.dll" ]
           Parameters =
             seq {
                 KeyValuePair("Output", path [ solutionRoot; "src"; "output"] :> obj)
@@ -139,46 +193,28 @@ let tasksIntegration() =
             Tasks = (generateGQLClientTask |> Seq.singleton) } |> Seq.singleton)
         (path [ solutionRoot; "src"; "SpotifyWithTasks.fsproj"])
 
-    if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config snowflaqe-props.json --generate", src) <> 0 then
+    if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config snowflaqe-props-task.json --generate", src) <> 0 then
         failwith "Running Fable props generation failed"
     else
-        createProjectFileAndRun
-            ("./output/Spotify.props" |> Seq.singleton)
-            None
-            Seq.empty
+        createProjectFileAndRebuild
             src
             "Spotify.fsproj"
 
-        if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp-props.json --generate", src) <> 0 then
+        if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp-props-task.json --generate", src) <> 0 then
             failwith "Running FSharp props generation failed"
         else
-        createProjectFileAndRun
-            ("./output/Spotify.props" |> Seq.singleton)
-            None
-            Seq.empty
+        createProjectFileAndRebuild
             src
             "Spotify.fsproj"
 
-        if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-shared-props.json --generate", src) <> 0 then
+        if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-shared-props-task.json --generate", src) <> 0 then
             failwith "Running Shared props generation failed"
         else
-            createProjectFileAndRun
-                (seq {
-                    "./output/shared/Spotify.props"
-                    "./output/fable/Spotify.props"
-                })
-                None
-                Seq.empty
+            createProjectFileAndRebuild
                 src
                 "Spotify.Fable.fsproj"
 
-            createProjectFileAndRun
-                (seq {
-                    "./output/shared/Spotify.props"
-                    "./output/dotnet/Spotify.props"
-                })
-                None
-                Seq.empty
+            createProjectFileAndRebuild
                 src
                 "Spotify.Dotnet.fsproj"
 
@@ -193,7 +229,6 @@ let propsIntegration() =
         createProjectFileAndRun
             ("./output/Spotify.props" |> Seq.singleton)
             None
-            Seq.empty
             src
             "Spotify.fsproj"
 
@@ -204,7 +239,6 @@ let propsIntegration() =
         createProjectFileAndRun
             ("./output/Spotify.props" |> Seq.singleton)
             None
-            Seq.empty
             src
             "Spotify.fsproj"
 
@@ -218,7 +252,6 @@ let propsIntegration() =
                     "./output/fable/Spotify.props"
                 })
                 None
-                Seq.empty
                 src
                 "Spotify.Fable.fsproj"
 
@@ -228,7 +261,6 @@ let propsIntegration() =
                     "./output/dotnet/Spotify.props"
                 })
                 None
-                Seq.empty
                 src
                 "Spotify.Dotnet.fsproj"
 
@@ -307,6 +339,7 @@ let fsprojIntegration() =
                         buildGithubFable()
 
 let clear() =
+    File.Delete(path [ solutionRoot; "src"; "nuget.config" ])
     File.Delete(path [ solutionRoot; "src"; "Spotify.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
@@ -314,6 +347,7 @@ let clear() =
     Directory.Delete(path [ solutionRoot; "src"; "output" ], true)
 
 let integration() =
+    packTask()
     tasksIntegration()
     clear()
     propsIntegration()

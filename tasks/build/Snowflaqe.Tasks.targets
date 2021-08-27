@@ -1,4 +1,4 @@
-﻿<Project>
+﻿<Project >
     <PropertyGroup>
         <!--<SnowflaqeGeneratedFiles />-->
         <BuildDependsOn>
@@ -8,16 +8,21 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="5.0.1" />
-        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" />
+        <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" Condition="$(SnowflaqeTarget) == 'fable'" />
     </ItemGroup>
+    <PropertyGroup>
+        <TaskFolder Condition=" '$(MSBuildRuntimeType)' == 'Core' ">MSBuildCore</TaskFolder>
+        <TaskFolder Condition=" '$(MSBuildRuntimeType)' != 'Core' ">MSBuildFull</TaskFolder>
+        <TaskAssembly>$(MSBuildThisFileDirectory)..\build\$(TaskFolder)\Snowflaqe.Tasks.dll</TaskAssembly>
+    </PropertyGroup>
     <UsingTask
         TaskName="Snowflaqe.Tasks.GenerateGraphQLClient"
-        AssemblyFile="C:\Users\Public\source\repos\Snowflaqe\Snowflaqe.Tasks\bin\Debug\net48\Snowflaqe.Tasks.dll" />
-    <Target Name="GenerateGraphQLClient" BeforeTargets="BeforeRebuild">
+        AssemblyFile="$(TaskAssembly)" />
+    <Target Name="GenerateGraphQLClient" BeforeTargets="BeforeReBuild">
         <GenerateGraphQLClient
             Project="Spotify"
-            Queries="C:\Users\Public\source\repos\Snowflaqe\src\queries"
-            Schema="C:\Users\Public\source\repos\Snowflaqe\src\spotify-schema.json"
+            Queries="queries"
+            Schema="spotify-schema.json"
             Configuration="$(Configuration)"
             Platform="$(Platform)"
             Target="fsharp">
@@ -30,6 +35,6 @@
         </ItemGroup>
     </Target>
   <Target Name="IncludeGraphQLClient" BeforeTargets="BeforeBuild">
-    <Import Project="Spotify" Include="$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props" />
+    <Import Project="Spotify" Include="$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props" Condition="Exists('$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props')"/>
   </Target>
 </Project>

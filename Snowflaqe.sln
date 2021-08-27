@@ -11,12 +11,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
+		..\Premiera\global.json = ..\Premiera\global.json
 		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Snowflaqe.Build", "build\Snowflaqe.Build.fsproj", "{5C4E5E67-E329-4A14-B287-7349B5F2E984}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Snowflaqe.Tasks", "Snowflaqe.Tasks\Snowflaqe.Tasks.fsproj", "{1899F9DB-2345-4EE8-81C5-C2C10AF408D6}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Snowflaqe.Tasks", "tasks\Snowflaqe.Tasks.fsproj", "{1899F9DB-2345-4EE8-81C5-C2C10AF408D6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

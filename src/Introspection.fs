@@ -13,8 +13,8 @@ let private httpClient = new HttpClient()
 
 let [<Literal>] IntrospectionQuery = TextFile<"Introspection.gql">.Text
 
-let fromSchemaDefinition (definition: string) = 
-    try 
+let fromSchemaDefinition (definition: string) =
+    try
         let graphqlServer = GraphQL.Types.Schema.For(definition)
         let schemaJson =
             graphqlServer.ExecuteAsync(DocumentWriter(), fun options -> options.Query <- IntrospectionQuery)
@@ -22,7 +22,7 @@ let fromSchemaDefinition (definition: string) =
             |> Async.RunSynchronously
 
         Schema.parse schemaJson
-    with 
+    with
     | ex -> Error ex.Message
 
 let loadSchema (schema: string) =

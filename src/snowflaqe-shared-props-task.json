@@ -1,0 +1,16 @@
+{
+    "schema": "./spotify-schema.json",
+    "queries": "./queries",
+    "project": "Spotify",
+    "output": "./output",
+    "target": "shared",
+    "errorType": {
+        "CustomErrorType": {
+            "Message": "string",
+            "Path": "string list",
+            "Type": "string"
+        }
+    },
+    "createProjectFile": false,
+	"generateAndRestoreTaskPackage" : true
+}

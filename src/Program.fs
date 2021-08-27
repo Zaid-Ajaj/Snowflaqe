@@ -39,6 +39,7 @@ type Config = {
     copyLocalLockFileAssemblies : bool option
     emitMetadata: bool
     asyncReturnType : AsyncReturnType
+    generateAndRestoreTaskPackage : bool
 }
 
 let logo = """
@@ -91,6 +92,8 @@ let readConfig (file: string) =
                 Error "The 'target' configuration element must be a string"
             elif not (isNull parsedJson.["overrideClientName"]) && parsedJson.["overrideClientName"].Type <> JTokenType.String then
                 Error "The 'overrideClientName' configuration element must be a string"
+            elif not (isNull parsedJson.["generateAndRestoreTaskPackage"]) && parsedJson.["generateAndRestoreTaskPackage"].Type <> JTokenType.Boolean then
+                Error "The 'generateAndRestoreTaskPackage' configuration element must be a boolean"
             elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" && parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp" && parsedJson.["target"].ToObject<string>().ToLower() <> "shared") then
                 Error "The 'target' configuration element must be either 'fable' (default), 'fsharp' or 'shared'"
             elif not (isNull parsedJson.["createProjectFile"]) && parsedJson.["createProjectFile"].Type <> JTokenType.Boolean then
@@ -174,6 +177,11 @@ let readConfig (file: string) =
                         then false
                         else parsedJson.["emitMetadata"].ToObject<bool>()
 
+                    let generateAndRestoreTaskPackage =
+                        if isNull parsedJson.["generateAndRestoreTaskPackage"]
+                        then false
+                        else parsedJson.["generateAndRestoreTaskPackage"].ToObject<bool>()
+
                     if serializer = SerializerType.System && target = OutputTarget.Fable then
                         Error "Fable does not support System.Text.Json"
                     else
@@ -190,6 +198,7 @@ let readConfig (file: string) =
                             copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
                             emitMetadata = emitMetadata
                             asyncReturnType = asyncReturnType
+                            generateAndRestoreTaskPackage = generateAndRestoreTaskPackage
                         }
     with
     | ex -> Error ex.Message
@@ -289,6 +298,7 @@ let rec deleteFilesAndFolders directory isRoot =
         if not isRoot then Directory.Delete subdirectory
 
 let generate (config: Config) =
+    //System.Diagnostics.Debugger.Launch() |> ignore
     colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
     match Introspection.loadSchema config.schema with
     | Error errorMessage ->
@@ -373,6 +383,9 @@ let generate (config: Config) =
             then MSBuildXElement.Compile($".\{Path.GetFileName file}")
             else MSBuildXElement.Compile($".\{outputDirectoryName}\{Path.GetFileName file}")
 
+        if config.generateAndRestoreTaskPackage then
+            let nugetConfig = Snowflaqe.CodeGen.generateNugetConfig [{Name ="Snowflaqe.Tasks"; Link = Path.Combine(Path.GetFullPath("..//"), "tasks", "bin", "Release")}]
+            nugetConfig.WriteTo(Path.GetFullPath(Path.Combine(config.output, "..", "nuget.config")))
 
         match config.target with
         | OutputTarget.FSharp ->
@@ -442,9 +455,11 @@ let generate (config: Config) =
             )
 
         let packageReferences = [
+            if config.generateAndRestoreTaskPackage then
+                yield MSBuildXElement.PackageReferenceInclude("Snowflaqe.Tasks", "1.0.0")
             // use a low version of FSharp.Core
             // for better compatibility
-            MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+            yield MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
         ]
 
         let outputDirectoryName = DirectoryInfo(config.output).Name
@@ -743,6 +758,7 @@ let main argv =
             copyLocalLockFileAssemblies = None
             emitMetadata = false
             asyncReturnType = AsyncReturnType.Async
+            generateAndRestoreTaskPackage = false
         }
 
         runConfig config
@@ -760,6 +776,7 @@ let main argv =
             copyLocalLockFileAssemblies = None
             emitMetadata = false
             asyncReturnType = AsyncReturnType.Async
+            generateAndRestoreTaskPackage = false
         }
 
         runConfig config

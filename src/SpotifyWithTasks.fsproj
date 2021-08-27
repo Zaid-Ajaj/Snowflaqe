@@ -1,9 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="C:\Users\Public\source\repos\Snowflaqe\Snowflaqe.Tasks\build\tasks.targets" />
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
-    <CustomTasksEnabled Condition="'$(CustomTasksEnabled)' == ''">False</CustomTasksEnabled>
-  </PropertyGroup>
-</Project>

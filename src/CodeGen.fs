@@ -1010,6 +1010,21 @@ let generateProjectDocument
                 XElement.ofStringName("ItemGroup", projectReferences)
         }))
 
+type NugetSourse = {
+    Name : string
+    Link : string
+}
+
+let generateNugetConfig (packageReferencess : NugetSourse seq)  =
+    XDocument(
+        XElement.ofStringName("configuration",
+            XElement.ofStringName("packageSources",
+                seq {
+                    XElement.Parse("<clear/>")
+                    XElement.Parse("<add key='nuget.org' value='https://api.nuget.org/v3/index.json' protocolVersion='3' />")
+                    yield! packageReferencess |> Seq.map (fun i -> XElement.Parse($"<add key='{i.Name}' value='{i.Link}' />"))
+        })))
+
 let addLines (query: string) =
     query.Split ([| Environment.NewLine |], StringSplitOptions.RemoveEmptyEntries)
     |> Array.map (fun line -> "                " + line)

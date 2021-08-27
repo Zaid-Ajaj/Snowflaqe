@@ -47,7 +47,12 @@ type public GenerateGraphQLClient() =
         | _ -> None
 
     override this.Execute() =
-        System.Diagnostics.Debugger.Launch() |> ignore
+        if String.IsNullOrEmpty this.Queries then raise (Exception "Queries must be not null or empty")
+        if String.IsNullOrEmpty this.Schema then raise (Exception "Schema must be not null or empty")
+        if String.IsNullOrEmpty this.Target then raise (Exception "Target must be fable, fsharp or shared")
+        if String.IsNullOrEmpty this.Project then raise (Exception "Project must be not null or empty")
+
+
         let config =
             { schema = this.Schema
               serializer = this.Serializer
@@ -63,7 +68,10 @@ type public GenerateGraphQLClient() =
               createProjectFile = false
               overrideClientName = None
               copyLocalLockFileAssemblies = None
-              emitMetadata = this.EmitMetadata }
+              emitMetadata = this.EmitMetadata
+              generateAndRestoreTaskPackage = true
+            }
+
         let validationCode = runConfig config
         let executionCode =
             if validationCode = 0 then

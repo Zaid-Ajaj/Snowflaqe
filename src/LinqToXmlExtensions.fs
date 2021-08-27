@@ -18,6 +18,12 @@ type MSBuildTarget =
       BeforeTargets : string option
       Tasks : MSBuildTask seq }
 
+type MSBuildPackageReference =
+    { Name : string
+      Version : string
+      PrivateAssets : string option
+      IncludeAssets : string option }
+
 type XAttribute with
 
     static member ofStringName (name: string, value: obj) =
@@ -74,6 +80,17 @@ type MSBuildXElement () =
                 if target.BeforeTargets.IsSome
                 then yield XAttribute.ofStringName("BeforeTargets", target.BeforeTargets.Value) :> obj
                 yield! target.Tasks |> Seq.map (fun task -> MSBuildXElement.Task(task) :> obj)
+            })
+
+    static member Target (packageReference: MSBuildPackageReference) =
+        XElement.ofStringName("PackageReference",
+            seq {
+                yield XAttribute.ofStringName("Include", packageReference.Name) :> obj
+                yield XAttribute.ofStringName("Version", packageReference.Version) :> obj
+                if packageReference.PrivateAssets.IsSome
+                then yield XElement.ofStringName("PrivateAssets", packageReference.PrivateAssets.Value) :> obj
+                if packageReference.IncludeAssets.IsSome
+                then yield XElement.ofStringName("BeforeTargets", packageReference.IncludeAssets.Value) :> obj
             })
 
     static member UsingTask (taskName: string, assemblyFile: string) =
