@@ -120,14 +120,14 @@ let generateProjectFileForTask ()=
         {  Name = name
            Version = version
            PrivateAssets = None
-           IncludeAssets = None}
+           IncludeAssets = None }
     let packageReferences =  [{  Name = "Snowflaqe.Tasks"
                                  Version = "1.0.0"
                                  PrivateAssets = Some "all"
-                                 IncludeAssets = Some "build"};
-                                 createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
-                                 createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
-                                 createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion;]
+                                 IncludeAssets = Some "build" };
+                               createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
+                               createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
+                               createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion; ]
     XDocument(
         XElement.ofStringName("Project",
             XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
@@ -145,7 +145,7 @@ let createProjectFile imports defaultTargets targets (path: string) =
     project.WriteTo(path)
 
 let createProjectFileAndRun imports defaultTargets (directory: string) (projectFileName : string) =
-    createProjectFile imports defaultTargets Seq.empty (path[directory; projectFileName])
+    createProjectFile imports defaultTargets Seq.empty (path [ directory; projectFileName ])
     let p = path [ solutionRoot; "src"; "output"; "nuget.config"]
     let p1 = path[directory; projectFileName]
 
@@ -157,7 +157,7 @@ let createProjectFileAndRun imports defaultTargets (directory: string) (projectF
 
 let createProjectFileForTaskAndRun (directory: string) (projectFileName : string) =
     let project = generateProjectFileForTask ()
-    project.WriteTo(path[directory; projectFileName])
+    project.WriteTo(path [ directory; projectFileName ])
 
     if Shell.Exec(Tools.dotnet, $"build {projectFileName}", src) <> 0 then
         failwith $"Running {projectFileName} generation failed"
@@ -165,7 +165,7 @@ let createProjectFileForTaskAndRun (directory: string) (projectFileName : string
 
 let createProjectFileAndRebuild (directory: string) (projectFileName : string) =
     let project = generateProjectFileForTask ()
-    project.Save (path[directory; projectFileName])
+    project.Save (path [ directory; projectFileName ])
     if Shell.Exec(Tools.dotnet, $"build {projectFileName} --no-incremental", src) <> 0 then
         failwith $"Running {projectFileName} generation failed"
     if Shell.Exec(Tools.dotnet, $"build {projectFileName}", src) <> 0 then

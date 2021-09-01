@@ -12,5 +12,5 @@
         }
     },
     "createProjectFile": false,
-	"generateAndRestoreTaskPackage" : true
+    "generateAndRestoreTaskPackage": true
 }
