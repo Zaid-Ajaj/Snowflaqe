@@ -55,8 +55,8 @@ type public ContextAwareTask () as cat =
             propertiesMap
             |> Seq.map
                 (fun pair ->
-                    let outerPropertyValue = (fst pair).GetValue(this)
-                    (snd pair).SetValue(innerTask, outerPropertyValue)
+                    let (outerProperty, innerProperty) = pair
+                    innerProperty.SetValue(innerTask, outerProperty.GetValue(this))
                     pair)
 
         let executeInnerMethod =
@@ -66,8 +66,8 @@ type public ContextAwareTask () as cat =
         let outputPropertiesMap =
             outputPropertiesMap
             |> Seq.map
-                (fun pair ->
-                    (fst pair).SetValue(this, (snd pair).GetValue(innerTask)))
+                (fun (outerProperty, innerProperty) ->
+                    outerProperty.SetValue(this, innerProperty.GetValue(innerTask)))
 
         result
 #else

@@ -63,9 +63,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" CopyLocal="true" Publish="false" />
-		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" CopyLocal="true" Publish="false" />
-		<PackageReference Include="ModuleInit.Fody" Version="2.1.1" CopyLocal="false" Publish="false" />
-		<PackageReference Include="System.Net.Http.Json" Version="5.0.0" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" CopyLocal="true" Publish="false" />
+    <PackageReference Include="ModuleInit.Fody" Version="2.1.1" CopyLocal="false" Publish="false" />
+    <PackageReference Include="System.Net.Http.Json" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -112,12 +112,12 @@
     <Compile Include="GenerateGraphQLClient.fs" />
   </ItemGroup>
 
-	<ItemGroup>
-	  <ProjectReference Include="..\src\Snowflaqe.fsproj" PrivateAssets="All" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\Snowflaqe.fsproj" PrivateAssets="All" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <PackageReference Update="Microsoft.Build.Framework" Version="16.10.0" />
-	</ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="Microsoft.Build.Framework" Version="16.10.0" />
+  </ItemGroup>
 
 </Project>

@@ -14,15 +14,15 @@ type MSBuildTask =
 
 type MSBuildTarget =
     { Name : string
-      AfterTargets : string option
-      BeforeTargets : string option
+      AfterTargets : string voption
+      BeforeTargets : string voption
       Tasks : MSBuildTask seq }
 
 type MSBuildPackageReference =
     { Name : string
       Version : string
-      PrivateAssets : string option
-      IncludeAssets : string option }
+      PrivateAssets : string voption
+      IncludeAssets : string voption }
 
 type XAttribute with
 

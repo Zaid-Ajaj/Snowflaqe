@@ -1,12 +1,12 @@
 ﻿namespace Snowflaqe.Tasks
 
 open System
+open System.IO
+open Snowflaqe
+open Snowflaqe.Types
 open Microsoft.Build.Utilities
 open Microsoft.Build.Framework
 open Program
-open Snowflaqe
-open Snowflaqe.Types
-open System.IO
 
 type public GenerateGraphQLClient() =
     inherit Task()

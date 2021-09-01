@@ -1065,7 +1065,7 @@ type Root =
 let snowflakeTests = testList "Snowflaqe" [
     queryParsing
     SampleHasuraSchema.hasuraTests
-    SampleGithubSchema.githubTests
+    SampleGitHubSchema.githubTests
     SampleCraftSchema.tests
     SamplePostgraphile.tests
     SampleSentiantSchema.tests
