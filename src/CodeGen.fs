@@ -1010,12 +1010,12 @@ let generateProjectDocument
                 XElement.ofStringName("ItemGroup", projectReferences)
         }))
 
-type NugetSourse = {
-    Name : string
-    Link : string
+type NuGetSourse = {
+    Name: string
+    Link: string
 }
 
-let generateNugetConfig (packageReferencess : NugetSourse seq)  =
+let generateNugetConfig (packageReferencess : NuGetSourse seq)  =
     XDocument(
         XElement.ofStringName("configuration",
             XElement.ofStringName("packageSources",
@@ -1148,7 +1148,10 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let builder = if useTasks then "task" else "async"
     let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
-    let requestBody = if useTasks then taskRequestBody SerializerType.System body else asyncRequestBody SerializerType.System body queryName
+    let requestBody =
+        if useTasks
+        then taskRequestBody SerializerType.System body
+        else asyncRequestBody SerializerType.System body queryName
     let queryArgs = if hasVariables then " input" else "()"
     let syncMember =
         if useTasks

@@ -77,8 +77,8 @@ let buildGitHub() =
     elif Shell.Exec(Tools.dotnet, "build GitHub.fsproj", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
     then failwith "Failed to build the generated GitHub project"
 
-let buildGitHubDotNetProject() =
-    if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ../samples/github/snowflaqe-dot-project.json --generate", path [ solutionRoot; "src" ]) <> 0
+let buildGitHubDotNet() =
+    if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ../samples/github/snowflaqe-dot-net.json --generate", path [ solutionRoot; "src" ]) <> 0
     then failwith "Failed to generate GitHub client"
     elif Shell.Exec(Tools.dotnet, "build GitHub.Data.GraphQLClient.fsproj", path [ solutionRoot; "samples"; "github"; "output" ]) <> 0
     then failwith "Failed to build the generated GitHub project"
@@ -118,13 +118,13 @@ let generateProjectFileForTask (targetFrameworks : string list)=
            Version = version
            PrivateAssets = ValueNone
            IncludeAssets = ValueNone }
-    let packageReferences =  [{  Name = "Snowflaqe.Tasks"
-                                 Version = "1.0.0"
-                                 PrivateAssets = ValueSome "all"
-                                 IncludeAssets = ValueSome "build" };
-                                 createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
-                                 createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
-                                 createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion; ]
+    let packageReferences = [{ Name = "Snowflaqe.Tasks"
+                               Version = "1.0.0"
+                               PrivateAssets = ValueSome "all"
+                               IncludeAssets = ValueSome "build" };
+                             createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
+                             createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
+                             createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion; ]
     XDocument(
         XElement.ofStringName("Project",
             XAttribute.ofStringName("Sdk", "Microsoft.NET.Sdk"),
@@ -145,8 +145,8 @@ let createProjectFile imports defaultTargets targets (path: string) =
     let project = generateProjectFile imports defaultTargets targets
     project.WriteTo(path)
 
-let createProjectFileAndRun imports defaultTargets (directory: string) (projectFileName : string) =
-    createProjectFile imports defaultTargets Seq.empty (path [ directory; projectFileName ])
+let createProjectFileAndRun imports (projectFileName : string) =
+    createProjectFile imports None Seq.empty (path [ src; projectFileName ])
 
     if Shell.Exec(Tools.dotnet, $"build {projectFileName}", src) <> 0 then
         failwith $"Running {projectFileName} generation failed"
@@ -201,27 +201,18 @@ let tasksIntegration() =
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config snowflaqe-props-task.json --generate", src) <> 0 then
         failwith "Running Fable props generation failed"
 
-    createProjectFileAndRebuild
-        src
-        "Spotify.fsproj"
+    createProjectFileAndRebuild src "Spotify.fsproj"
 
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp-props-task.json --generate", src) <> 0 then
         failwith "Running FSharp props generation failed"
 
-    createProjectFileAndRebuild
-        src
-        "Spotify.fsproj"
+    createProjectFileAndRebuild src "Spotify.fsproj"
 
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-shared-props-task.json --generate", src) <> 0 then
         failwith "Running Shared props generation failed"
 
-    createProjectFileAndRebuild
-        src
-        "Spotify.Fable.fsproj"
-
-    createProjectFileAndRebuild
-        src
-        "Spotify.Dotnet.fsproj"
+    createProjectFileAndRebuild src "Spotify.Fable.fsproj"
+    createProjectFileAndRebuild src "Spotify.DotNet.fsproj"
 
 
 let multiFrameworkTasksIntegration() =
@@ -248,27 +239,18 @@ let multiFrameworkTasksIntegration() =
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config snowflaqe-props-task.json --generate", src) <> 0 then
         failwith "Running Fable props generation failed"
 
-    createMultiFrameworkProjectFileForTaskAndRun
-        src
-        "Spotify.fsproj"
+    createMultiFrameworkProjectFileForTaskAndRun src "Spotify.fsproj"
 
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-fsharp-props-task.json --generate", src) <> 0 then
         failwith "Running FSharp props generation failed"
 
-    createMultiFrameworkProjectFileForTaskAndRun
-        src
-        "Spotify.fsproj"
+    createMultiFrameworkProjectFileForTaskAndRun src "Spotify.fsproj"
 
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./snowflaqe-shared-props-task.json --generate", src) <> 0 then
         failwith "Running Shared props generation failed"
 
-    createMultiFrameworkProjectFileForTaskAndRun
-        src
-        "Spotify.Fable.fsproj"
-
-    createMultiFrameworkProjectFileForTaskAndRun
-        src
-        "Spotify.Dotnet.fsproj"
+    createMultiFrameworkProjectFileForTaskAndRun src "Spotify.Fable.fsproj"
+    createMultiFrameworkProjectFileForTaskAndRun src "Spotify.DotNet.fsproj"
 
 let generate config =
     Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./{config} --generate", src)
@@ -278,21 +260,13 @@ let propsIntegration() =
     if generate "snowflaqe-props.json" <> 0 then
         failwith "Running Fable props generation failed"
 
-    createProjectFileAndRun
-        ("./output/Spotify.props" |> Seq.singleton)
-        None
-        src
-        "Spotify.fsproj"
+    createProjectFileAndRun ("./output/Spotify.props" |> Seq.singleton) "Spotify.fsproj"
 
     Console.WriteLine "Generating F# props"
     if generate "snowflaqe-fsharp-props.json" <> 0 then
         failwith "Running FSharp props generation failed"
 
-    createProjectFileAndRun
-        ("./output/Spotify.props" |> Seq.singleton)
-        None
-        src
-        "Spotify.fsproj"
+    createProjectFileAndRun ("./output/Spotify.props" |> Seq.singleton) "Spotify.fsproj"
 
     if generate "snowflaqe-shared-props.json" <> 0 then
         failwith "Running Shared props generation failed"
@@ -303,8 +277,6 @@ let propsIntegration() =
             "./output/shared/Spotify.props"
             "./output/fable/Spotify.props"
         })
-        None
-        src
         "Spotify.Fable.fsproj"
 
     createProjectFileAndRun
@@ -312,9 +284,7 @@ let propsIntegration() =
             "./output/shared/Spotify.props"
             "./output/dotnet/Spotify.props"
         })
-        None
-        src
-        "Spotify.Dotnet.fsproj"
+        "Spotify.DotNet.fsproj"
 
 let buildFSharpWithTasks() =
     if generate "./snowflaqe-fsharp-task.json" <> 0 then
@@ -387,13 +357,13 @@ let fsprojIntegration() =
         buildFSharpWithSystemTextJson()
         buildGitHub()
         buildCraftSchema()
-        buildGitHubDotNetProject()
+        buildGitHubDotNet()
         buildGitHubFable()
 
 let clear() =
     File.Delete(path [ solutionRoot; "src"; "nuget.config" ])
     File.Delete(path [ solutionRoot; "src"; "Spotify.fsproj" ])
-    File.Delete(path [ solutionRoot; "src"; "Spotify.Dotnet.fsproj" ])
+    File.Delete(path [ solutionRoot; "src"; "Spotify.DotNet.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "SpotifyWithTasks.fsproj" ])
     Directory.Delete(path [ solutionRoot; "src"; "output" ], true)
@@ -423,7 +393,7 @@ let main (args: string[]) =
         | [| "integration" |] -> integration()
         | [| "build-craft" |] -> buildCraftSchema()
         | [| "build-github" |] -> buildGitHub()
-        | [| "build-github-dot-project" |] -> buildGitHubDotNetProject()
+        | [| "build-github-dot-project" |] -> buildGitHubDotNet()
         | [| "build-github-fable" |] -> buildGitHubFable()
 
         | _ -> printfn "Unknown args %A" args

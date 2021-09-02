@@ -8,7 +8,7 @@
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
     <TargetFrameworks>netcoreapp3.1;netstandard2.0</TargetFrameworks>
-    <Version>1.27.0</Version>
+    <Version>1.29.0</Version>
     <PackageReleaseNotes>Added msbuild task</PackageReleaseNotes>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>

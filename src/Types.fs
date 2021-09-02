@@ -34,15 +34,15 @@ type GraphqlScalar =
             | _ -> false
 
 type GraphqlEnumValue =  {
-    name : string
-    description : string option
-    deprecated : bool
+    name: string
+    description: string option
+    deprecated: bool
 }
 
 type GraphqlEnum = {
-    name : string
-    description : string option
-    values : GraphqlEnumValue list
+    name: string
+    description: string option
+    values: GraphqlEnumValue list
 }
 
 [<RequireQualifiedAccess>]
@@ -57,10 +57,10 @@ type GraphqlFieldType =
     | List of GraphqlFieldType
 
 type GraphqlField = {
-    fieldName : string
-    fieldType : GraphqlFieldType
-    description : string option
-    args :  (string * GraphqlFieldType) list
+    fieldName: string
+    fieldType: GraphqlFieldType
+    description: string option
+    args:  (string * GraphqlFieldType) list
 }
 
 [<RequireQualifiedAccess>]
@@ -75,28 +75,28 @@ type GraphqlVariable = {
 }
 
 type GraphqlInputField = {
-    fieldName : string
-    description : string option
-    deprecated : bool
-    fieldType : GraphqlFieldType
+    fieldName: string
+    description: string option
+    deprecated: bool
+    fieldType: GraphqlFieldType
 }
 
 type GraphqlInputObject = {
     name: string
     description: string option
-    fields : GraphqlInputField  list
+    fields: GraphqlInputField  list
 }
 
 type GraphqlObject = {
     name: string
     description: string option
-    fields : GraphqlField  list
+    fields: GraphqlField  list
 }
 
 type GraphqlInterface = {
     name: string
     description: string option
-    fields : GraphqlField  list
+    fields: GraphqlField  list
     possibleTypes: string list
 }
 
@@ -116,14 +116,14 @@ type GraphqlType =
     | Union of GraphqlUnion
 
 type GraphqlSchema = {
-    types : GraphqlType list
-    queryType : string option
-    mutationType : string option
+    types: GraphqlType list
+    queryType: string option
+    mutationType: string option
 }
 
 type SelectionSet = {
-    nodes : GraphqlNode list
-    location : GraphQLLocation
+    nodes: GraphqlNode list
+    location: GraphQLLocation
 }
 
 [<RequireQualifiedAccess>]
@@ -145,19 +145,19 @@ type GraphqlFieldArgument = {
 
 type GraphqlFieldSelection = {
     alias: string option
-    name : string
-    selectionSet : SelectionSet option
+    name: string
+    selectionSet: SelectionSet option
     directives: GraphQLDirective list
-    arguments : GraphqlFieldArgument list
-    location : GraphQLLocation
+    arguments: GraphqlFieldArgument list
+    location: GraphQLLocation
 }
 
 type GraphqlFragmentDefinition = {
-    name : string
-    typeDef : string option
-    selectionSet : SelectionSet option
+    name: string
+    typeDef: string option
+    selectionSet: SelectionSet option
     directives: GraphQLDirective list
-    location : GraphQLLocation
+    location: GraphQLLocation
 }
 
 type GraphqlInlineFragment = {
@@ -177,17 +177,17 @@ type GraphqlNode =
     | Mutation of GraphqlMutation
 
 type GraphqlQuery = {
-    name : string option
-    directives : GraphQLDirective list
-    variables : GraphqlVariable list
-    selectionSet : SelectionSet
+    name: string option
+    directives: GraphQLDirective list
+    variables: GraphqlVariable list
+    selectionSet: SelectionSet
 }
 
 type GraphqlMutation = {
-    name : string option
-    directives : GraphQLDirective list
-    variables : GraphqlVariable list
-    selectionSet : SelectionSet
+    name: string option
+    directives: GraphQLDirective list
+    variables: GraphqlVariable list
+    selectionSet: SelectionSet
 }
 
 [<RequireQualifiedAccess>]
@@ -196,7 +196,7 @@ type GraphqlOperation =
     | Mutation of GraphqlMutation
 
 type GraphqlDocument = {
-    nodes : GraphqlNode list
+    nodes: GraphqlNode list
 }
 
 [<RequireQualifiedAccess>]

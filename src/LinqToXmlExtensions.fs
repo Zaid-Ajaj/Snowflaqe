@@ -7,22 +7,22 @@ open System.Xml
 open System.Xml.Linq
 
 type MSBuildTask =
-    { Name : string
-      FullName : string
-      AssemblyFile : string
-      Parameters : KeyValuePair<string, obj> seq }
+    { Name: string
+      FullName: string
+      AssemblyFile: string
+      Parameters: KeyValuePair<string, obj> seq }
 
 type MSBuildTarget =
-    { Name : string
-      AfterTargets : string voption
-      BeforeTargets : string voption
-      Tasks : MSBuildTask seq }
+    { Name: string
+      AfterTargets: string voption
+      BeforeTargets: string voption
+      Tasks: MSBuildTask seq }
 
 type MSBuildPackageReference =
-    { Name : string
-      Version : string
-      PrivateAssets : string voption
-      IncludeAssets : string voption }
+    { Name: string
+      Version: string
+      PrivateAssets: string voption
+      IncludeAssets: string voption }
 
 type XAttribute with
 

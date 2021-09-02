@@ -29,7 +29,24 @@
     </PropertyGroup>
     <Error Text="Unrecognized TargetFramework" Condition=" '$(BuildSubDir)' == '' " />
     <ItemGroup>
-      <TfmSpecificPackageFile Include="&#xD;&#xA;                        $(OutputPath)Snowflaqe.Tasks.dll*;&#xD;&#xA;                        $(OutputPath)Snowflaqe.dll*;&#xD;&#xA;                        $(OutputPath)Fantomas.dll*;&#xD;&#xA;                        $(OutputPath)FsAst.dll*;&#xD;&#xA;                        $(OutputPath)Microsoft.Build.Tasks.Core.dll*;&#xD;&#xA;                        $(OutputPath)FSharp.Compiler.Service.dll*;&#xD;&#xA;                        $(OutputPath)FSharp.Core.dll*;&#xD;&#xA;                        $(OutputPath)FSharp.Data.LiteralProviders.Runtime.dll*;&#xD;&#xA;                        $(OutputPath)GraphQL.dll*;&#xD;&#xA;                        $(OutputPath)System.Net.Http.Json.dll*;&#xD;&#xA;                        $(OutputPath)System.Text.Json.dll*;&#xD;&#xA;                        $(OutputPath)Newtonsoft.Json.dll*;&#xD;&#xA;                        $(OutputPath)BlackFox.ColoredPrintf.dll*;&#xD;&#xA;                        $(OutputPath)BlackFox.MasterOfFoo.dll*;&#xD;&#xA;                        $(OutputPath)GraphQL.NewtonsoftJson.dll*;&#xD;&#xA;                        $(OutputPath)GraphQL-Parser.dll*;&#xD;&#xA;               ">
+      <TfmSpecificPackageFile Include="
+                              $(OutputPath)Snowflaqe.Tasks.dll*;
+                              $(OutputPath)Snowflaqe.dll*;
+                              $(OutputPath)Fantomas.dll*;
+                              $(OutputPath)FsAst.dll*;
+                              $(OutputPath)Microsoft.Build.Tasks.Core.dll*;
+                              $(OutputPath)FSharp.Compiler.Service.dll*;
+                              $(OutputPath)FSharp.Core.dll*;
+                              $(OutputPath)FSharp.Data.LiteralProviders.Runtime.dll*;
+                              $(OutputPath)GraphQL.dll*;
+                              $(OutputPath)System.Net.Http.Json.dll*;
+                              $(OutputPath)System.Text.Json.dll*;
+                              $(OutputPath)Newtonsoft.Json.dll*;
+                              $(OutputPath)BlackFox.ColoredPrintf.dll*;
+                              $(OutputPath)BlackFox.MasterOfFoo.dll*;
+                              $(OutputPath)GraphQL.NewtonsoftJson.dll*;
+                              $(OutputPath)GraphQL-Parser.dll*;
+                              ">
         <PackagePath>build\$(BuildSubDir)</PackagePath>
       </TfmSpecificPackageFile>
       <!-- Package up the libgit2 native binaries -->
