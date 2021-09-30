@@ -1216,7 +1216,7 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
         if httpClient.BaseAddress <> null then
             {clientName}(httpClient.BaseAddress.OriginalString, httpClient, options)
         else
-            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for that constructor that only accepts HttpClient without the url parameter")
             {clientName}(String.Empty, httpClient, options)
     new(httpClient: HttpClient) =
         if httpClient.BaseAddress <> null then
@@ -1254,17 +1254,18 @@ type {clientName}(url: string, httpClient: HttpClient) =
         if httpClient.BaseAddress <> null then
             {clientName}(httpClient.BaseAddress.OriginalString, httpClient)
         else
-            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor   without   the url parameter")
+            raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for the constructor that only accepts a HttpClient")
             {clientName}(String.Empty, httpClient)
 
     {members}"""
 
-let sampleFSharpGraphqlClient projectName clientName errorType members serializer =
+let sampleFSharpGraphqlClient (projectName: string) (clientName: string) errorType members serializer =
     match serializer with
     | SerializerType.System -> sampleFSharpSystemGraphqlClient projectName clientName errorType members
     | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
 
-let sampleFableGraphqlClientFsi projectName clientName =
+// TODO: use later when implementing full FSI signature generation
+let sampleFableGraphqlClientFsi (projectName: string) (clientName: string) =
         $"""namespace {projectName}
 
 open Fable.SimpleHttp
@@ -1289,7 +1290,8 @@ type {clientName} =
     end
 """
 
-let private sampleFSharpSystemGraphqlClientFsi projectName clientName =
+// TODO: use later when implementing full FSI signature generation
+let private sampleFSharpSystemGraphqlClientFsi (projectName: string) (clientName: string) =
     $"""namespace {projectName}
 
 open System.Net.Http
@@ -1357,7 +1359,8 @@ type {clientName} =
     end
 """
 
-let private sampleFSharpNewtonsoftGraphqlClientFsi projectName clientName =
+// TODO: use later when implementing full FSI signature generation
+let private sampleFSharpNewtonsoftGraphqlClientFsi (projectName: string) (clientName: string) =
         $"""namespace {projectName}
 
 open Newtonsoft.Json
@@ -1372,19 +1375,21 @@ type {clientName} =
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization
         /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
-        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.Remoting.Json</a> NuGet package
         /// </remarks>
         /// <param name="url">GraphQL endpoint URL</param>
+        /// <param name="client">The underlying HttpClient used to issue the HTTP requests</param>
         new: url: string * client: HttpClient -> {clientName}
 
-        /// <summary>Creates {clientName}</summary>
+        /// <summary>Creates {clientName}, accepting the base URL of the GraphQL service</summary>
         new: string -> {clientName}
 
-        /// <summary>Creates {clientName}</summary>
+        /// <summary>Creates {clientName}, accepting the underlying HttpClient to connect to the GraphQL service (you have to set the BaseUrl of the HttpClient yourself)</summary>
         new: client: HttpClient -> {clientName}
     end
 """
 
+// TODO: use FSI signature generation later
 let sampleFSharpGraphqlClientFsi projectName clientName serializer =
     match serializer with
     | SerializerType.System -> sampleFSharpSystemGraphqlClientFsi projectName clientName
