@@ -2,7 +2,6 @@
 module Snowflaqe.LinqToXmlExtensions
 
 open System
-open System.Xml
 open System.Xml.Linq
 
 type XAttribute with
@@ -44,6 +43,9 @@ type MSBuildXElement () =
         XElement.ofStringName("PropertyGroup",
             XElement.ofStringName("CopyLocalLockFileAssemblies",
                 (copyLocalLockFileAssemblies.ToString().ToLower())))
+
+    static member PropertyGroup ([<ParamArray>] content) =
+        XElement.ofStringName("PropertyGroup", content)
 
 type XDocument with
 

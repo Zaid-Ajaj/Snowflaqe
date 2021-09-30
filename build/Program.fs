@@ -100,6 +100,7 @@ let generate config =
     Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ./{config} --generate", path [ solutionRoot; "src" ])
 
 let propsIntegration() =
+    Console.WriteLine "Generating Fable props"
     Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
     if generate "snowflaqe-props.json" <> 0 then
         failwith "Running Fable props generation failed"
@@ -110,6 +111,7 @@ let propsIntegration() =
         if Shell.Exec(Tools.dotnet, "build Spotify.fsproj", path [ solutionRoot; "src" ]) <> 0
         then failwith "Building generated Fable project failed"
         else
+            Console.WriteLine "Generating F# props"
             Shell.Exec(Tools.dotnet, "clean Snowflaqe.fsproj -v q", path [ solutionRoot; "src" ]) |> ignore
             if generate "snowflaqe-fsharp-props.json" <> 0 then
                 failwith "Running FSharp props generation failed"
@@ -124,6 +126,7 @@ let propsIntegration() =
                 if generate "snowflaqe-shared-props.json" <> 0 then
                     failwith "Running Shared props generation failed"
                 else
+                    Console.WriteLine "Generating Shared props"
                     createProjectFile
                         (seq {
                             "./output/shared/Spotify.props"
@@ -185,18 +188,21 @@ let buildFSharpWithSharedTasks() =
         if output <> 0 then failwith "Building generated shared projects failed"
 
 let fsprojIntegration() =
+    Console.WriteLine "Generating Fable project"
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --generate", path [ solutionRoot; "src" ]) <> 0 then
         failwith "Running Fable generation failed"
     else
         if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
         then failwith "Building generated Fable project failed"
         else
+            Console.WriteLine "Generating F# project"
             if generate "snowflaqe-fsharp.json" <> 0 then
                 failwith "Running FSharp generation failed"
             else
             if Shell.Exec(Tools.dotnet, "build", path [ solutionRoot; "src"; "output" ]) <> 0
             then failwith "Building generated FSharp project failed"
             else
+                Console.WriteLine "Generating Shared project"
                 if generate "snowflaqe-shared.json" <> 0 then
                     failwith "Running Shared project generation failed"
                 else
