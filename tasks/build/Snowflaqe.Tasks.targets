@@ -6,6 +6,40 @@
             $(BuildDependsOn)
         </BuildDependsOn>
     </PropertyGroup>
+    <PropertyGroup>
+        <_SourceGeneratorCacheFile>$(IntermediateOutputPath)\g\generation.cache</_SourceGeneratorCacheFile>
+    </PropertyGroup>
+    <ItemGroup>
+        <SourceGeneratorInput Include="@(Compile)" />
+        <SourceGeneratorInput Include="@(Content)" />
+        <SourceGeneratorInput Include="@(None)" />
+    </ItemGroup>
+    <Target Name="_InjectGeneratedFiles"
+                   BeforeTargets="ResolveNuGetPackageAssets;BeforeCompile"
+                   Condition="('$(BuildingProject)' == 'false' or '$(DesignTimeBuild)' == 'true') and '$(MSBuildProjectExtension)'=='.fsproj'">
+
+
+        <!--This target is used to temporarily include generated files to help intellisense 
+		make sense of generated code.-->
+
+
+        <ReadLinesFromFile File="$(_SourceGeneratorCacheFile)">
+            <Output
+					TaskParameter="Lines"
+					ItemName="GeneratedFilesCachedItems"/>
+        </ReadLinesFromFile>
+
+        <ItemGroup>
+            <_OriginCompile Include="@(Compile)" />
+            <Compile Remove="@(_OriginCompile)"/>
+            <Compile Include="@(GeneratedFilesCachedItems)"/>
+            <Compile Include="@(_OriginCompile)"/>
+            <_OriginCompile Remove="@(_OriginCompile)" />
+            <!--Inform tooling & IDE of new files to process (mostly for intellisense)-->
+            <_GeneratedCodeFiles Include="@(GeneratedFilesCachedItems)" />
+        </ItemGroup>
+
+    </Target>
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="5.0.1" />
         <PackageReference Include="Fable.Remoting.Json" Version="2.14.0" Condition="$(SnowflaqeTarget) == 'fable'" />
@@ -18,23 +52,35 @@
     <UsingTask
         TaskName="Snowflaqe.Tasks.GenerateGraphQLClient"
         AssemblyFile="$(TaskAssembly)" />
-    <Target Name="GenerateGraphQLClient" BeforeTargets="BeforeReBuild">
+    <Target Name="GenerateGraphQLClient" BeforeTargets="BeforeReBuild" Outputs="$(_SourceGeneratorCacheFile)">
         <GenerateGraphQLClient
-            Project="Spotify"
-            Queries="queries"
-            Schema="spotify-schema.json"
-            Configuration="$(Configuration)"
-            Platform="$(Platform)"
-            Target="fsharp">
+          OutputPath="$(IntermediateOutputPath)\g"
+          Project="$(SnowflaqeProjectName)"
+          Queries="$(SnowflaqeQueriesFolder)"
+          Schema="$(SnowflaqeSchemaPath)"
+          Configuration="$(Configuration)"
+          Platform="$(Platform)"
+          Target="$(SnowflaqeTargetProjectType)">
             <Output TaskParameter="GeneratedFiles" ItemName="SnowflaqeGeneratedFiles" />
         </GenerateGraphQLClient>
         <Message Text="Generated files:" Importance="high" />
         <Message Text="@(SnowflaqeGeneratedFiles)" />
+        <Message Text="@(DesignTimeBuild)" />
         <ItemGroup>
-            <Compile Include="@(SnowflaqeGeneratedFiles)" />
+            <_OriginCompile Include="@(Compile)" />
+            <Compile Remove="@(_OriginCompile)"/>
+            <Compile Remove="@(GeneratedFilesCachedItems)"/>
+            <Compile Include="@(SnowflaqeGeneratedFiles)"/>
+            <Compile Include="@(_OriginCompile)"/>
+            <_OriginCompile Remove="@(_OriginCompile)" />
+            <_GeneratedCodeFiles Include="@(SnowflaqeGeneratedFiles)" />
         </ItemGroup>
+        <WriteLinesToFile
+                    File="$(_SourceGeneratorCacheFile)"
+                    Lines="@(SnowflaqeGeneratedFiles)"
+                    Overwrite="true" />
     </Target>
-  <Target Name="IncludeGraphQLClient" BeforeTargets="BeforeBuild">
-    <Import Project="Spotify" Include="$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props" Condition="Exists('$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props')"/>
-  </Target>
+    <Target Name="IncludeGraphQLClient" BeforeTargets="BeforeBuild">
+        <Import Project="$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props" Condition="Exists('$(CommonLocation)\obj\$(Configuration)\$(Platform)\*.props')"/>
+    </Target>
 </Project>

@@ -72,6 +72,9 @@ type public GenerateGraphQLClient() =
               generateAndRestoreTaskPackage = true
             }
 
+        let writer = new StringWriter();
+        Console.SetOut(writer);
+
         let validationCode = runConfig config
         let executionCode =
             if validationCode = 0 then
@@ -82,4 +85,10 @@ type public GenerateGraphQLClient() =
                         files |> Seq.map (fun f -> Path.Combine(config.output, Path.GetFileName(f))) |> Seq.toArray
                     0
             else validationCode
+
+        if executionCode <> 0 then
+            let reader = new StringReader(writer.ToString())
+            reader.ReadToEnd().Split('\n')
+            |> Seq.iter this.Log.LogError
+
         executionCode = 0

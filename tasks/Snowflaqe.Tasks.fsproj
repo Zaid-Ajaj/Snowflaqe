@@ -10,7 +10,6 @@
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackBuildOutputs</TargetsForTfmSpecificContentInPackage>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>    -->
     <LangVersion>latest</LangVersion>
-    <PackageType>MSBuildSdk</PackageType>
     <!--<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>-->
 
     <NoPackageAnalysis>true</NoPackageAnalysis>
