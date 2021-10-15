@@ -211,7 +211,6 @@ type userOrders =
 type Root =
     { /// fetch data from the table: "userOrders"
       userOrders: list<userOrders> }
-
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
     }

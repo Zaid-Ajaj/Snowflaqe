@@ -23,6 +23,9 @@ open StringBuffer
 open FSharp.Compiler.Text
 open Snowflaqe.Types
 
+type range = FSharp.Compiler.Text.Range
+let range0 = FSharp.Compiler.Text.Range.Zero
+
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
 let capitalize (input: string) =
@@ -259,6 +262,7 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
         | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
         | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
         | GraphqlScalar.Custom "Date" -> SynType.DateTime()
+        | GraphqlScalar.Custom "Long" -> SynType.Int64()
         | GraphqlScalar.Custom custom -> SynType.String()
 
     | GraphqlFieldType.NonNull(GraphqlFieldType.List innerType) ->
@@ -296,6 +300,7 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
             | GraphqlScalar.Custom "timestamptz" -> SynType.DateTimeOffset()
             | GraphqlScalar.Custom "DateTime" -> SynType.DateTime()
             | GraphqlScalar.Custom "Date" -> SynType.String()
+            | GraphqlScalar.Custom "Long" -> SynType.Int64()
             | GraphqlScalar.Custom custom -> SynType.String()
 
         SynType.Option(innerFSharpType)
@@ -723,6 +728,7 @@ let rec makeVariableType variableType  (schema: GraphqlSchema) =
         | "Numeric" -> SynType.Decimal()
         | "BigFloat" -> SynType.Decimal()
         | "timestamptz" -> SynType.DateTimeOffset()
+        | "Long" -> SynType.Int64()
         | _ when isCustomScalar name schema -> SynType.String()
         | _ -> SynType.Create name
 
@@ -742,6 +748,7 @@ let rec makeVariableType variableType  (schema: GraphqlSchema) =
             | "Decimal" -> SynType.Decimal()
             | "Numeric" -> SynType.Decimal()
             | "BigFloat" -> SynType.Decimal()
+            | "Long" -> SynType.Int64()
             | _ when isCustomScalar name schema -> SynType.String()
             | _ -> SynType.Create name
 
@@ -833,7 +840,7 @@ let createNamespace (names: seq<string>) declarations =
         )
 
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range.Zero)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range0)
 
 let createQualifiedModule (idens: seq<string>) declarations =
     let nameParts =
@@ -845,7 +852,7 @@ let createQualifiedModule (idens: seq<string>) declarations =
         )
 
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range.Zero)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range0)
 
 let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
@@ -1282,7 +1289,7 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
         if httpClient.BaseAddress <> null then
             {clientName}(httpClient.BaseAddress.OriginalString, httpClient, options)
         else
-            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor without the url parameter")
+            raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for that constructor that only accepts HttpClient without the url parameter")
             {clientName}(String.Empty, httpClient, options)
 
     /// <summary>Creates {clientName}</summary>
@@ -1353,12 +1360,143 @@ type {clientName}(url: string, httpClient: HttpClient) =
         if httpClient.BaseAddress <> null then
             {clientName}(httpClient.BaseAddress.OriginalString, httpClient)
         else
-            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor without the url parameter")
+            raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for the constructor that only accepts a HttpClient")
             {clientName}(String.Empty, httpClient)
 
     {members}"""
 
-let sampleFSharpGraphqlClient projectName clientName errorType members serializer =
+let sampleFSharpGraphqlClient (projectName: string) (clientName: string) errorType members serializer =
     match serializer with
     | SerializerType.System -> sampleFSharpSystemGraphqlClient projectName clientName errorType members
     | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members
+
+// TODO: use later when implementing full FSI signature generation
+let sampleFableGraphqlClientFsi (projectName: string) (clientName: string) =
+        $"""namespace {projectName}
+
+open Fable.SimpleHttp
+open Fable.SimpleJson
+
+type {clientName} =
+    class
+        /// <summary>Creates {clientName} specifying list of headers</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserialization, this client uses Fable.SimpleJson from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a>
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: url: string * headers: Header list -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:Fable.SimpleJson.FableJsonConverter">FableJsonConverter</see> is added
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
+        /// </remarks>
+        new: url: string -> {clientName}
+    end
+"""
+
+// TODO: use later when implementing full FSI signature generation
+let private sampleFSharpSystemGraphqlClientFsi (projectName: string) (clientName: string) =
+    $"""namespace {projectName}
+
+open System.Net.Http
+open System.Text
+open System.Text.Json
+
+type {clientName} =
+    class
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: url: string * client: HttpClient * options: JsonSerializerOptions -> {clientName}
+
+        /// <summary>
+        /// Creates {clientName} specifying <see href="T:JsonSerializerOptions">JsonSerializerOptions</see>
+        /// </summary>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        new: url: string * options: JsonSerializerOptions -> {clientName}
+
+        /// <summary>
+        /// Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance
+        /// </summary>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: url: string * client: HttpClient -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: url: string -> {clientName}
+
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        new: client: HttpClient * options: JsonSerializerOptions -> {clientName}
+
+        /// <summary>Creates {clientName}</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see> by default is added
+        /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package
+        /// </remarks>
+        new: client: HttpClient -> {clientName}
+    end
+"""
+
+// TODO: use later when implementing full FSI signature generation
+let private sampleFSharpNewtonsoftGraphqlClientFsi (projectName: string) (clientName: string) =
+        $"""namespace {projectName}
+
+open Newtonsoft.Json
+open Newtonsoft.Json.Linq
+open Fable.Remoting.Json
+open System.Net.Http
+open System.Text
+
+type {clientName} =
+    class
+        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <remarks>
+        /// In order to enable all F# types serialization and deserealization
+        /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
+        /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.Remoting.Json</a> NuGet package
+        /// </remarks>
+        /// <param name="url">GraphQL endpoint URL</param>
+        /// <param name="client">The underlying HttpClient used to issue the HTTP requests</param>
+        new: url: string * client: HttpClient -> {clientName}
+
+        /// <summary>Creates {clientName}, accepting the base URL of the GraphQL service</summary>
+        new: string -> {clientName}
+
+        /// <summary>Creates {clientName}, accepting the underlying HttpClient to connect to the GraphQL service (you have to set the BaseUrl of the HttpClient yourself)</summary>
+        new: client: HttpClient -> {clientName}
+    end
+"""
+
+// TODO: use FSI signature generation later
+let sampleFSharpGraphqlClientFsi projectName clientName serializer =
+    match serializer with
+    | SerializerType.System -> sampleFSharpSystemGraphqlClientFsi projectName clientName
+    | SerializerType.Newtonsoft -> sampleFSharpNewtonsoftGraphqlClientFsi projectName clientName

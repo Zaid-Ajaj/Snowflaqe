@@ -35,7 +35,7 @@ let private loadFromExecutingAssembly fileName version =
     match Assembly.GetExecutingAssembly().Location with
     | null -> ValueNone
     | assemblyPath ->
-        let probingPath = Path.Combine(Path.GetDirectoryName(assemblyPath), fileName)
+        let probingPath = Path.Combine(Path.GetDirectoryName(assemblyPath : string), fileName)
         Debug.WriteLine($"Considering {probingPath} based on ExecutingAssembly")
         probe(probingPath, version)
 
@@ -44,7 +44,7 @@ let private loadFromAppDomain fileName version =
     Debug.WriteLine($"Considering {probingPath} based on BaseDirectory")
     probe(probingPath, version)
 
-let private loadFromRequestingAssemblyPath version fileName assemblyPath =
+let private loadFromRequestingAssemblyPath version fileName (assemblyPath : string) =
      let probingPath = Path.Combine(Path.GetDirectoryName(assemblyPath), fileName)
      Debug.WriteLine($"Considering {probingPath} based on RequestingAssembly")
      probe(probingPath, version)

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net48</TargetFrameworks>
+    <TargetFrameworks>netcoreapp3.1;netstandard2.0</TargetFrameworks>
     <!--
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <NoPackageAnalysis>true</NoPackageAnalysis>
@@ -23,8 +23,8 @@
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
     <PropertyGroup>
-      <BuildSubDir Condition=" '$(TargetFramework)' == 'netstandard2.0' ">MSBuildCore\</BuildSubDir>
-      <BuildSubDir Condition=" '$(TargetFramework)' == 'net48' ">MSBuildFull\</BuildSubDir>
+      <BuildSubDir Condition=" '$(TargetFramework)' == 'netcoreapp3.1' ">MSBuildCore\</BuildSubDir>
+      <BuildSubDir Condition=" '$(TargetFramework)' == 'netstandard2.0' ">MSBuildFull\</BuildSubDir>
     </PropertyGroup>
     <Error Text="Unrecognized TargetFramework" Condition=" '$(BuildSubDir)' == '' " />
     <ItemGroup>
