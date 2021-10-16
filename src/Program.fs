@@ -706,8 +706,7 @@ let main argv =
     let generateOrExit configFile =
         match readConfig configFile with
         | Error errorMessage ->
-            colorprintfn "$red[%s]" errorMessage
-            1
+            colorprintfn "$red[%s]" errorMessage; 1
         | Ok config -> generate config |> ignore; 0
 
     match argv with

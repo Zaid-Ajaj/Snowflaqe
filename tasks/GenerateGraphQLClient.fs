@@ -7,6 +7,7 @@ open Snowflaqe.Types
 open Microsoft.Build.Utilities
 open Microsoft.Build.Framework
 open Program
+open System.Text
 
 type public GenerateGraphQLClient() =
     inherit Task()
@@ -52,7 +53,6 @@ type public GenerateGraphQLClient() =
         if String.IsNullOrEmpty this.Target then raise (Exception "Target must be fable, fsharp or shared")
         if String.IsNullOrEmpty this.Project then raise (Exception "Project must be not null or empty")
 
-
         let config =
             { schema = this.Schema
               serializer = this.Serializer
@@ -69,10 +69,10 @@ type public GenerateGraphQLClient() =
               overrideClientName = None
               copyLocalLockFileAssemblies = None
               emitMetadata = this.EmitMetadata
-              generateAndRestoreTaskPackage = true
-            }
+              generateAndRestoreTaskPackage = true }
 
-        let writer = new StringWriter();
+        use buffer = new MemoryStream()
+        let writer = new StreamWriter(buffer)
         Console.SetOut(writer);
 
         let validationCode = runConfig config
@@ -87,8 +87,9 @@ type public GenerateGraphQLClient() =
             else validationCode
 
         if executionCode <> 0 then
-            let reader = new StringReader(writer.ToString())
-            reader.ReadToEnd().Split('\n')
-            |> Seq.iter this.Log.LogError
+            buffer.Seek(0L, SeekOrigin.Begin) |> ignore
+            let reader = new StreamReader(buffer)
+            while not(reader.EndOfStream) do
+                reader.ReadLine() |> this.Log.LogError
 
         executionCode = 0

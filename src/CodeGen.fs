@@ -1228,7 +1228,7 @@ type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
 type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
-type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
+type {clientName} private (url: string, options: JsonSerializerOptions, httpClient: HttpClient) =
     static let defaultOptions : JsonSerializerOptions =
         let options = JsonSerializerOptions ()
         options.Converters.Add (
@@ -1239,6 +1239,16 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
                 ||| JsonUnionEncoding.UnwrapOption, "kind"))
         options
 
+    /// <summary>Creates SpotifyGraphqlClient specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
+    /// <remarks>
+    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
+    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
+    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
+    /// </remarks>
+    /// <param name="url">GraphQL endpoint URL</param>
+    new(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
+        SpotifyGraphqlClient(url, options, httpClient)
+
     /// <summary>Creates {clientName}</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization <b>you must</b> add
@@ -1246,9 +1256,9 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
     /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
     /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
-
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), defaultOptions)
-    /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+
+    /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization <b>you must</b> add
     /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
@@ -1279,7 +1289,7 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
         options.Converters.Add (JsonFSharpConverter(fsOptions))
         {clientName}(url, new HttpClient(), options)
 
-    /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+    /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization <b>you must</b> add
     /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
@@ -1292,24 +1302,16 @@ type {clientName}(url: string, httpClient: HttpClient, options: JsonSerializerOp
             raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for that constructor that only accepts HttpClient without the url parameter")
             {clientName}(String.Empty, httpClient, options)
 
-    /// <summary>Creates {clientName}</summary>
+    /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization <b>you must</b> add
     /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
     /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
     /// </remarks>
-    /// <param name="url">GraphQL endpoint URL</param>
-    new(url: string, converter: JsonFSharpConverter) =
-        let options = JsonSerializerOptions ()
-        options.Converters.Add(converter)
-        {clientName}(url, new HttpClient(), options)
-
-    /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
+    /// <param name="httpClient"><see href="HttpClient">HttpClient</see> instance with 
+    /// <strong>BaseAddress set to GraphQL endpoint URL</strong></param>
+    /// <exception cref="T:System.ArgumentNullException">when httpClient parameter is null</exception>
+    /// <exception cref="T:System.ArgumentNullException">when httpClient.<see href="P:HttpClient.BaseAddress">BaseAddress</see> property is null</exception>
     new(httpClient: HttpClient) =
         if httpClient.BaseAddress <> null then
             {clientName}(httpClient.BaseAddress.OriginalString, httpClient, defaultOptions)
@@ -1336,12 +1338,22 @@ type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
 type GraphqlErrorResponse = {{ errors: {errorType} list }}
 
-type {clientName}(url: string, httpClient: HttpClient) =
+type {clientName} private (httpClient: HttpClient, url: string) =
+
     let fableJsonConverter = FableJsonConverter() :> JsonConverter
     let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| fableJsonConverter |])
     let serializer = JsonSerializer.Create(settings)
 
-    /// <summary>Creates {clientName}</summary>
+    /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
+    /// <remarks>
+    /// In order to enable all F# types serialization and deserealization
+    /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
+    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
+    /// </remarks>
+    /// <param name="url">GraphQL endpoint URL</param>
+    new(url: string, httpClient: HttpClient) = {clientName}(httpClient, url)
+
+    /// <summary>Creates {clientName} with a new <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization
     /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
@@ -1350,7 +1362,7 @@ type {clientName}(url: string, httpClient: HttpClient) =
     /// <param name="url">GraphQL endpoint URL</param>
     new(url: string) = {clientName}(url, new HttpClient())
 
-    /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+    /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization
     /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
@@ -1406,7 +1418,7 @@ open System.Text.Json
 
 type {clientName} =
     class
-        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization <b>you must</b> add
         /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
@@ -1427,7 +1439,7 @@ type {clientName} =
         new: url: string * options: JsonSerializerOptions -> {clientName}
 
         /// <summary>
-        /// Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance
+        /// Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance
         /// </summary>
         /// <param name="url">GraphQL endpoint URL</param>
         /// <remarks>
@@ -1446,7 +1458,7 @@ type {clientName} =
         /// </remarks>
         new: url: string -> {clientName}
 
-        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization <b>you must</b> add
         /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
@@ -1477,7 +1489,7 @@ open System.Text
 
 type {clientName} =
     class
-        /// <summary>Creates {clientName} specifying <see href="T:HttpClient">HttpClient</see> instance</summary>
+        /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
         /// <remarks>
         /// In order to enable all F# types serialization and deserealization
         /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
