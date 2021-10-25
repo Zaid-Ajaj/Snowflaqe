@@ -1,15 +1,15 @@
-﻿module SampleGithubSchema
+﻿module SampleGitHubSchema
 
 open FSharp.Data.LiteralProviders
 open Expecto
 open Snowflaqe
 open Snowflaqe.Types
 
-let [<Literal>] githubSchema = TextFile<"./GithubSchema.json">.Text
+let [<Literal>] githubSchema = TextFile<"./GitHubSchema.json">.Text
 let [<Literal>] typesFileName = "Types.fs"
 
 let queryWithUnion = """
-query GithubSearch {
+query GitHubSearch {
   search(query:"Snowflaqe", type:REPOSITORY, first:10) {
     nodes {
       ... on Repository {
@@ -34,7 +34,7 @@ query GithubSearch {
 """
 
 let queryWithUnionMissingTypeName = """
-query GithubSearch {
+query GitHubSearch {
   search(query:"Snowflaqe", type:REPOSITORY, first:10) {
     nodes {
       ... on Repository {
@@ -106,7 +106,7 @@ query GetPullRequests($org: String!) {
 }
 """
 
-let githubTests = testList "Github tests" [
+let githubTests = testList "GitHub tests" [
     test "Schema can be parsed" {
         match Schema.parse githubSchema with
         | Error error -> failwith error
@@ -392,7 +392,7 @@ let githubTests = testList "Github tests" [
 
             let name =
                 Query.findOperationName query
-                |> Option.defaultValue "GithubSearch"
+                |> Option.defaultValue "GitHubSearch"
                 |> CodeGen.normalizeName
 
             let generated =

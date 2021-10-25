@@ -22,23 +22,24 @@ let [<Literal>] SystemNetHttpJsonVersion = "5.0.0"
 let [<Literal>] PlyVersion = "0.3.1"
 
 type CustomErrorType = {
-    typeName : string
-    typeDefinition : SynModuleDecl
+    typeName: string
+    typeDefinition: SynModuleDecl
 }
 
 type Config = {
-    schema : string
-    queries : string
-    project : string
-    output : string
-    errorType : CustomErrorType
-    target : OutputTarget
-    createProjectFile : bool
-    serializer : SerializerType
-    overrideClientName : string option
-    copyLocalLockFileAssemblies : bool option
+    schema: string
+    queries: string
+    project: string
+    output: string
+    errorType: CustomErrorType
+    target: OutputTarget
+    createProjectFile: bool
+    serializer: SerializerType
+    overrideClientName: string option
+    copyLocalLockFileAssemblies: bool option
     emitMetadata: bool
-    asyncReturnType : AsyncReturnType
+    asyncReturnType: AsyncReturnType
+    generateAndRestoreTaskPackage: bool
 }
 
 let logo = """
@@ -91,6 +92,8 @@ let readConfig (file: string) =
                 Error "The 'target' configuration element must be a string"
             elif not (isNull parsedJson.["overrideClientName"]) && parsedJson.["overrideClientName"].Type <> JTokenType.String then
                 Error "The 'overrideClientName' configuration element must be a string"
+            elif not (isNull parsedJson.["generateAndRestoreTaskPackage"]) && parsedJson.["generateAndRestoreTaskPackage"].Type <> JTokenType.Boolean then
+                Error "The 'generateAndRestoreTaskPackage' configuration element must be a boolean"
             elif not (isNull parsedJson.["target"]) && (parsedJson.["target"].ToObject<string>().ToLower() <> "fable" && parsedJson.["target"].ToObject<string>().ToLower() <> "fsharp" && parsedJson.["target"].ToObject<string>().ToLower() <> "shared") then
                 Error "The 'target' configuration element must be either 'fable' (default), 'fsharp' or 'shared'"
             elif not (isNull parsedJson.["createProjectFile"]) && parsedJson.["createProjectFile"].Type <> JTokenType.Boolean then
@@ -174,6 +177,11 @@ let readConfig (file: string) =
                         then false
                         else parsedJson.["emitMetadata"].ToObject<bool>()
 
+                    let generateAndRestoreTaskPackage =
+                        if isNull parsedJson.["generateAndRestoreTaskPackage"]
+                        then false
+                        else parsedJson.["generateAndRestoreTaskPackage"].ToObject<bool>()
+
                     if serializer = SerializerType.System && target = OutputTarget.Fable then
                         Error "Fable does not support System.Text.Json"
                     else
@@ -190,6 +198,7 @@ let readConfig (file: string) =
                             copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
                             emitMetadata = emitMetadata
                             asyncReturnType = asyncReturnType
+                            generateAndRestoreTaskPackage = generateAndRestoreTaskPackage
                         }
     with
     | ex -> Error ex.Message
@@ -255,8 +264,7 @@ let runConfig (config: Config) =
     colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
     match Introspection.loadSchema config.schema with
     | Error errorMessage ->
-        colorprintfn "$red[%s]" errorMessage
-        1
+        colorprintfn "$red[%s]" errorMessage; 1
     | Ok schema ->
         printfn "✔️  Schema loaded successfully"
         colorprintfn "⏳ Validating queries within $green[%s]" config.queries
@@ -288,399 +296,403 @@ let rec deleteFilesAndFolders directory isRoot =
         deleteFilesAndFolders subdirectory false
         if not isRoot then Directory.Delete subdirectory
 
-let generate (configFile: string) =
-    match readConfig configFile with
+let generate (config: Config) =
+    //System.Diagnostics.Debugger.Launch() |> ignore
+    colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
+    match Introspection.loadSchema config.schema with
     | Error errorMessage ->
         colorprintfn "$red[%s]" errorMessage
-        1
-    | Ok config ->
-        colorprintfn "⏳ Loading GraphQL schema from $green[%s]" config.schema
-        match Introspection.loadSchema config.schema with
-        | Error errorMessage ->
-            colorprintfn "$red[%s]" errorMessage
-            1
-        | Ok schema ->
-            let mutable invalidQuery = false
-            let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
-            for queryFile in queryFiles do
-                if not invalidQuery then
-                    let query = File.ReadAllText queryFile
-                    match Query.parse query with
-                    | Error parseError ->
-                        colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
-                        invalidQuery <- true
-                    | Ok query ->
-                        invalidQuery <- not (validateAndPrint queryFile query schema)
-
-            if invalidQuery then
-                1
-            else
-
-            let write (path: string) (contents: string) (originalQuery: string option) =
-                if config.emitMetadata then
-                    let now = DateTime.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                    let builder = StringBuilder()
-                    let fileName =
-                        originalQuery
-                        |> Option.map (fun name -> $"from input query {Path.GetFileName(name)}")
-                        |> Option.defaultValue ""
-
-                    let contentsWithMetadata =
-                        builder
-                            .AppendLine($"// Auto generated by Snowflaqe v{projectVersion} on {now} {fileName}")
-                            .AppendLine($"// Learn more about Snowflaqe at https://github.com/Zaid-Ajaj/Snowflaqe")
-                            .Append(contents)
-                            .ToString()
-
-                    File.WriteAllText(path, contentsWithMetadata)
-                else
-                    File.WriteAllText(path, contents)
-
-            let generatedFiles = ResizeArray<string>()
-            let generatedModules = ResizeArray<string * string * bool>()
-
-            let globalTypes = [
-                yield! CodeGen.createGlobalTypes schema
-                yield config.errorType.typeDefinition
-            ]
-
-            let typesFileName = "Types.fs"
-            let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
-            let file = CodeGen.createFile typesFileName [ globalTypesModule ]
-            let globalTypesContent = CodeGen.formatAst file typesFileName
-            if not (Directory.Exists config.output) then
-                Directory.CreateDirectory(config.output)
-                |> ignore
-
-            if config.target = OutputTarget.Shared then
-                let projectPaths = [
-                    Path.Combine(config.output, "shared")
-                    Path.Combine(config.output, "dotnet")
-                    Path.Combine(config.output, "fable")
-                ]
-
-                for path in projectPaths do
-                    if not (Directory.Exists path) then
-                        ignore (Directory.CreateDirectory path)
-
-            deleteFilesAndFolders config.output true
-
-            let projPath =
-                if config.createProjectFile
-                then Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
-                else Path.GetFullPath(Path.Combine(config.output, config.project + ".props"))
-
-            let fileName file =
-                if config.project.Contains "."
-                then CodeGen.normalizeModuleName  file
-                else config.project + "." + CodeGen.normalizeModuleName file
-
-            let inline createCompileXElement createProjectFile outputDirectoryName (file: string) =
-                if createProjectFile
-                then MSBuildXElement.Compile($".\{Path.GetFileName file}")
-                else MSBuildXElement.Compile($".\{outputDirectoryName}\{Path.GetFileName file}")
-
-            match config.target with
-            | OutputTarget.FSharp ->
-                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, fileName "StringEnum.fs"));
-                colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
-                write stringEnumAttrPath (CodeGen.createDummyStringEnumAttribute()) None
-                generatedFiles.Add(stringEnumAttrPath)
-
-                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, fileName "Types.fs"));
-                colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
-                write globalTypesPath globalTypesContent None
-                generatedFiles.Add(globalTypesPath)
-
-            | OutputTarget.Fable ->
-                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, fileName "Types.fs"));
-                colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
-                write globalTypesPath globalTypesContent None
-                generatedFiles.Add(globalTypesPath)
-
-            | OutputTarget.Shared ->
-                let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName "StringEnum.fs"));
-                colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
-                write stringEnumAttrPath (CodeGen.createDummyStringEnumAttribute()) None
-                generatedFiles.Add(stringEnumAttrPath)
-                let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName "Types.fs"));
-                colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
-                write globalTypesPath globalTypesContent None
-                generatedFiles.Add(globalTypesPath)
-
-            for queryFile in queryFiles do
+        Error 1
+    | Ok schema ->
+        let mutable invalidQuery = false
+        let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
+        for queryFile in queryFiles do
+            if not invalidQuery then
                 let query = File.ReadAllText queryFile
                 match Query.parse query with
-                | Error _ -> ()
+                | Error parseError ->
+                    colorprintf "⚠️ Could not parse query $red[%s]:\n%s\n" queryFile parseError
+                    invalidQuery <- true
                 | Ok query ->
-                    let queryName = Query.findOperationName query
-                    let queryFileName = Path.GetFileNameWithoutExtension queryFile
-                    let moduleName =
-                        queryName
-                        |> Option.defaultValue queryFileName
-                        |> CodeGen.normalizeModuleName
-                    let queryTypes = CodeGen.generateTypes "Query" config.errorType.typeName query schema
-                    let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
-                    let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ]) (Path.GetFileName queryFile)
-                    match config.target with
-                    | OutputTarget.Fable
-                    | OutputTarget.FSharp ->
-                        let fullPath = Path.GetFullPath(Path.Combine(config.output, fileName (moduleName + ".fs")))
-                        colorprintfn "✏️  Generating module $green[%s]" fullPath
-                        write fullPath generatedModuleContent (Some queryFile)
-                        generatedFiles.Add(fullPath)
-                        generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
+                    invalidQuery <- not (validateAndPrint queryFile query schema)
 
-                    | OutputTarget.Shared ->
-                        let fullPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName (moduleName + ".fs")))
-                        colorprintfn "✏️  Generating module $green[%s]" fullPath
-                        write fullPath generatedModuleContent (Some queryFile)
-                        generatedFiles.Add(fullPath)
-                        generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
+        if invalidQuery then
+            Error 2
+        else
 
-            let clientName =
-                config.overrideClientName
-                |> Option.defaultValue (
-                    if config.project.Contains "."
-                    then "GraphqlClient"
-                    else sprintf "%sGraphqlClient" config.project
-                )
+        let write (path: string) (contents: string) (originalQuery: string option) =
+            if config.emitMetadata then
+                let now = DateTime.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                let builder = StringBuilder()
+                let fileName =
+                    originalQuery
+                    |> Option.map (fun name -> $"from input query {Path.GetFileName(name)}")
+                    |> Option.defaultValue ""
 
-            let packageReferences = [
-                // use a low version of FSharp.Core
-                // for better compatibility
-                MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+                let contentsWithMetadata =
+                    Snowflaqe.StringBuffer.stringBuffer {
+                        yield "// Auto generated by Snowflaqe v{projectVersion} on {now} {fileName}"
+                        yield Environment.NewLine
+                        yield $"// Learn more about Snowflaqe at https://github.com/Zaid-Ajaj/Snowflaqe"
+                        yield Environment.NewLine
+                        yield contents
+                    }
+
+                File.WriteAllText(path, contentsWithMetadata)
+            else
+                File.WriteAllText(path, contents)
+
+        let generatedFiles = ResizeArray<string>()
+        let generatedModules = ResizeArray<string * string * bool>()
+
+        let globalTypes = [
+            yield! CodeGen.createGlobalTypes schema
+            yield config.errorType.typeDefinition
+        ]
+
+        let typesFileName = "Types.fs"
+        let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
+        let file = CodeGen.createFile typesFileName [ globalTypesModule ]
+        let globalTypesContent = CodeGen.formatAst file typesFileName
+        if not (Directory.Exists config.output) then
+            Directory.CreateDirectory(config.output) |> ignore
+
+        if config.target = OutputTarget.Shared then
+            let projectPaths = [
+                Path.Combine(config.output, "shared")
+                Path.Combine(config.output, "dotnet")
+                Path.Combine(config.output, "fable")
             ]
 
-            let outputDirectoryName = DirectoryInfo(config.output).Name
-            let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
+            for path in projectPaths do
+                if not (Directory.Exists path) then
+                    Directory.CreateDirectory path |> ignore
 
-            match config.target with
-            | OutputTarget.Fable ->
-                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
-                colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
-                generatedFiles.Add graphqlClientPath
-                let members =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
-                    |> String.concat "\n"
-                let clientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName members
-                write graphqlClientPath clientContent None
-                colorprintfn "✏️  Generating Fable $green[%s]" projPath
+        let projPath =
+            if config.createProjectFile
+            then Path.GetFullPath(Path.Combine(config.output, config.project + ".fsproj"))
+            else Path.GetFullPath(Path.Combine(config.output, config.project + ".props"))
 
-                let files = [
-                    for file in generatedFiles do
-                        yield createCompileXElement config.createProjectFile outputDirectoryName file
-                ]
+        let fileName file =
+            if config.project.Contains "."
+            then CodeGen.normalizeModuleName  file
+            else config.project + "." + CodeGen.normalizeModuleName file
 
-                let packageReferences = [
-                    yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
-                    yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
-                ]
+        let inline createCompileXElement createProjectFile (file: string) =
+            if createProjectFile
+            then MSBuildXElement.Compile($"{Path.GetFileName file}")
+            else MSBuildXElement.Compile($"$(MSBuildThisFileDirectory)\\{Path.GetFileName file}")
 
-                let contentItems = [
-                    XElement.ofStringName("Content",
-                        XAttribute.ofStringName("Include", "*.fs; *.js"),
-                        XAttribute.ofStringName("Exclude", "**\*.fs.js"),
-                        XAttribute.ofStringName("PackagePath", "fable\\"))
-                ]
+        if config.generateAndRestoreTaskPackage then
+            let nugetConfig = Snowflaqe.CodeGen.generateNugetConfig [{Name ="Snowflaqe.Tasks"; Link = Path.Combine(Path.GetFullPath("..//"), "tasks", "bin", "Release")}]
+            nugetConfig.WriteTo(Path.GetFullPath(Path.Combine(config.output, "..", "nuget.config")))
 
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+        match config.target with
+        | OutputTarget.FSharp ->
+            let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, fileName "StringEnum.fs"));
+            colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
+            write stringEnumAttrPath (CodeGen.createDummyStringEnumAttribute()) None
+            generatedFiles.Add(stringEnumAttrPath)
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
-                    ContentItems = contentItems
-                    ProjectReferences = Seq.empty
-                }
+            let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, fileName "Types.fs"));
+            colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
+            write globalTypesPath globalTypesContent None
+            generatedFiles.Add(globalTypesPath)
 
-                document.WriteTo(projPath)
+        | OutputTarget.Fable ->
+            let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, fileName "Types.fs"));
+            colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
+            write globalTypesPath globalTypesContent None
+            generatedFiles.Add(globalTypesPath)
 
-            | OutputTarget.FSharp ->
-                colorprintfn "✏️  Generating F# $green[%s]" projPath
+        | OutputTarget.Shared ->
+            let stringEnumAttrPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName "StringEnum.fs"));
+            colorprintfn "✏️  Generating StringEnum attribute $green[%s]" stringEnumAttrPath
+            write stringEnumAttrPath (CodeGen.createDummyStringEnumAttribute()) None
+            generatedFiles.Add(stringEnumAttrPath)
+            let globalTypesPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName "Types.fs"));
+            colorprintfn "✏️  Generating module $green[%s]" globalTypesPath
+            write globalTypesPath globalTypesContent None
+            generatedFiles.Add(globalTypesPath)
 
-                let members =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
-                    |> String.concat "\n"
+        for queryFile in queryFiles do
+            let query = File.ReadAllText queryFile
+            match Query.parse query with
+            | Error _ -> ()
+            | Ok query ->
+                let queryName = Query.findOperationName query
+                let queryFileName = Path.GetFileNameWithoutExtension queryFile
+                let moduleName =
+                    queryName
+                    |> Option.defaultValue queryFileName
+                    |> CodeGen.normalizeModuleName
+                let queryTypes = CodeGen.generateTypes "Query" config.errorType.typeName query schema
+                let generatedModule = CodeGen.createQualifiedModule [ config.project; moduleName ] queryTypes
+                let generatedModuleContent = CodeGen.formatAst (CodeGen.createFile moduleName [ generatedModule ]) (Path.GetFileName queryFile)
+                match config.target with
+                | OutputTarget.Fable
+                | OutputTarget.FSharp ->
+                    let fullPath = Path.GetFullPath(Path.Combine(config.output, fileName (moduleName + ".fs")))
+                    colorprintfn "✏️  Generating module $green[%s]" fullPath
+                    write fullPath generatedModuleContent (Some queryFile)
+                    generatedFiles.Add(fullPath)
+                    generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
 
-                let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
-                generatedFiles.Add graphqlClientPath
-                let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members config.serializer useTasksForAsync
-                write graphqlClientPath clientContent None
 
-                let files = [
-                    for file in generatedFiles do
-                        createCompileXElement config.createProjectFile outputDirectoryName file
-                ]
+                | OutputTarget.Shared ->
+                    let fullPath = Path.GetFullPath(Path.Combine(config.output, "shared", fileName (moduleName + ".fs")))
+                    colorprintfn "✏️  Generating module $green[%s]" fullPath
+                    write fullPath generatedModuleContent (Some queryFile)
+                    generatedFiles.Add(fullPath)
+                    generatedModules.Add(queryFile, moduleName, generatedModuleContent.Contains "type InputVariables")
 
-                let packageReferences = [
-                    yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
-                    yield
-                        match config.serializer with
-                        | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
-                        | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
+        let clientName =
+            config.overrideClientName
+            |> Option.defaultValue (
+                if config.project.Contains "."
+                then "GraphqlClient"
+                else sprintf "%sGraphqlClient" config.project
+            )
 
-                    if useTasksForAsync
-                    then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
-                ]
+        let packageReferences = [
+            if config.generateAndRestoreTaskPackage then
+                yield MSBuildXElement.PackageReferenceInclude("Snowflaqe.Tasks", "1.0.0")
+            // use a low version of FSharp.Core
+            // for better compatibility
+            yield MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+        ]
 
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+        let useTasksForAsync = (config.asyncReturnType = AsyncReturnType.Task)
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
-                    ContentItems = Seq.empty
-                    ProjectReferences = Seq.empty
-                }
+        match config.target with
+        | OutputTarget.Fable ->
+            let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
+            colorprintfn "✏️  Generating GraphQL client $green[%s]" graphqlClientPath
+            generatedFiles.Add graphqlClientPath
+            let members =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
+                |> String.concat "\n"
+            let clientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName members
+            write graphqlClientPath clientContent None
+            colorprintfn "✏️  Generating Fable $green[%s]" projPath
 
-                document.WriteTo(projPath)
+            let files =
+                generatedFiles
+                |> Seq.map
+                    (fun file -> createCompileXElement config.createProjectFile file)
 
-            | OutputTarget.Shared ->
-                let files =
-                    generatedFiles
-                    |> Seq.map
-                        (fun file ->
-                            if config.createProjectFile
-                            then MSBuildXElement.Compile(Path.GetFileName file)
-                            else MSBuildXElement.Compile($".\{outputDirectoryName}\shared\{Path.GetFileName file}"))
-                let sharedDocPath =
-                    if config.createProjectFile
-                    then Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
-                    else Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".props"))
-                colorprintfn "✏️  Generating shared F# $green[%s]" sharedDocPath
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+            let packageReferences = [
+                yield! packageReferences
+                yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
+                yield MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
+            ]
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = None
-                    ContentItems = Seq.empty
-                    ProjectReferences = Seq.empty
-                }
+            let contentItems = [
+                XElement.ofStringName("Content",
+                    XAttribute.ofStringName("Include", "*.fs; *.js"),
+                    XAttribute.ofStringName("Exclude", "**\\*.fs.js"),
+                    XAttribute.ofStringName("PackagePath", "fable\\"))
+            ]
 
-                document.WriteTo(sharedDocPath)
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-                let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
-                let fsharpMembers =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
-                    |> String.concat "\n"
-                let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers config.serializer useTasksForAsync
-                write fsharpGraphqlClientPath dotnetClientContent None
-                let sharedFSharpDocument =
-                    if config.createProjectFile
-                    then Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".Dotnet.fsproj"))
-                    else Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
-                colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
-                let packageReferences = [
-                    yield! packageReferences
-                    yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
-                    yield
-                        match config.serializer with
-                        | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
-                        | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
-                    if useTasksForAsync
-                    then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
-                ]
-                let projectReferences =
-                    if config.createProjectFile
-                    then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
-                    |> Seq.singleton
-                let files =
-                    if config.createProjectFile
-                    then
-                        seq {
-                            MSBuildXElement.Compile($".\{config.project}.GraphqlClient.fs")
-                        }
-                    else
-                        seq {
-                            MSBuildXElement.Compile($".\{outputDirectoryName}\\dotnet\{config.project}.GraphqlClient.fs")
-                        }
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
+                ContentItems = contentItems
+                ProjectReferences = Seq.empty
+            }
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
-                    ContentItems = Seq.empty
-                    ProjectReferences = projectReferences
-                }
+            document.WriteTo(projPath)
+            files
 
-                document.WriteTo(sharedFSharpDocument)
+        | OutputTarget.FSharp ->
+            colorprintfn "✏️  Generating F# $green[%s]" projPath
 
-                let fableMembers =
-                    generatedModules
-                    |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
-                    |> String.concat "\n"
+            let members =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
+                |> String.concat "\n"
 
-                let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fs"))
-                let fableClientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName fableMembers
-                write fableGraphqlClientPath fableClientContent None
-                let sharedFableDocument =
-                    if config.createProjectFile
-                    then Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
-                    else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
-                colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
+            let graphqlClientPath = Path.GetFullPath(Path.Combine(config.output, fileName "GraphqlClient.fs"))
+            generatedFiles.Add graphqlClientPath
+            let clientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName members config.serializer useTasksForAsync
+            write graphqlClientPath clientContent None
 
-                let packageReferences = [
-                    MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
-                    MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
-                    MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
-                    MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
-                ]
+            let files =
+                generatedFiles
+                |> Seq.map
+                    (fun file -> createCompileXElement config.createProjectFile file)
+            let packageReferences = [
+                yield! packageReferences
+                yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
+                yield
+                    match config.serializer with
+                    | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
+                    | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
 
-                let files = [
-                    if config.createProjectFile
-                    then MSBuildXElement.Compile($"{config.project}.GraphqlClient.fs")
-                    else MSBuildXElement.Compile($".\{outputDirectoryName}\\fable\{config.project}.GraphqlClient.fs")
-                ]
+                if useTasksForAsync
+                then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
+            ]
 
-                let contentItems = [
-                    XElement.ofStringName("Content",
-                        XAttribute.ofStringName("Include", "*.fs; *.js"),
-                        XAttribute.ofStringName("Exclude", "**\*.fs.js"),
-                        XAttribute.ofStringName("PackagePath", "fable\\"))
-                ]
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-                let projectReferences = [
-                    if config.createProjectFile
-                    then MSBuildXElement.ProjectReference($"..\shared\{config.project}.Shared.fsproj")
-                    else MSBuildXElement.ProjectReference($".\{outputDirectoryName}\\shared\{config.project}.props")
-                ]
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
+                ContentItems = Seq.empty
+                ProjectReferences = Seq.empty
+            }
 
-                let generator =
-                    if config.createProjectFile
-                    then CodeGen.generateProjectDocument
-                    else CodeGen.generatePropsDocument
+            document.WriteTo(projPath)
+            files
 
-                let document = generator {
-                    NugetPackageReferences = packageReferences
-                    Files = files
-                    CopyLocalLockFileAssemblies = None
-                    ContentItems = contentItems
-                    ProjectReferences = projectReferences
-                }
+        | OutputTarget.Shared ->
+            let files =
+                generatedFiles
+                |> Seq.map
+                    (fun file ->
+                        if config.createProjectFile
+                        then MSBuildXElement.Compile(Path.GetFileName file)
+                        else MSBuildXElement.Compile($"$(MSBuildThisFileDirectory)\{Path.GetFileName file}"))
+            let sharedDocPath =
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".Shared.fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, "shared", config.project + ".props"))
+            colorprintfn "✏️  Generating shared F# $green[%s]" sharedDocPath
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
 
-                document.WriteTo(sharedFableDocument)
-            0
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = None
+                ContentItems = Seq.empty
+                ProjectReferences = Seq.empty
+            }
+
+            document.WriteTo(sharedDocPath)
+
+            let fsharpGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "dotnet", fileName "GraphqlClient.fs"))
+            let fsharpMembers =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleFSharpClientMember config.serializer (File.ReadAllText(path)) name hasVars useTasksForAsync)
+                |> String.concat "\n"
+            let dotnetClientContent = CodeGen.sampleFSharpGraphqlClient config.project clientName config.errorType.typeName fsharpMembers config.serializer useTasksForAsync
+            write fsharpGraphqlClientPath dotnetClientContent None
+            let sharedFSharpDocument =
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".DotNet.fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, "dotnet", config.project + ".props"))
+            colorprintfn "✏️  Generating F# dotnet $green[%s]" sharedFSharpDocument
+            let packageReferences = [
+                yield! packageReferences
+                yield MSBuildXElement.PackageReferenceInclude("System.Net.Http.Json", SystemNetHttpJsonVersion)
+                yield
+                    match config.serializer with
+                    | SerializerType.System -> MSBuildXElement.PackageReferenceInclude("FSharp.SystemTextJson", FSharpSystemTextJsonVersion)
+                    | SerializerType.Newtonsoft -> MSBuildXElement.PackageReferenceInclude("Fable.Remoting.Json", FableRemotingJsonVersion)
+                if useTasksForAsync
+                then yield MSBuildXElement.PackageReferenceInclude("Ply", PlyVersion)
+            ]
+            let projectReferences =
+                if config.createProjectFile
+                then MSBuildXElement.ProjectReference($"..\\shared\\{config.project}.Shared.fsproj")
+                else MSBuildXElement.ProjectReference($"$(MSBuildThisFileDirectory)\{config.project}.props")
+                |> Seq.singleton
+            let files =
+                if config.createProjectFile
+                then
+                    seq {
+                        MSBuildXElement.Compile($"{config.project}.GraphqlClient.fs")
+                    }
+                else
+                    seq {
+                        MSBuildXElement.Compile($"$(MSBuildThisFileDirectory)\{config.project}.GraphqlClient.fs")
+                    }
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
+
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = config.copyLocalLockFileAssemblies
+                ContentItems = Seq.empty
+                ProjectReferences = projectReferences
+            }
+
+            document.WriteTo(sharedFSharpDocument)
+
+            let fableMembers =
+                generatedModules
+                |> Seq.map (fun (path, name, hasVars) -> CodeGen.sampleClientMember (File.ReadAllText(path)) name hasVars)
+                |> String.concat "\n"
+
+            let fableGraphqlClientPath = Path.GetFullPath(Path.Combine(config.output, "fable", fileName "GraphqlClient.fs"))
+            let fableClientContent = CodeGen.sampleFableGraphqlClient config.project clientName config.errorType.typeName fableMembers
+            write fableGraphqlClientPath fableClientContent None
+            let sharedFableDocument =
+                if config.createProjectFile
+                then Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
+                else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
+            colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
+
+            let packageReferences = [
+                MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+                MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
+                MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
+                MSBuildXElement.PackageReferenceInclude("Newtonsoft.Json", NewtonsoftJsonVersion)
+            ]
+
+            let files =
+                if config.createProjectFile
+                then MSBuildXElement.Compile($"{config.project}.GraphqlClient.fs")
+                else MSBuildXElement.Compile($"$(MSBuildThisFileDirectory)\{config.project}.GraphqlClient.fs")
+                |> Seq.singleton
+
+            let contentItems = [
+                XElement.ofStringName("Content",
+                    XAttribute.ofStringName("Include", @"*.fs; *.js"),
+                    XAttribute.ofStringName("Exclude", @"**\*.fs.js"),
+                    XAttribute.ofStringName("PackagePath", @"fable\\"))
+            ]
+
+            let projectReferences = [
+                if config.createProjectFile
+                then MSBuildXElement.ProjectReference($"..\\shared\{config.project}.Shared.fsproj")
+                else MSBuildXElement.ProjectReference($"$(MSBuildThisFileDirectory)\{config.project}.props")
+            ]
+
+            let generator =
+                if config.createProjectFile
+                then CodeGen.generateProjectDocument
+                else CodeGen.generatePropsDocument
+
+            let document = generator {
+                NugetPackageReferences = packageReferences
+                Files = files
+                CopyLocalLockFileAssemblies = None
+                ContentItems = contentItems
+                ProjectReferences = projectReferences
+            }
+
+            document.WriteTo(sharedFableDocument)
+            Seq.empty
+        |> Seq.map (fun xel -> xel.Attribute(XName.Get("Include")).Value)
+        |> Ok
 
 [<EntryPoint>]
 let main argv =
@@ -690,6 +702,12 @@ let main argv =
     else
     Console.OutputEncoding <- Encoding.UTF8
     Console.WriteLine(logo)
+
+    let generateOrExit configFile =
+        match readConfig configFile with
+        | Error errorMessage ->
+            colorprintfn "$red[%s]" errorMessage; 1
+        | Ok config -> generate config |> ignore; 0
 
     match argv with
     | [| "--config"; configFile|] ->
@@ -718,6 +736,7 @@ let main argv =
             copyLocalLockFileAssemblies = None
             emitMetadata = false
             asyncReturnType = AsyncReturnType.Async
+            generateAndRestoreTaskPackage = false
         }
 
         runConfig config
@@ -735,6 +754,7 @@ let main argv =
             copyLocalLockFileAssemblies = None
             emitMetadata = false
             asyncReturnType = AsyncReturnType.Async
+            generateAndRestoreTaskPackage = false
         }
 
         runConfig config
@@ -746,12 +766,12 @@ let main argv =
             | None ->
                 colorprintfn "⚠️  No configuration file found. Expecting JSON file $yellow[%s] in the current working directory" "snowflaqe.json"
                 1
-            | Some configFile -> generate configFile
+            | Some configFile -> generateOrExit configFile
 
     | [| "--config"; configFile; "--generate" |] ->
-        generate configFile
+        generateOrExit configFile
     | [| "--generate"; "--config"; configFile |] ->
-        generate configFile
+        generateOrExit configFile
     | _ ->
         printfn "The combination of arguments was not recognized: %A" (List.ofArray argv)
         0

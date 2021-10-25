@@ -1,8 +1,9 @@
 ﻿module SampleHasuraSchema
 
-open FSharp.Data.LiteralProviders
+open System
 open Expecto
 open Snowflaqe
+open FSharp.Data.LiteralProviders
 
 let [<Literal>] firstSchema = TextFile<"./HasuraSchema.json">.Text
 let [<Literal>] typesFileName = "Types.fs"
@@ -81,7 +82,8 @@ let hasuraTests = testList "Hasura" [
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
 
-                let expected = """[<RequireQualifiedAccess>]
+                let expected = """
+[<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables =
@@ -132,7 +134,8 @@ type Root =
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
 
-                let expected = """[<RequireQualifiedAccess>]
+                let expected = """
+[<RequireQualifiedAccess>]
 module rec Test.GetCurrentOrderQuery
 
 type InputVariables =

@@ -1,5 +1,6 @@
 ﻿module SamplePostgraphile
 
+open System
 open System.IO
 open Expecto
 open Snowflaqe

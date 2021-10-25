@@ -1,0 +1,127 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netcoreapp3.1;netstandard2.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackBuildOutputs</TargetsForTfmSpecificContentInPackage>
+    <BuildOutputTargetFolder>build</BuildOutputTargetFolder>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <MinClientVersion>2.8</MinClientVersion>
+  </PropertyGroup>
+
+  <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
+    <PropertyGroup>
+      <BuildSubDir Condition=" '$(TargetFramework)' == 'netcoreapp3.1' ">MSBuildCore\</BuildSubDir>
+      <BuildSubDir Condition=" '$(TargetFramework)' == 'netstandard2.0' ">MSBuildFull\</BuildSubDir>
+    </PropertyGroup>
+    <Error Text="Unrecognized TargetFramework" Condition=" '$(BuildSubDir)' == '' " />
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="
+                              $(OutputPath)Snowflaqe.Tasks.dll*;
+                              $(OutputPath)Snowflaqe.dll*;
+                              $(OutputPath)Fantomas.dll*;
+                              $(OutputPath)FsAst.dll*;
+                              $(OutputPath)Microsoft.Build.Tasks.Core.dll*;
+                              $(OutputPath)FSharp.Compiler.Service.dll*;
+                              $(OutputPath)FSharp.Core.dll*;
+                              $(OutputPath)FSharp.Data.LiteralProviders.Runtime.dll*;
+                              $(OutputPath)GraphQL.dll*;
+                              $(OutputPath)System.Net.Http.Json.dll*;
+                              $(OutputPath)System.Text.Json.dll*;
+                              $(OutputPath)Newtonsoft.Json.dll*;
+                              $(OutputPath)BlackFox.ColoredPrintf.dll*;
+                              $(OutputPath)BlackFox.MasterOfFoo.dll*;
+                              $(OutputPath)GraphQL.NewtonsoftJson.dll*;
+                              $(OutputPath)GraphQL-Parser.dll*;
+                              ">
+        <PackagePath>build\$(BuildSubDir)</PackagePath>
+      </TfmSpecificPackageFile>
+      <!-- Package up the Snowflaqe and its dependencies -->
+      <TfmSpecificPackageFile Include="@(ContentWithTargetPath)" Condition=" '%(ContentWithTargetPath.CopyToOutputDirectory)' == 'PreserveNewest' ">
+        <PackagePath>build\$(BuildSubDir)%(ContentWithTargetPath.TargetPath)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Include="build\**">
+      <Pack>true</Pack>
+      <PackagePath>build\</PackagePath>
+    </None>
+    <None Include="buildCrossTargeting\**">
+      <Pack>true</Pack>
+      <PackagePath>buildCrossTargeting\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemDefinitionGroup>
+    <PackageReference>
+      <PrivateAssets>All</PrivateAssets>
+      <Publish>true</Publish>
+    </PackageReference>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="6.5.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" CopyLocal="true" Publish="false" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" CopyLocal="true" Publish="false" />
+    <PackageReference Include="ModuleInit.Fody" Version="2.1.*" CopyLocal="false" Publish="false" />
+    <PackageReference Include="System.Net.Http.Json" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Verion="5.0.1" Version="5.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; compile; build; native; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+     <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
+    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.10.0" CopyLocal="false" Publish="false" /><!--ExcludeAssets="runtime"-->
+    <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <PackageReference Include="Microsoft.VisualStudio.Setup.Configuration.Interop" Version="1.16.30" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" CopyLocal="false" Publish="false" />
+  </ItemGroup>
+
+  <Target Name="RemoveMicrosoftBuildDllsFromOutput" AfterTargets="ResolveReferences">
+    <!--
+    Don't place build dlls in the output dir or else the ContextAwareTask will resolve them
+    and may not be able to cast the TaskHost to IBuildEngine
+    -->
+    <PropertyGroup>
+      <NonCopyLocalPackageReferences Condition="'%(PackageReference.CopyLocal)' == 'false'">;@(PackageReference);</NonCopyLocalPackageReferences>
+    </PropertyGroup>
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="$(NonCopyLocalPackageReferences.Contains(';%(ReferenceCopyLocalPaths.NuGetPackageId);'))" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Include="build\**" Pack="true" PackagePath="build" />
+    <Content Include="FodyWeavers.xml" />
+    <Compile Include="AssemblyResolver.fs" />
+    <Compile Include="ModuleInitializer.fs" />
+    <Compile Include="ContextAwareTask.fs" />
+    <Compile Include="GenerateGraphQLClient.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Snowflaqe.fsproj" PrivateAssets="All" />
+  </ItemGroup>
+
+</Project>

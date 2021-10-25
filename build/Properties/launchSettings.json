@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Snowflaqe.Build": {
+      "commandName": "Project",
+      "commandLineArgs": "integration"
+    }
+  }
+}
