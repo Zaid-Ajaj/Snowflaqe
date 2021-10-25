@@ -56,8 +56,11 @@ let pack() =
 let packMSBuildTask () =
     Shell.deleteDir (path [ "tasks"; "bin" ])
     Shell.deleteDir (path [ "tasks"; "obj" ])
-    if Shell.Exec(Tools.dotnet, "msbuild /t:pack -p:Configuration=Release", tasks) <> 0 then
-        failwith "Pack failed"
+    if Shell.Exec(Tools.dotnet, "msbuild /t:restore -p:Configuration=Release", tasks) = 0 then
+        if Shell.Exec(Tools.dotnet, "msbuild /t:pack -p:Configuration=Release", tasks) <> 0 then
+            failwith "Packing Snowflaqe.Tasks failed"
+    else
+        failwith "Restoring the tasks project failed"
 
 let publish() =
     Shell.deleteDir (path [ src; "bin" ])
