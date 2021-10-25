@@ -28,41 +28,83 @@ let build() =
     if Shell.Exec(Tools.dotnet, "build --configuration Release", solutionRoot) <> 0
     then failwith "tests failed"
 
+/// <summary>
+/// Packs Snowflaqe CLI and installs it locally for testing
+/// </summary>
 let pack() =
     Shell.deleteDir (path [ "src"; "bin" ])
     Shell.deleteDir (path [ "src"; "obj" ])
-    if Shell.Exec(Tools.dotnet, "pack --configuration Release", src) <> 0 then
+    if Shell.Exec(Tools.dotnet, "msbuild /t:pack Snowflaqe.fsproj -p:IsNuget=true -p:Configuration=Release", src) <> 0 then
         failwith "Pack failed"
     else
         let outputPath = path [ src; "bin"; "Release" ]
-        if Shell.Exec(Tools.dotnet, sprintf "tool install -g snowflaqe --add-source %s" outputPath) <> 0
-        then failwith "Local install failed"
+        try
+            // try get the version to see if Snowflaqe is already installed
+            Shell.Exec("snowflaqe", "--version") |> ignore
+            printfn "Snowflaqe is already installed globally, uninstalling..."
+            if Shell.Exec(Tools.dotnet, "tool uninstall snowflaqe -g") = 0 then
+                if Shell.Exec(Tools.dotnet, sprintf "tool install -g snowflaqe --add-source %s" outputPath) <> 0
+                then failwith "Local install failed"
+            else
+                failwith "Failed to uninstall existing Snowflaqe"
+        with
+        | _ ->
+            // install snowflaqe
+            if Shell.Exec(Tools.dotnet, sprintf "tool install -g snowflaqe --add-source %s" outputPath) <> 0
+            then failwith "Local install failed"
 
 let packMSBuildTask () =
     Shell.deleteDir (path [ "tasks"; "bin" ])
     Shell.deleteDir (path [ "tasks"; "obj" ])
-    if Shell.Exec(Tools.dotnet, "pack --configuration Release", tasks) <> 0 then
+    if Shell.Exec(Tools.dotnet, "msbuild /t:pack -p:Configuration=Release", tasks) <> 0 then
         failwith "Pack failed"
 
 let publish() =
     Shell.deleteDir (path [ src; "bin" ])
     Shell.deleteDir (path [ src; "obj" ])
 
-    if Shell.Exec(Tools.dotnet, "pack --configuration Release", src) <> 0 then
-        failwith "Pack failed"
+    if Shell.Exec(Tools.dotnet, "msbuild /t:restore Snowflaqe.fsproj -p:IsNuget=true -p:Configuration=Release", src) = 0 then
+
+        if Shell.Exec(Tools.dotnet, "msbuild /t:pack Snowflaqe.fsproj -p:IsNuget=true -p:Configuration=Release", src) <> 0 then
+            failwith "Pack failed"
+        else
+            let nugetKey =
+                match Environment.environVarOrNone "NUGET_KEY" with
+                | Some nugetKey -> nugetKey
+                | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
+
+            let nugetPath =
+                Directory.GetFiles(path [ src; "bin"; "Release" ])
+                |> Seq.head
+                |> Path.GetFullPath
+
+            if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, src) <> 0
+            then failwith "Publish failed"
     else
-        let nugetKey =
-            match Environment.environVarOrNone "NUGET_KEY" with
-            | Some nugetKey -> nugetKey
-            | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
+        failwith "Failed to restore Snowflaqe.fsproj"
 
-        let nugetPath =
-            Directory.GetFiles(path [ src; "bin"; "Release" ])
-            |> Seq.head
-            |> Path.GetFullPath
+let publishTasks() =
+    Shell.deleteDir (path [ tasks; "bin" ])
+    Shell.deleteDir (path [ tasks; "obj" ])
 
-        if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, src) <> 0
-        then failwith "Publish failed"
+    if Shell.Exec(Tools.dotnet, "msbuild /t:restore -p:Configuration=Release", tasks) = 0 then
+        if Shell.Exec(Tools.dotnet, "msbuild /t:pack Snowflaqe.Tasks.fsproj -p:Configuration=Release", tasks) <> 0 then
+            failwith "Packing Snowflaqe.Tasks failed"
+        else
+            let nugetKey =
+                match Environment.environVarOrNone "NUGET_KEY" with
+                | Some nugetKey -> nugetKey
+                | None -> failwith "The Nuget API key must be set in a NUGET_KEY environmental variable"
+
+            let nugetPath =
+                Directory.GetFiles(path [ tasks; "bin"; "Release" ])
+                |> Seq.head
+                |> Path.GetFullPath
+
+            if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, tasks) <> 0
+            then failwith "Publishing Snowflaqe.Tasks failed"
+    else
+        failwith "Building Snowflaqe.Tasks failed"
 
 let buildCraftSchema() =
     if Shell.Exec(Tools.dotnet, $"run -f {TargetFramework} -p Snowflaqe.fsproj -- --config ../samples/craft-cms/snowflaqe.json --generate", path [ solutionRoot; "src" ]) <> 0 then
@@ -120,13 +162,18 @@ let generateProjectFile (imports: string seq) (defaultTargets: string option) (t
 
 let generateProjectFileForTask (targetFrameworks : string list) (package :MSBuildPackageReference list) (project : string) (schema: string) (target : string) (queries : string) =
 
-    let packageReferences = [{ Name = "Snowflaqe.Tasks" 
-                               Version = "1.0.0"
-                               PrivateAssets = ValueSome "all"
-                               IncludeAssets = ValueSome "build" };
-                             createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
-                             createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
-                             createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion; ]
+    let packageReferences = [
+        {
+            Name = "Snowflaqe.Tasks"
+            Version = "1.0.0"
+            PrivateAssets = ValueSome "all"
+            IncludeAssets = ValueSome "build"
+        };
+        createPackageReference "FSharp.Control.FusionTasks" "2.4.0";
+        createPackageReference "FSharp.SystemTextJson" Program.FSharpSystemTextJsonVersion;
+        createPackageReference "System.Net.Http.Json" Program.SystemNetHttpJsonVersion;
+    ]
+
     let packageReferences = packageReferences @ package
     XDocument(
         XElement.ofStringName("Project",
@@ -139,13 +186,14 @@ let generateProjectFileForTask (targetFrameworks : string list) (package :MSBuil
                         | [head] -> XElement.ofStringName("TargetFramework", head)
                         | frameworks -> XElement.ofStringName("TargetFrameworks", frameworks |> String.concat(";"))
                 ) :> obj
-                yield XElement.ofStringName("PropertyGroup",
-                seq {
+
+                yield XElement.ofStringName("PropertyGroup", seq {
                     XElement.ofStringName("SnowflaqeProjectName", project)
                     XElement.ofStringName("SnowflaqeQueriesFolder", queries)
                     XElement.ofStringName("SnowflaqeSchemaPath", schema)
                     XElement.ofStringName("SnowflaqeTargetProjectType", target)
                 }) :> obj
+
                 yield XElement.ofStringName("ItemGroup",
                     packageReferences
                     |> Seq.map (fun packageReference -> MSBuildXElement.Target(packageReference) :> obj)) :> obj
@@ -489,7 +537,9 @@ let main (args: string[]) =
         | [| "build"   |] -> build()
         | [| "test"    |] -> test()
         | [| "pack"    |] -> pack()
+        | [| "pack-tasks" |] -> packMSBuildTask()
         | [| "publish" |] -> publish()
+        | [| "publish-tasks" |] -> publishTasks()
         | [| "integration" |] -> integration()
         | [| "build-craft" |] -> buildCraftSchema()
         | [| "build-github" |] -> buildGitHub()

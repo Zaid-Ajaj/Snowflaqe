@@ -77,7 +77,8 @@ let hasuraTests = testList "Hasura" [
                     |> CodeGen.normalizeName
 
                 let generated =
-                    let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
+                    let skipTypeName = false
+                    let queryTypes = CodeGen.generateTypes "Root" query schema skipTypeName
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
@@ -129,7 +130,8 @@ type Root =
                     |> CodeGen.normalizeName
 
                 let generated =
-                    let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
+                    let skipTypeName = false
+                    let queryTypes = CodeGen.generateTypes "Root" query schema skipTypeName
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
@@ -181,7 +183,8 @@ type Root =
                     |> CodeGen.normalizeName
 
                 let generated =
-                    let queryTypes = CodeGen.generateTypes "Root" "ErrorType" query schema
+                    let skipTypeName = false
+                    let queryTypes = CodeGen.generateTypes "Root" query schema skipTypeName
                     let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName

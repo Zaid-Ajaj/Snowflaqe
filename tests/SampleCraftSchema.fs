@@ -292,7 +292,8 @@ let tests = testList "Craft schema" [
                 |> CodeGen.normalizeName
 
             let generated =
-                let queryTypes = CodeGen.generateTypes name "ErrorType" query schema
+                let skipTypeName = false
+                let queryTypes = CodeGen.generateTypes name query schema skipTypeName
                 let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
                 let file = CodeGen.createFile typesFileName [ ns ]
                 CodeGen.formatAst file typesFileName
@@ -316,7 +317,8 @@ let tests = testList "Craft schema" [
               |> CodeGen.normalizeName
 
           let generated =
-              let queryTypes = CodeGen.generateTypes name "ErrorType" query schema
+              let skipTypeName = false
+              let queryTypes = CodeGen.generateTypes name query schema skipTypeName
               let ns = CodeGen.createQualifiedModule [ "Test"; name ] queryTypes
               let file = CodeGen.createFile typesFileName [ ns ]
               CodeGen.formatAst file typesFileName

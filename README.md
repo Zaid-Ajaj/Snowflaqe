@@ -27,9 +27,9 @@ Create a JSON file called `snowflaqe.json` with the following shape:
     ["target"]: "<target>",
     ["errorType"]: <custom error type>,
     ["overrideClientName"]: "<clientName>",
-    ["copyLocalLockFileAssemblies"]: <true|false>,
-    ["emitMetadata"]: <true|false>,
-    ["createProjectFile"]: <true|false>,
+    ["copyLocalLockFileAssemblies"]: <true | false>,
+    ["emitMetadata"]: <true | false>,
+    ["createProjectFile"]: <true | false>,
     ["asyncReturnType"]: <"async" | "task">
     ["serializer"]: <"newtonsoft" | "system">
 }

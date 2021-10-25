@@ -7,10 +7,11 @@
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
     <RollForward>Major</RollForward>
-    <TargetFrameworks>netcoreapp3.1;netstandard2.0</TargetFrameworks>
+    <TargetFramework Condition=" '$(IsNuget)' != '' ">net5.0</TargetFramework>
+    <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0; netcoreapp3.1;net5.0</TargetFrameworks>
     <Version>1.31.0</Version>
     <PackageReleaseNotes>Added MSBuild task</PackageReleaseNotes>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 
   <ItemGroup>

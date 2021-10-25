@@ -11,6 +11,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
@@ -84,9 +85,10 @@
   </ItemGroup>
 
   <ItemGroup>
-     <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
+    <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
     <PackageReference Include="System.Collections.Immutable" Version="5.0.0" CopyLocal="false" Publish="false" />
-    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.10.0" CopyLocal="false" Publish="false" /><!--ExcludeAssets="runtime"-->
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.10.0" CopyLocal="false" Publish="false" />
+    <!--ExcludeAssets="runtime"-->
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" CopyLocal="false" Publish="false" />
   </ItemGroup>
 

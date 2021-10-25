@@ -427,7 +427,15 @@ let rec extractTypeName = function
     | GraphqlFieldType.List fieldType ->
         extractTypeName fieldType
 
-let rec generateFields (typeName: string) (description: string option) (selections: SelectionSet) (schemaType: GraphqlObject) (schema: GraphqlSchema) (visitedTypes: ResizeArray<string>) (types: Dictionary<string,SynModuleDecl>)  =
+let rec generateFields
+    (typeName: string)
+    (description: string option)
+    (selections: SelectionSet)
+    (schemaType: GraphqlObject)
+    (schema: GraphqlSchema)
+    (visitedTypes: ResizeArray<string>)
+    (types: Dictionary<string,SynModuleDecl>)
+    (skipTypeName: bool) =
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [ ]
@@ -470,7 +478,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                     let typeName = findNextTypeName fieldName fieldTypeName nestedFields visitedTypes
 
                     visitedTypes.Add(typeName)
-                    let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types
+                    let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectDef schema visitedTypes types skipTypeName
                     types.Add(typeName, nestedType)
                     let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
                     { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
@@ -495,7 +503,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                         }
 
                         visitedTypes.Add(typeName)
-                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectTypeDef schema visitedTypes types
+                        let nestedType = generateFields typeName fieldInfo.description nestedSelectionSet objectTypeDef schema visitedTypes types skipTypeName
                         types.Add(typeName, nestedType)
                         let recordField = SynFieldRcd.Create(fieldName, createFSharpType (Some typeName) fieldInfo.fieldType)
                         { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
@@ -512,7 +520,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             | Some (GraphqlType.Object objectDef) ->
                                 let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
                                 visitedTypes.Add caseName
-                                let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types
+                                let nestedType = generateFields objectDef.name objectDef.description fragment.selection objectDef schema visitedTypes types skipTypeName
                                 types.Add(caseName, nestedType)
                                 localUnionCases.Add(fragment.typeCondition, caseName)
 
@@ -600,7 +608,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                             | Some (GraphqlType.Object objectDef) ->
                                 let caseName = findNextTypeName fieldName fragment.typeCondition fields visitedTypes
                                 visitedTypes.Add caseName
-                                let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
+                                let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types skipTypeName
                                 types.Add(caseName, nestedType)
                                 localUnionCases.Add(fragment.typeCondition, caseName)
 
@@ -613,7 +621,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
 
                                 let caseName = findNextTypeName fieldName fragment.typeCondition fields visitedTypes
                                 visitedTypes.Add caseName
-                                let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
+                                let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types skipTypeName
                                 types.Add(caseName, nestedType)
                                 localUnionCases.Add(interfaceDef.name, caseName)
                             | _ ->
@@ -654,7 +662,7 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                         | Some (GraphqlType.Object objectDef) ->
                             let caseName = findNextTypeName fieldName fragment.typeCondition [ ] visitedTypes
                             visitedTypes.Add caseName
-                            let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types
+                            let nestedType = generateFields caseName objectDef.description fragment.selection objectDef schema visitedTypes types skipTypeName
                             types.Add(caseName, nestedType)
                             localUnionCases.Add(fragment.typeCondition, caseName)
 
@@ -694,11 +702,14 @@ let rec generateFields (typeName: string) (description: string option) (selectio
                     ()
 
             | Some fieldInfo ->
-                // a field that cannot expand which means it was a scalar
-                let fieldName = field.alias |> Option.defaultValue field.name
-                let recordFieldType = createFSharpType None fieldInfo.fieldType
-                let recordField = SynFieldRcd.Create(fieldName, recordFieldType)
-                { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
+                if fieldInfo.fieldName = "__typename" && skipTypeName then
+                    ()
+                else
+                    // a field that cannot expand which means it was a scalar
+                    let fieldName = field.alias |> Option.defaultValue field.name
+                    let recordFieldType = createFSharpType None fieldInfo.fieldType
+                    let recordField = SynFieldRcd.Create(fieldName, recordFieldType)
+                    { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
     ]
 
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
@@ -781,7 +792,7 @@ let generateInputVariablesType (variables: GraphqlVariable list) (schema: Graphq
     let simpleType = SynTypeDefnSimpleReprRcd.Record recordRepresentation
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
-let generateTypes (rootQueryName: string) (errorTypeName: string) (document: GraphqlDocument) (schema: GraphqlSchema) : SynModuleDecl list =
+let generateTypes (rootQueryName: string) (document: GraphqlDocument) (schema: GraphqlSchema) (skipTypeName: bool) : SynModuleDecl list =
     match Query.findOperation (Query.expandDocumentFragments document) with
     | None -> [ ]
     | Some (GraphqlOperation.Query query) ->
@@ -797,7 +808,7 @@ let generateTypes (rootQueryName: string) (errorTypeName: string) (document: Gra
 
             let visitedTypes = ResizeArray<string> [ yield! inputTypes; "InputVariables" ]
             let allTypes = Dictionary<string, SynModuleDecl>()
-            let rootType = generateFields rootQueryName queryType.description query.selectionSet queryType schema visitedTypes allTypes
+            let rootType = generateFields rootQueryName queryType.description query.selectionSet queryType schema visitedTypes allTypes skipTypeName
             [
                 if query.variables.Length > 0 then yield generateInputVariablesType query.variables schema
 
@@ -820,7 +831,7 @@ let generateTypes (rootQueryName: string) (errorTypeName: string) (document: Gra
 
             let visitedTypes = ResizeArray<string> [ yield! inputTypes; "InputVariables" ]
             let allTypes = Dictionary<string, SynModuleDecl>()
-            let rootType = generateFields rootQueryName mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes
+            let rootType = generateFields rootQueryName mutationType.description mutation.selectionSet mutationType schema visitedTypes allTypes skipTypeName
             [
                 if mutation.variables.Length > 0 then yield generateInputVariablesType mutation.variables schema
 
@@ -1017,19 +1028,19 @@ let generateProjectDocument
                 XElement.ofStringName("ItemGroup", projectReferences)
         }))
 
-type NuGetSourse = {
+type NugetSource = {
     Name: string
     Link: string
 }
 
-let generateNugetConfig (packageReferencess : NuGetSourse seq)  =
+let generateNugetConfig (packageReferences : NugetSource seq)  =
     XDocument(
         XElement.ofStringName("configuration",
             XElement.ofStringName("packageSources",
                 seq {
                     XElement.Parse("<clear/>")
                     XElement.Parse("<add key='nuget.org' value='https://api.nuget.org/v3/index.json' protocolVersion='3' />")
-                    yield! packageReferencess |> Seq.map (fun i -> XElement.Parse($"<add key='{i.Name}' value='{i.Link}' />"))
+                    yield! packageReferences |> Seq.map (fun i -> XElement.Parse($"<add key='{i.Name}' value='{i.Link}' />"))
         })))
 
 let addLines (query: string) =
@@ -1128,14 +1139,14 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
                     && responseJson.["errors"].HasValues
 
                 if errorsReturned then
-                    let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                    let response = responseJson.ToObject<GraphqlErrorResponse>(serializer)
                     return Error response.errors
                 else
-                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(JsonSerializer.Create(settings))
+                    let response = responseJson.ToObject<GraphqlSuccessResponse<{queryName}.Query>>(serializer)
                     return Ok response.data
 
             | errorStatus ->
-                let response = responseJson.ToObject<GraphqlErrorResponse>(JsonSerializer.Create(settings))
+                let response = responseJson.ToObject<GraphqlErrorResponse>(serializer)
                 return Error response.errors
         }}
 
@@ -1157,14 +1168,24 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
         then $"member this.{queryName}({args}) = Async.RunSynchronously(Async.AwaitTask(this.{queryName}Async{queryArgs}))"
         else $"member this.{queryName}({args}) = Async.RunSynchronously(this.{queryName}Async{queryArgs})"
 
+    let awaitTask =
+        if not useTasks // we are using async
+        then " |> Async.AwaitTask"
+        else ""
+
+    let awaitValueTask =
+        if not useTasks // we are using async
+        then ".AsTask() |> Async.AwaitTask"
+        else ""
+
     $"""
     member _.{queryName}Async({args}) =
         {builder} {{
             let query = {query}
 
             {requestBody}
-            let! responseContent = response.Content.ReadAsStreamAsync() |> Async.AwaitTask
-            let! responseJson = JsonSerializer.DeserializeAsync<JsonElement>(responseContent, options)
+            let! responseContent = response.Content.ReadAsStreamAsync(){awaitTask}
+            let! responseJson = JsonSerializer.DeserializeAsync<JsonElement>(responseContent, options){awaitValueTask}
             responseContent.Seek(0L, SeekOrigin.Begin) |> ignore
 
             match response.IsSuccessStatusCode with
@@ -1175,14 +1196,14 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
                     | false, _ -> false
 
                 if errorsReturned then
-                    let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse> (responseContent, options)
+                    let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse>(responseContent, options){awaitValueTask}
                     return Error response.errors
                 else
-                    let! response = JsonSerializer.DeserializeAsync<GraphqlSuccessResponse<{queryName}.Query>> (responseContent, options)
+                    let! response = JsonSerializer.DeserializeAsync<GraphqlSuccessResponse<{queryName}.Query>>(responseContent, options){awaitValueTask}
                     return Ok response.data
 
             | errorStatus ->
-                let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse> (responseContent, options)
+                let! response = JsonSerializer.DeserializeAsync<GraphqlErrorResponse>(responseContent, options){awaitValueTask}
                 return Error response.errors
         }}
 
@@ -1207,7 +1228,7 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 type {clientName}(url: string, headers: Header list) =
     /// <summary>Creates {clientName} specifying list of headers</summary>
     /// <remarks>
-    /// In order to enable all F# types serialization and deserialization, this client uses Fable.SimpleJson from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a>
+    /// In order to enable all F# types serialization and deserialization, this client uses Fable.SimpleJson from <a href="https://github.com/Zaid-Ajaj/Fable.SimpleJson">Fable.SimpleJson</a>
     /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
     new(url: string) = {clientName}(url, [ ])
@@ -1231,92 +1252,72 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 type {clientName} private (url: string, options: JsonSerializerOptions, httpClient: HttpClient) =
     static let defaultOptions : JsonSerializerOptions =
         let options = JsonSerializerOptions ()
-        options.Converters.Add (
-            JsonFSharpConverter(
-                JsonUnionEncoding.InternalTag ||| JsonUnionEncoding.NamedFields
-                ||| JsonUnionEncoding.UnwrapSingleCaseUnions
-                ||| JsonUnionEncoding.UnwrapRecordCases
-                ||| JsonUnionEncoding.UnwrapOption, "kind"))
+        let encoding =
+            JsonUnionEncoding.InternalTag
+            ||| JsonUnionEncoding.UnwrapRecordCases
+            ||| JsonUnionEncoding.UnwrapFieldlessTags
+            ||| JsonUnionEncoding.UnwrapOption
+            ||| JsonUnionEncoding.AdjacentTag
+        let converter = JsonFSharpConverter(encoding, unionTagName="__typename")
+        options.Converters.Add(converter)
         options
 
-    /// <summary>Creates SpotifyGraphqlClient specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
+    /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <param name="url">GraphQL endpoint URL</param>
+    /// <param name="httpClient">The HttpClient to use for issuing the HTTP requests</param>
+    /// <param name="options">The JSON serialization options</param>
     new(url: string, httpClient: HttpClient, options: JsonSerializerOptions) =
-        SpotifyGraphqlClient(url, options, httpClient)
+        {clientName}(url, options, httpClient)
 
     /// <summary>Creates {clientName}</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
+    /// <param name="options">The JSON serialization options</param>
     new(url: string, options: JsonSerializerOptions) = {clientName}(url, new HttpClient(), defaultOptions)
 
     /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
+    /// <param name="httpClient">The HttpClient to use for issuing the HTTP requests</param>
     new(url: string, httpClient: HttpClient) = {clientName}(url, httpClient, defaultOptions)
 
     /// <summary>Creates {clientName}</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
     new(url: string) =
         {clientName}(url, new HttpClient(), defaultOptions)
 
     /// <summary>Creates {clientName} specifying <see href="T:System.Text.Json.Serialization.JsonFSharpOptions">JsonFSharpOptions</see> instance</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
+    /// <param name="fsOptions">The JSON serialization options</param>
     new(url: string, fsOptions: JsonFSharpOptions) =
         let options = defaultOptions
         options.Converters.Add (JsonFSharpConverter(fsOptions))
         {clientName}(url, new HttpClient(), options)
 
     /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
     new(httpClient: HttpClient, options: JsonSerializerOptions) =
-        if httpClient.BaseAddress <> null then
-            {clientName}(httpClient.BaseAddress.OriginalString, httpClient, options)
+        if httpClient <> null then
+            if httpClient.BaseAddress <> null then
+                {clientName}(httpClient.BaseAddress.OriginalString, httpClient, options)
+            else
+                raise(ArgumentNullException("BaseAddress of the HttpClient cannot be null for that constructor that only accepts HttpClient without the url parameter"))
+                {clientName}(String.Empty, httpClient, options)
         else
-            raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for that constructor that only accepts HttpClient without the url parameter")
-            {clientName}(String.Empty, httpClient, options)
+            raise(ArgumentNullException("The input HttpClient cannot be null for constructor of {clientName}"))
+            {clientName}(String.Empty, httpClient, defaultOptions)
 
     /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
-    /// <remarks>
-    /// In order to enable all F# types serialization and deserealization <b>you must</b> add
-    /// <see href="T:System.Text.Json.Serialization.JsonFSharpConverter">JsonFSharpConverter</see>
-    /// from <a href="https://github.com/Tarmil/FSharp.SystemTextJson">FSharp.SystemTextJson</a> NuGet package yourself
-    /// </remarks>
-    /// <param name="httpClient"><see href="HttpClient">HttpClient</see> instance with 
+    /// <param name="httpClient"><see href="HttpClient">HttpClient</see> instance with
     /// <strong>BaseAddress set to GraphQL endpoint URL</strong></param>
     /// <exception cref="T:System.ArgumentNullException">when httpClient parameter is null</exception>
     /// <exception cref="T:System.ArgumentNullException">when httpClient.<see href="P:HttpClient.BaseAddress">BaseAddress</see> property is null</exception>
     new(httpClient: HttpClient) =
-        if httpClient.BaseAddress <> null then
-            {clientName}(httpClient.BaseAddress.OriginalString, httpClient, defaultOptions)
+        if httpClient <> null then
+            if httpClient.BaseAddress <> null then
+                {clientName}(httpClient.BaseAddress.OriginalString, httpClient, defaultOptions)
+            else
+                raise(ArgumentNullException("BaseAddress cannot be null for constructor without the url parameter"))
+                {clientName}(String.Empty, httpClient, defaultOptions)
         else
-            raise <| System.ArgumentNullException("BaseAddress cannot be null for constructor without the url parameter")
+            raise(ArgumentNullException("The input HttpClient cannot be null for constructor of {clientName}"))
             {clientName}(String.Empty, httpClient, defaultOptions)
 
 {members}"""
@@ -1329,7 +1330,6 @@ open Newtonsoft.Json.Linq
 open Fable.Remoting.Json
 open System
 open System.Net.Http
-open System.Net.Http.Json
 open System.Text
 open System.IO
 {if useTasks then "open FSharp.Control.Tasks" else ""}
@@ -1348,16 +1348,17 @@ type {clientName} private (httpClient: HttpClient, url: string) =
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization
     /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
-    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
+    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.Remoting.Json</a> NuGet package
     /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
+    /// <param name="httpClient">The HttpClient to use for issuing the HTTP requests</param>
     new(url: string, httpClient: HttpClient) = {clientName}(httpClient, url)
 
     /// <summary>Creates {clientName} with a new <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization
     /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
-    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
+    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.Remoting.Json</a> NuGet package
     /// </remarks>
     /// <param name="url">GraphQL endpoint URL</param>
     new(url: string) = {clientName}(url, new HttpClient())
@@ -1366,13 +1367,14 @@ type {clientName} private (httpClient: HttpClient, url: string) =
     /// <remarks>
     /// In order to enable all F# types serialization and deserealization
     /// <see href="T:Fable.Remoting.Json.FableJsonConverter">FableJsonConverter</see> is added
-    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.SimpleJson</a> NuGet package
+    /// from <a href="https://github.com/Zaid-Ajaj/Fable.Remoting">Fable.Remoting.Json</a> NuGet package
     /// </remarks>
+    /// <param name="httpClient">The HttpClient to use for issuing the HTTP requests</param>
     new(httpClient: HttpClient) =
         if httpClient.BaseAddress <> null then
             {clientName}(httpClient.BaseAddress.OriginalString, httpClient)
         else
-            raise <| System.ArgumentNullException("BaseAddress of the HttpClient cannot be null for the constructor that only accepts a HttpClient")
+            raise(ArgumentNullException("BaseAddress of the HttpClient cannot be null for the constructor that only accepts a HttpClient"))
             {clientName}(String.Empty, httpClient)
 
     {members}"""
