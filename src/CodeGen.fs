@@ -960,7 +960,7 @@ let createDummyStringEnumAttribute() =
 
 type StringEnumAttribute() =
     inherit System.Attribute()
-    """
+"""
 
 type DocumentGenerationData =
     { NugetPackageReferences: XElement seq
@@ -1060,7 +1060,7 @@ let private toPascalCase str =
 let sampleClientMember query queryName hasVariables =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
-    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let query = $"\"\"\"{Environment.NewLine}" + addLines query + "{Environment.NewLine}            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     $"""    member _.{queryName}({args}) =
         async {{
@@ -1107,7 +1107,7 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
     let builder = if useTasks then "task" else "async"
-    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let query = $"\"\"\"{Environment.NewLine}" + addLines query + "{Environment.NewLine}            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let requestBody =
         if useTasks
@@ -1123,7 +1123,6 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
     member _.{queryName}Async({args}) =
         {builder} {{
             let query = {query}
-
             {requestBody}
 
             let! responseContent = Async.AwaitTask(response.Content.ReadAsStreamAsync())
@@ -1156,7 +1155,7 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
     let builder = if useTasks then "task" else "async"
-    let query = "\"\"\"\n" + addLines query + "\n            \"\"\""
+    let query = $"\"\"\"{Environment.NewLine}" + addLines query + "{Environment.NewLine}            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let requestBody =
         if useTasks
@@ -1244,7 +1243,7 @@ open System.Net.Http.Json
 open System.Text
 open System.Text.Json
 open System.Text.Json.Serialization
-{if useTasks then "open FSharp.Control.Tasks\n" else ""}
+{if useTasks then "open FSharp.Control.Tasks" + Environment.NewLine else ""}
 type GraphqlInput<'T> = {{ query: string; variables: Option<'T> }}
 type GraphqlSuccessResponse<'T> = {{ data: 'T }}
 type GraphqlErrorResponse = {{ errors: {errorType} list }}
@@ -1319,7 +1318,6 @@ type {clientName} private (url: string, options: JsonSerializerOptions, httpClie
         else
             raise(ArgumentNullException("The input HttpClient cannot be null for constructor of {clientName}"))
             {clientName}(String.Empty, httpClient, defaultOptions)
-
 {members}"""
 
 let private sampleFSharpNewtonsoftGraphqlClient projectName clientName errorType members useTasks =
@@ -1376,7 +1374,6 @@ type {clientName} private (httpClient: HttpClient, url: string) =
         else
             raise(ArgumentNullException("BaseAddress of the HttpClient cannot be null for the constructor that only accepts a HttpClient"))
             {clientName}(String.Empty, httpClient)
-
     {members}"""
 
 let sampleFSharpGraphqlClient (projectName: string) (clientName: string) errorType members serializer =
