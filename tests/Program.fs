@@ -647,6 +647,43 @@ type Sort =
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
 
+        test "Enum cases with 'Tags' is escaped" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Sort {
+                    Tags,
+                    Other
+                }
+
+                type Query {
+                    sorting: Sort
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+                let generated =
+                    let globalTypes = CodeGen.createGlobalTypes schema
+                    let ns = CodeGen.createNamespace [ "Test" ] globalTypes
+                    let file = CodeGen.createFile typesFileName [ ns ]
+                    CodeGen.formatAst file typesFileName
+
+                let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Sort =
+    | [<CompiledName "Tags">] TAGS
+    | [<CompiledName "Other">] Other
+"""
+
+                Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
+        }        
+
         test "Enum types can be converted into F# unions maintaining text casing" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {

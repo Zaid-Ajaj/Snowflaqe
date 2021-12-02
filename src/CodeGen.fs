@@ -125,7 +125,10 @@ let createEnumType (enumType: GraphqlEnum) =
         for value in values ->
             let attrs = [ SynAttributeList.Create(compiledName value.name) ]
             let docs = PreXmlDoc.Create value.description
-            SynUnionCase.UnionCase(attrs, Ident.Create (normalizeEnumName value.name), SynUnionCaseType.UnionCaseFields [], docs, None, Range.range0)
+            let enumCase = normalizeEnumName value.name
+            // "Tags" cannot be used as a name for a union case
+            let enumCaseIdent = if enumCase = "Tags" then "TAGS"else enumCase
+            SynUnionCase.UnionCase(attrs, Ident.Create enumCaseIdent, SynUnionCaseType.UnionCaseFields [], docs, None, Range.range0)
     ])
 
     let simpleType = SynTypeDefnSimpleReprRcd.Union(enumRepresentation)
