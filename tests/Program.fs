@@ -562,7 +562,8 @@ let queryParsing =
             | Error error -> failwith error
             | Ok schema ->
                 let generated =
-                    let globalTypes = CodeGen.createGlobalTypes schema
+                    let normalizeEnumCases = true
+                    let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
                     let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
@@ -630,7 +631,8 @@ type LoginCredentials =
             | Error error -> failwith error
             | Ok schema ->
                 let generated =
-                    let globalTypes = CodeGen.createGlobalTypes schema
+                    let normalizeEnumCases = true
+                    let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
                     let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
@@ -667,7 +669,8 @@ type Sort =
             | Error error -> failwith error
             | Ok schema ->
                 let generated =
-                    let globalTypes = CodeGen.createGlobalTypes schema
+                    let normalizeEnumCases = true
+                    let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
                     let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                     let file = CodeGen.createFile typesFileName [ ns ]
                     CodeGen.formatAst file typesFileName
@@ -708,7 +711,8 @@ type Sort =
             | Ok schema ->
 
             let generated =
-                let globalTypes = CodeGen.createGlobalTypes schema
+                let normalizeEnumCases = true
+                let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
                 let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                 let file = CodeGen.createFile typesFileName [ ns ]
                 CodeGen.formatAst file typesFileName
@@ -751,7 +755,8 @@ type Sort =
             | Ok schema ->
 
             let generated =
-                let globalTypes = CodeGen.createGlobalTypes schema
+                let normalizeEnumCases = true
+                let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
                 let ns = CodeGen.createNamespace [ "Test" ] globalTypes
                 let file = CodeGen.createFile typesFileName [ ns ]
                 CodeGen.formatAst file typesFileName
@@ -765,6 +770,44 @@ type Sort =
     | [<CompiledName "transport_duration">] TransportDuration
     | [<CompiledName "stationary_location_significance_day_part_duration">] StationaryLocationSignificanceDayPartDuration
     | [<CompiledName "stationary_location_significance_day_part_day_count">] StationaryLocationSignificanceDayPartDayCount
+"""
+
+            Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
+        }
+
+        test "non-normalized enum cases preserve their value" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum Sort {
+                    FIRST_VALUE,
+                    SECOND_VALUE
+                }
+
+                type Query {
+                    sorting: Sort
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+
+            let generated =
+                let normalizeEnumCases = false
+                let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
+                let ns = CodeGen.createNamespace [ "Test" ] globalTypes
+                let file = CodeGen.createFile typesFileName [ ns ]
+                CodeGen.formatAst file typesFileName
+
+            let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type Sort =
+    | [<CompiledName "FIRST_VALUE">] FIRST_VALUE
+    | [<CompiledName "SECOND_VALUE">] SECOND_VALUE
 """
 
             Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"

@@ -9,8 +9,8 @@
     <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net5.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0; netcoreapp3.1;net5.0</TargetFrameworks>
-    <Version>1.33.0</Version>
-    <PackageReleaseNotes>Escape Tags union case because it is reserved</PackageReleaseNotes>
+    <Version>1.35.0</Version>
+    <PackageReleaseNotes>Added boolean option to 'normalizeEnumCases'</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 

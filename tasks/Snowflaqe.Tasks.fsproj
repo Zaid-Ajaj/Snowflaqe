@@ -11,7 +11,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.2.0</Version>
+    <Version>1.4.0</Version>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">

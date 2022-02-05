@@ -38,6 +38,7 @@ type Config = {
     overrideClientName: string option
     copyLocalLockFileAssemblies: bool option
     emitMetadata: bool
+    normalizeEnumCases: bool
     asyncReturnType: AsyncReturnType
     generateAndRestoreTaskPackage: bool
 }
@@ -102,6 +103,8 @@ let readConfig (file: string) =
                 Error "The 'copyLocalLockFileAssemblies' configuration element must be a boolean"
             elif not (isNull parsedJson.["emitMetadata"]) && parsedJson.["emitMetadata"].Type <> JTokenType.Boolean then
                 Error "The 'emitMetadata' configuration element must be a boolen"
+            elif not (isNull parsedJson.["normalizeEnumCases"]) && parsedJson.["normalizeEnumCases"].Type <> JTokenType.Boolean then
+                Error "The 'normalizeEnumCases' configuration element must be a boolen"
             elif not (isNull parsedJson.["asyncReturnType"]) && (parsedJson.["asyncReturnType"].ToObject<string>().ToLower() <> "async" && parsedJson.["asyncReturnType"].ToObject<string>().ToLower() <> "task") then
                 Error "The 'asyncReturnType' configuration element must be either 'async' (default), or 'task'"
             elif (not (isNull parsedJson.["asyncReturnType"]) && (parsedJson.["asyncReturnType"].ToObject<string>().ToLower() = "task")) && (isNull parsedJson.["target"] || parsedJson.["target"].ToObject<string>().ToLower() = "fable") then
@@ -177,6 +180,11 @@ let readConfig (file: string) =
                         then false
                         else parsedJson.["emitMetadata"].ToObject<bool>()
 
+                    let normalizeEnumCases =
+                        if isNull parsedJson.["normalizeEnumCases"]
+                        then true
+                        else parsedJson.["normalizeEnumCases"].ToObject<bool>()
+
                     let generateAndRestoreTaskPackage =
                         if isNull parsedJson.["generateAndRestoreTaskPackage"]
                         then false
@@ -197,6 +205,7 @@ let readConfig (file: string) =
                             overrideClientName = overrideClientName
                             copyLocalLockFileAssemblies = copyLocalLockFileAssemblies
                             emitMetadata = emitMetadata
+                            normalizeEnumCases = normalizeEnumCases
                             asyncReturnType = asyncReturnType
                             generateAndRestoreTaskPackage = generateAndRestoreTaskPackage
                         }
@@ -344,10 +353,10 @@ let generate (config: Config) =
         let generatedModules = ResizeArray<string * string * bool>()
 
         let globalTypes = [
-            yield! CodeGen.createGlobalTypes schema
+            yield! (CodeGen.createGlobalTypes schema config.normalizeEnumCases)
             yield config.errorType.typeDefinition
         ]
-
+ 
         let typesFileName = "Types.fs"
         let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
         let file = CodeGen.createFile typesFileName [ globalTypesModule ]
@@ -653,7 +662,7 @@ let generate (config: Config) =
                 if config.createProjectFile
                 then Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".Fable.fsproj"))
                 else Path.GetFullPath(Path.Combine(config.output, "fable", config.project + ".props"))
-            colorprintfn "✏️  Generating Fable $green[%s]" sharedFableDocument
+            colorprintfn "✏️ Generating Fable $green[%s]" sharedFableDocument
 
             let packageReferences = [
                 MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
@@ -739,6 +748,7 @@ let main argv =
             createProjectFile = true
             copyLocalLockFileAssemblies = None
             emitMetadata = false
+            normalizeEnumCases = true
             asyncReturnType = AsyncReturnType.Async
             generateAndRestoreTaskPackage = false
         }
@@ -757,6 +767,7 @@ let main argv =
             serializer = SerializerType.System;
             copyLocalLockFileAssemblies = None
             emitMetadata = false
+            normalizeEnumCases = true
             asyncReturnType = AsyncReturnType.Async
             generateAndRestoreTaskPackage = false
         }

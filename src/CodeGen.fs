@@ -101,7 +101,7 @@ type SynAttribute with
            TypeName = LongIdentWithDots(List.map Ident.Create idents, [ ])
         }
 
-let createEnumType (enumType: GraphqlEnum) =
+let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [
@@ -125,7 +125,10 @@ let createEnumType (enumType: GraphqlEnum) =
         for value in values ->
             let attrs = [ SynAttributeList.Create(compiledName value.name) ]
             let docs = PreXmlDoc.Create value.description
-            let enumCase = normalizeEnumName value.name
+            let enumCase = 
+                if normalizeEnumCases
+                then normalizeEnumName value.name
+                else value.name
             // "Tags" cannot be used as a name for a union case
             let enumCaseIdent = if enumCase = "Tags" then "TAGS"else enumCase
             SynUnionCase.UnionCase(attrs, Ident.Create enumCaseIdent, SynUnionCaseType.UnionCaseFields [], docs, None, Range.range0)
@@ -357,13 +360,13 @@ let createInputRecord (input: GraphqlInputObject) =
 
 
 
-let createGlobalTypes (schema: GraphqlSchema) =
+let createGlobalTypes (schema: GraphqlSchema) (normalizeEnumCases: bool) =
     let enums =
         schema.types
         |> List.choose (function
             | GraphqlType.Enum enumType when not (enumType.name.StartsWith "__")  -> Some enumType
             | _ -> None)
-        |> List.map createEnumType
+        |> List.map (fun gqlType -> createEnumType gqlType normalizeEnumCases)
 
     let inputs =
         schema.types
@@ -1063,7 +1066,7 @@ let private toPascalCase str =
 let sampleClientMember query queryName hasVariables =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
-    let query = $"\"\"\"{Environment.NewLine}" + addLines query + "{Environment.NewLine}            \"\"\""
+    let query = $"\"\"\"{Environment.NewLine}" + addLines query + $"{Environment.NewLine}            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     $"""    member _.{queryName}({args}) =
         async {{
@@ -1110,7 +1113,7 @@ let sampleFSharpNewtonsoftClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
     let builder = if useTasks then "task" else "async"
-    let query = $"\"\"\"{Environment.NewLine}" + addLines query + "{Environment.NewLine}            \"\"\""
+    let query = $"\"\"\"{Environment.NewLine}" + addLines query + $"{Environment.NewLine}            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let requestBody =
         if useTasks
@@ -1158,7 +1161,7 @@ let sampleFSharpSystemClientMember query queryName hasVariables useTasks =
     let queryName = toPascalCase queryName
     let args = if hasVariables then "input: " + queryName + ".InputVariables" else ""
     let builder = if useTasks then "task" else "async"
-    let query = $"\"\"\"{Environment.NewLine}" + addLines query + "{Environment.NewLine}            \"\"\""
+    let query = $"\"\"\"{Environment.NewLine}" + addLines query + $"{Environment.NewLine}            \"\"\""
     let body = if hasVariables then "{ query = query; variables = Some input }" else "{ query = query; variables = None }"
     let requestBody =
         if useTasks

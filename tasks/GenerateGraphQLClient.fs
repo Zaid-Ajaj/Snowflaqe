@@ -69,6 +69,7 @@ type public GenerateGraphQLClient() =
               overrideClientName = None
               copyLocalLockFileAssemblies = None
               emitMetadata = this.EmitMetadata
+              normalizeEnumCases = true
               generateAndRestoreTaskPackage = true }
 
         use buffer = new MemoryStream()
