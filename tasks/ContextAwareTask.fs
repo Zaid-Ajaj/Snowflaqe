@@ -20,8 +20,8 @@ type public ContextAwareTask () as cat =
     abstract ManagedDllDirectory : string with get
     default _.ManagedDllDirectory
         with get() =
-            let codeBase = typeInfo.Assembly.CodeBase
-            let uri = new Uri(codeBase)
+            let location = typeInfo.Assembly.Location
+            let uri = new Uri(location)
             Path.GetDirectoryName(uri.LocalPath)
 
     abstract UnmanagedDllDirectory : string with get

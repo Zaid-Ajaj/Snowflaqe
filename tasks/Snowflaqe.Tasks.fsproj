@@ -11,8 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.4.1</Version>
-    <PackageReleaseNotes>Fixed issue with MSBuild Task bringing reference to FSharp.Core 5.0.1</PackageReleaseNotes>
+    <Version>1.5.0</Version>
+    <PackageReleaseNotes>Updated to FSC 41.0.1</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
@@ -68,18 +68,18 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fody" Version="6.5.1">
+    <PackageReference Include="Fody" Version="6.6.*">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" CopyLocal="true" Publish="false" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.1" CopyLocal="true" Publish="false" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" CopyLocal="true" Publish="false" />
     <PackageReference Include="ModuleInit.Fody" Version="2.1.*" CopyLocal="false" Publish="false" />
-    <PackageReference Include="System.Net.Http.Json" Version="5.0.0" />
+    <PackageReference Include="System.Net.Http.Json" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Verion="5.0.1" Version="5.0.1">
+    <PackageReference Update="FSharp.Core" Verion="6.0.1" Version="6.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; compile; build; native; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -87,8 +87,8 @@
 
   <ItemGroup>
     <!--MSBuild and dependencies only acquired through MSBuild shall not make it into the final package-->
-    <PackageReference Include="System.Collections.Immutable" Version="5.0.0" CopyLocal="false" Publish="false" />
-    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="16.10.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="17.0.0" CopyLocal="false" Publish="false" />
     <!--ExcludeAssets="runtime"-->
     <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" CopyLocal="false" Publish="false" />
   </ItemGroup>
@@ -98,7 +98,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="4.4.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="6.0.0" CopyLocal="false" Publish="false" />
   </ItemGroup>
 
   <Target Name="RemoveMicrosoftBuildDllsFromOutput" AfterTargets="ResolveReferences">

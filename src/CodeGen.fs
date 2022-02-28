@@ -8,23 +8,17 @@ open System.Text
 open System.Text.RegularExpressions
 open System.Xml
 open System.Xml.Linq
-open FsAst
 open Fantomas
 open Fantomas.FormatConfig
-open FSharp.Compiler.SyntaxTree
-open FSharp.Compiler.Text
-open FSharp.Compiler.XmlDoc
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.Xml
+open FsAst.AstRcd
+open FsAst
+open FSharp.Compiler.Text.Range
 open GraphQLParser.AST
 open Newtonsoft.Json.Linq
 open LinqToXmlExtensions
-open System.Xml
-open System.Xml.Linq
-open StringBuffer
-open FSharp.Compiler.Text
 open Snowflaqe.Types
-
-type range = FSharp.Compiler.Text.Range
-let range0 = FSharp.Compiler.Text.Range.Zero
 
 let compiledName (name: string) = SynAttribute.Create("CompiledName", name)
 
@@ -95,10 +89,10 @@ type SynAttribute with
     static member Create(idents: string list) : SynAttribute =
         {
            AppliesToGetterAndSetter = false
-           ArgExpr = SynExpr.Const (SynConst.Unit, Range.range0)
-           Range = Range.range0
+           ArgExpr = SynExpr.Const (SynConst.Unit, range0)
+           Range = range0
            Target = None
-           TypeName = LongIdentWithDots(List.map Ident.Create idents, [ ])
+           TypeName = LongIdentWithDots(List.map (fun id -> Ident(id, range0)) idents, [ ])
         }
 
 let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
@@ -113,10 +107,10 @@ let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
 
         Id = [ Ident.Create enumType.name ]
         XmlDoc = PreXmlDoc.Create enumType.description
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
-        Range = Range.range0
+        Range = range0
     }
 
     let values = enumType.values |> List.filter (fun enumValue -> not enumValue.deprecated)
@@ -125,13 +119,13 @@ let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
         for value in values ->
             let attrs = [ SynAttributeList.Create(compiledName value.name) ]
             let docs = PreXmlDoc.Create value.description
-            let enumCase = 
+            let enumCase =
                 if normalizeEnumCases
                 then normalizeEnumName value.name
                 else value.name
             // "Tags" cannot be used as a name for a union case
             let enumCaseIdent = if enumCase = "Tags" then "TAGS"else enumCase
-            SynUnionCase.UnionCase(attrs, Ident.Create enumCaseIdent, SynUnionCaseType.UnionCaseFields [], docs, None, Range.range0)
+            SynUnionCase(attrs, Ident.Create enumCaseIdent, SynUnionCaseKind.Fields [], docs, None, range0)
     ])
 
     let simpleType = SynTypeDefnSimpleReprRcd.Union(enumRepresentation)
@@ -156,7 +150,7 @@ type SynType with
             typeArgs=[ inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=Range.range0,
+            range=range0,
             greaterRange=None,
             lessRange=None
         )
@@ -167,7 +161,7 @@ type SynType with
             typeArgs=[ key; value ],
             commaRanges = [ ],
             isPostfix = false,
-            range=Range.range0,
+            range=range0,
             greaterRange=None,
             lessRange=None
         )
@@ -178,7 +172,7 @@ type SynType with
             typeArgs=[ SynType.Create inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=Range.range0,
+            range=range0,
             greaterRange=None,
             lessRange=None
         )
@@ -189,7 +183,7 @@ type SynType with
             typeArgs=[ inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=Range.range0,
+            range=range0,
             greaterRange=None,
             lessRange=None
         )
@@ -200,7 +194,7 @@ type SynType with
             typeArgs=[ SynType.Create inner ],
             commaRanges = [ ],
             isPostfix = false,
-            range=Range.range0,
+            range=range0,
             greaterRange=None,
             lessRange=None
         )
@@ -234,7 +228,7 @@ type SynFieldRcd with
             Id = Some (Ident.Create name)
             IsMutable = false
             IsStatic = false
-            Range = Range.range0
+            Range = range0
             Type = fieldType
             XmlDoc= PreXmlDoc.Empty
         }
@@ -246,7 +240,7 @@ type SynFieldRcd with
             Id = Some (Ident.Create name)
             IsMutable = false
             IsStatic = false
-            Range = Range.range0
+            Range = range0
             Type = SynType.Create fieldType
             XmlDoc= PreXmlDoc.Empty
         }
@@ -339,10 +333,10 @@ let createInputRecord (input: GraphqlInputObject) =
         Attributes = [ ]
         Id = [ Ident.Create input.name ]
         XmlDoc = PreXmlDoc.Create input.description
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
-        Range = Range.range0
+        Range = range0
     }
 
     let fields = input.fields |> List.filter (fun field -> not field.deprecated)
@@ -447,10 +441,10 @@ let rec generateFields
         Attributes = [ ]
         Id = [ Ident.Create typeName ]
         XmlDoc = PreXmlDoc.Create description
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
-        Range = Range.range0
+        Range = range0
     }
 
     let selectedFields =
@@ -535,7 +529,7 @@ let rec generateFields
 
                         let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                             for pair in localUnionCases  ->
-                                let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                                let unionCaseType = SynUnionCaseKind.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
                                 SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
                         ]
 
@@ -548,10 +542,10 @@ let rec generateFields
                             ]
                             Id = [ Ident.Create typeName ]
                             XmlDoc = PreXmlDoc.Create description
-                            Parameters = [ ]
+                            Parameters = None
                             Constraints = [ ]
                             PreferPostfix = false
-                            Range = Range.range0
+                            Range = range0
                         }
 
                         let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
@@ -635,7 +629,7 @@ let rec generateFields
 
                         let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                             for pair in localUnionCases  ->
-                                let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                                let unionCaseType = SynUnionCaseKind.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
                                 SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
                         ]
 
@@ -644,10 +638,10 @@ let rec generateFields
                             Attributes = [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess() ] ]
                             Id = [ Ident.Create typeName ]
                             XmlDoc = PreXmlDoc.Create description
-                            Parameters = [ ]
+                            Parameters = None
                             Constraints = [ ]
                             PreferPostfix = false
-                            Range = Range.range0
+                            Range = range0
                         }
 
                         let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
@@ -677,7 +671,7 @@ let rec generateFields
 
                     let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                         for pair in localUnionCases  ->
-                            let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                            let unionCaseType = SynUnionCaseKind.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
                             SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
                     ]
 
@@ -690,10 +684,10 @@ let rec generateFields
                         ]
                         Id = [ Ident.Create typeName ]
                         XmlDoc = PreXmlDoc.Create description
-                        Parameters = [ ]
+                        Parameters = None
                         Constraints = [ ]
                         PreferPostfix = false
-                        Range = Range.range0
+                        Range = range0
                     }
 
                     let simpleType = SynTypeDefnSimpleReprRcd.Union(interfaceUnions)
@@ -783,10 +777,10 @@ let generateInputVariablesType (variables: GraphqlVariable list) (schema: Graphq
         Attributes = [ ]
         Id = [ Ident.Create "InputVariables" ]
         XmlDoc = PreXmlDoc.Empty
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
-        Range = Range.range0
+        Range = range0
     }
 
     let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create([
@@ -891,10 +885,10 @@ let defaultErrorType() =
         Attributes = [ ]
         Id = [ Ident.Create "ErrorType" ]
         XmlDoc = PreXmlDoc.Create [ " The error returned by the GraphQL backend" ]
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
-        Range = Range.range0
+        Range = range0
     }
 
     let recordRepresentation =  SynTypeDefnSimpleReprRecordRcd.Create [
@@ -935,10 +929,10 @@ let parseErrorType (typeInfo: JObject) =
             Attributes = [ ]
             Id = [ Ident.Create property.Name ]
             XmlDoc = PreXmlDoc.Create [ " The error returned by the GraphQL backend" ]
-            Parameters = [ ]
+            Parameters = None
             Constraints = [ ]
             PreferPostfix = false
-            Range = Range.range0
+            Range = range0
         }
 
         let errorFields = unbox<JObject> property.Value

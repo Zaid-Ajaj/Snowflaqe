@@ -9,14 +9,12 @@
     <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net5.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0; netcoreapp3.1;net5.0</TargetFrameworks>
-    <Version>1.35.0</Version>
-    <PackageReleaseNotes>Added boolean option to 'normalizeEnumCases'</PackageReleaseNotes>
+    <Version>1.36.0</Version>
+    <PackageReleaseNotes>Updated to FSC 41.0.1</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="./FsAst/AstRcd.fs" />
-    <Compile Include="./FsAst/AstCreate.fs" />
     <Compile Include="LinqToXmlExtensions.fs" />
     <Compile Include="StringBuffer.fs" />
     <Content Include="snowflaqe.json" />
@@ -31,18 +29,20 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.5" />
-    <PackageReference Include="Fantomas" Version="4.5.1" />
-    <PackageReference Include="FsAst" Version="0.10.0" />
-    <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" />
-    <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.3.5" />
-    <PackageReference Include="GraphQL" Version="4.5.0" />
-    <PackageReference Include="GraphQL.NewtonsoftJson" Version="4.5.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Update="FSharp.Core" Version="6.0.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+    <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.5" />
+    <PackageReference Include="Fantomas" Version="4.6.6" />
+    <PackageReference Include="FsAst" Version="0.11.0" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.1" />
+    <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.3.5" />
+    <PackageReference Include="GraphQL" Version="4.7.*" />
+    <PackageReference Include="GraphQL.NewtonsoftJson" Version="4.7.*" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Utilities.Core" Version="17.0.0" CopyLocal="false" Publish="false" />
+    <PackageReference Include="Microsoft.Build.Framework;Microsoft.Build.Tasks.Core;Microsoft.Build.Utilities.Core" Version="17.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.*" />
   </ItemGroup>
 
 </Project>

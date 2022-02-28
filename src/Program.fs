@@ -4,7 +4,7 @@ open System.IO
 open System.Text
 open System.Xml
 open System.Xml.Linq
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Syntax
 open FSharp.Data.LiteralProviders
 open BlackFox.ColoredPrintf
 open Newtonsoft.Json.Linq
@@ -356,7 +356,7 @@ let generate (config: Config) =
             yield! (CodeGen.createGlobalTypes schema config.normalizeEnumCases)
             yield config.errorType.typeDefinition
         ]
- 
+
         let typesFileName = "Types.fs"
         let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
         let file = CodeGen.createFile typesFileName [ globalTypesModule ]
