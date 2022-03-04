@@ -11,8 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.5.0</Version>
-    <PackageReleaseNotes>Updated to FSC 41.0.1</PackageReleaseNotes>
+    <Version>1.6.0</Version>
+    <PackageReleaseNotes>Updated to FSC 41.0.3</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
@@ -72,14 +72,14 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.1" CopyLocal="true" Publish="false" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.3" CopyLocal="true" Publish="false" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" CopyLocal="true" Publish="false" />
     <PackageReference Include="ModuleInit.Fody" Version="2.1.*" CopyLocal="false" Publish="false" />
     <PackageReference Include="System.Net.Http.Json" Version="6.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Verion="6.0.1" Version="6.0.1">
+    <PackageReference Update="FSharp.Core" Verion="6.0.3" Version="6.0.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; compile; build; native; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
