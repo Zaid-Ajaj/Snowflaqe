@@ -11,7 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.4.0</Version>
+    <Version>1.4.1</Version>
+    <PackageReleaseNotes>Fixed issue with MSBuild Task bringing reference to FSharp.Core 5.0.1</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
@@ -115,7 +116,7 @@
 
   <ItemGroup>
     <None Include="build\**" Pack="true" PackagePath="build" />
-    <Content Include="FodyWeavers.xml" />
+    <Content Include="FodyWeavers.xml" Pack="false" />
     <Compile Include="AssemblyResolver.fs" />
     <Compile Include="ModuleInitializer.fs" />
     <Compile Include="ContextAwareTask.fs" />
