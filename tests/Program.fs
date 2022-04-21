@@ -1,4 +1,4 @@
-﻿open Expecto
+open Expecto
 open Snowflaqe
 open Snowflaqe.Types
 
@@ -465,25 +465,20 @@ let queryParsing =
         }
 
         test "Reading variables in queries works" {
-            let schema = Introspection.fromSchemaDefinition @"
-                ""query description""
+            let schema = Introspection.fromSchemaDefinition """
                 type Query {
                     findUser (username: String!) : User
                 }
 
                 type User {
-                    """"""
-                    block description for this nice field
-                    """"""
                     username : String!
                     email : String!
                 }
 
-                ""schema description""
                 schema {
                     query: Query
                 }
-            "
+            """
 
             let query = Query.parse """
                 query ($input: String!) {
