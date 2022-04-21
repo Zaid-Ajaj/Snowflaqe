@@ -1,4 +1,4 @@
-open Expecto
+﻿open Expecto
 open Snowflaqe
 open Snowflaqe.Types
 
@@ -87,6 +87,25 @@ let queryParsing =
                     values: [String!]!
                 }
             """
+
+            Expect.isOk schema "Schema can be parsed"
+        }
+
+        test "Schema with descriptions can be parsed from GraphQL definition" {
+            let schema = Introspection.fromSchemaDefinition @"
+                ""description of Query""
+                type Query {
+                    composites: [Composite!]!
+                }
+
+                type Composite {
+                    """"""
+                    block description of id
+                    """"""
+                    id: String!
+                    values: [String!]!
+                }
+            "
 
             Expect.isOk schema "Schema can be parsed"
         }
