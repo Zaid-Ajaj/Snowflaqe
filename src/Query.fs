@@ -109,15 +109,11 @@ let rec readNode (node: ASTNode) =
 
     | ASTNodeKind.Field ->
         let field = unbox<GraphQLField> node
-        let arguments = if isNull field.Arguments then [ ] else readArguments field.Arguments
-        let alias = if isNull field.Alias then None else Some (field.Alias.Name.Value.ToString())
-        let name = field.Name.Value.ToString()
-        let selectionSet = if isNull field.SelectionSet then None else Some (readSelections field.SelectionSet)
         let fieldSelection : GraphqlFieldSelection = {
-            alias = alias
-            name = name
-            arguments = arguments
-            selectionSet = selectionSet
+            alias = if isNull field.Alias then None else Some (field.Alias.Name.Value.ToString())
+            name = field.Name.Value.ToString()
+            arguments = if isNull field.Arguments then [ ] else readArguments field.Arguments
+            selectionSet = if isNull field.SelectionSet then None else Some (readSelections field.SelectionSet)
             directives = readDirectives field.Directives
             location = field.Location
         }
