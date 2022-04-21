@@ -17,7 +17,7 @@ let fromSchemaDefinition (definition: string) =
     try
         let graphqlServer = GraphQL.Types.Schema.For(definition)
         let schemaJson =
-            graphqlServer.ExecuteAsync(DocumentWriter(), fun options -> options.Query <- IntrospectionQuery)
+            graphqlServer.ExecuteAsync(GraphQLSerializer(), fun options -> options.Query <- IntrospectionQuery)
             |> Async.AwaitTask
             |> Async.RunSynchronously
 

@@ -465,20 +465,25 @@ let queryParsing =
         }
 
         test "Reading variables in queries works" {
-            let schema = Introspection.fromSchemaDefinition """
+            let schema = Introspection.fromSchemaDefinition @"
+                ""query description""
                 type Query {
                     findUser (username: String!) : User
                 }
 
                 type User {
+                    """"""
+                    block description for this nice field
+                    """"""
                     username : String!
                     email : String!
                 }
 
+                ""schema description""
                 schema {
                     query: Query
                 }
-            """
+            "
 
             let query = Query.parse """
                 query ($input: String!) {
@@ -1187,7 +1192,7 @@ type Root =
 let snowflakeTests = testList "Snowflaqe" [
     queryParsing
     SampleHasuraSchema.hasuraTests
-    SampleGitHubSchema.githubTests
+    SampleGithubSchema.githubTests
     SampleCraftSchema.tests
     SamplePostgraphile.tests
     SampleSentiantSchema.tests

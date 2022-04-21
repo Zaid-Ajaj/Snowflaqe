@@ -36,9 +36,9 @@
     <PackageReference Include="FsAst" Version="0.10.0" />
     <PackageReference Include="FSharp.Compiler.Service" Version="39.0.0" />
     <PackageReference Include="FSharp.Data.LiteralProviders" Version="0.3.5" />
-    <PackageReference Include="GraphQL" Version="4.5.0" />
-    <PackageReference Include="GraphQL.NewtonsoftJson" Version="4.5.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="GraphQL" Version="5.1.1" />
+    <PackageReference Include="GraphQL.NewtonsoftJson" Version="5.1.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
   <ItemGroup>

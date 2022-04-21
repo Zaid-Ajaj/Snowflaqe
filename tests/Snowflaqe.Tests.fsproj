@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="Utilities.fs" />
     <Compile Include="SampleHasuraSchema.fs" />
-    <Compile Include="SampleGitHubSchema.fs" />
+    <Compile Include="SampleGithubSchema.fs" />
     <Compile Include="SampleCraftSchema.fs" />
     <Compile Include="SamplePostgraphileSchema.fs" />
     <Compile Include="SampleSentiantSchema.fs" />
