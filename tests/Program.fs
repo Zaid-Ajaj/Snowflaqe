@@ -690,7 +690,7 @@ type Sort =
 """
 
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
-        }        
+        }
 
         test "Enum types can be converted into F# unions maintaining text casing" {
             let schema = Introspection.fromSchemaDefinition """

@@ -63,7 +63,7 @@ let rec readArgumentValue (argValue: GraphQLValue) : FieldArgumentValue option =
 
     | ASTNodeKind.EnumValue ->
         let value = unbox<GraphQLEnumValue> argValue
-        Some (FieldArgumentValue.EnumCase (value.ToString()))
+        Some (FieldArgumentValue.EnumCase value.Name.StringValue)
 
     | ASTNodeKind.ListValue ->
         let value = unbox<GraphQLListValue> argValue
