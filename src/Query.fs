@@ -48,7 +48,7 @@ let rec readArgumentValue (argValue: GraphQLValue) : FieldArgumentValue option =
 
     | ASTNodeKind.BooleanValue ->
         let value = unbox<GraphQLBooleanValue> argValue
-        Some (FieldArgumentValue.Boolean (value.Value = ROM.op_Implicit "true"))
+        Some (FieldArgumentValue.Boolean value.BoolValue)
 
     | ASTNodeKind.NullValue ->
         Some FieldArgumentValue.Null

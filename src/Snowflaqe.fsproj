@@ -9,8 +9,8 @@
     <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net5.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0; netcoreapp3.1;net5.0</TargetFrameworks>
-    <Version>1.35.0</Version>
-    <PackageReleaseNotes>Added boolean option to 'normalizeEnumCases'</PackageReleaseNotes>
+    <Version>1.36.0</Version>
+    <PackageReleaseNotes>bumped the GraphQL-dotnet package to make the parser understand newer GraphQL syntax</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 

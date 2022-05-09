@@ -8,7 +8,7 @@ open Newtonsoft.Json.Linq
 open System.IO
 open GraphQL
 open GraphQL.NewtonsoftJson
-
+ 
 let private httpClient = new HttpClient()
 
 let [<Literal>] IntrospectionQuery = TextFile<"Introspection.gql">.Text
