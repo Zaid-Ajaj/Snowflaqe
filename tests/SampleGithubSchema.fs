@@ -1,4 +1,4 @@
-﻿module SampleGitHubSchema
+﻿module SampleGithubSchema
 
 open FSharp.Data.LiteralProviders
 open Expecto

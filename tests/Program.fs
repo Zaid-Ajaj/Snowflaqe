@@ -91,6 +91,25 @@ let queryParsing =
             Expect.isOk schema "Schema can be parsed"
         }
 
+        test "Schema with descriptions can be parsed from GraphQL definition" {
+            let schema = Introspection.fromSchemaDefinition @"
+                ""description of Query""
+                type Query {
+                    composites: [Composite!]!
+                }
+
+                type Composite {
+                    """"""
+                    block description of id
+                    """"""
+                    id: String!
+                    values: [String!]!
+                }
+            "
+
+            Expect.isOk schema "Schema can be parsed"
+        }
+
         test "Query.findQueryType works" {
             let schema = Introspection.fromSchemaDefinition """
                 type Query {
@@ -685,7 +704,7 @@ type Sort =
 """
 
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
-        }        
+        }
 
         test "Enum types can be converted into F# unions maintaining text casing" {
             let schema = Introspection.fromSchemaDefinition """
@@ -1187,7 +1206,7 @@ type Root =
 let snowflakeTests = testList "Snowflaqe" [
     queryParsing
     SampleHasuraSchema.hasuraTests
-    SampleGitHubSchema.githubTests
+    SampleGithubSchema.githubTests
     SampleCraftSchema.tests
     SamplePostgraphile.tests
     SampleSentiantSchema.tests
