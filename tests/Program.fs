@@ -1201,6 +1201,26 @@ type Root =
             | Error error -> failwith error
             | Ok document -> Expect.equal true true "Query was parsed"
         }
+
+        test "Unions can be used" {
+            let maybeSchema = Introspection.fromSchemaDefinition """
+                union SearchResult = Book | Author
+
+                type Book {
+                  title: String!
+                }
+
+                type Author {
+                  name: String!
+                }
+
+                type Query {
+                  search(contains: String): [SearchResult!]
+                }
+            """
+
+            Expect.isOk maybeSchema "Schema with unions cannot be parsed"
+        }
     ]
 
 let snowflakeTests = testList "Snowflaqe" [
