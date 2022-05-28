@@ -23,13 +23,11 @@ let fromSchemaDefinition (definition: string) =
         let configureSchemaBuilder (schemaBuilder: SchemaBuilder) =
             schemaBuilder.Types.ForAll(fun typeConfig -> typeConfig.ResolveType <- fun _ -> null) |> ignore
 
-        let configureExecutionOptions (options: ExecutionOptions) =
-            options.Query <- IntrospectionQuery
-            options.ThrowOnUnhandledException <- true
-
         let graphqlServer = GraphQL.Types.Schema.For(definition, configureSchemaBuilder)
         let schemaJson =
-            graphqlServer.ExecuteAsync(GraphQLSerializer(), configureExecutionOptions)
+            graphqlServer.ExecuteAsync(GraphQLSerializer(), fun options ->
+                                                                options.Query <- IntrospectionQuery
+                                                                options.ThrowOnUnhandledException <- true)
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
