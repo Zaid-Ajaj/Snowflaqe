@@ -23,11 +23,14 @@ let fromSchemaDefinition (definition: string) =
         let configureSchemaBuilder (schemaBuilder: SchemaBuilder) =
             schemaBuilder.Types.ForAll(fun typeConfig -> typeConfig.ResolveType <- fun _ -> null) |> ignore
 
+        let configureExecutionOptions = System.Action<ExecutionOptions>(fun options ->
+           options.Query <- IntrospectionQuery
+           options.ThrowOnUnhandledException <- true
+        )
+
         let graphqlServer = GraphQL.Types.Schema.For(definition, configureSchemaBuilder)
         let schemaJson =
-            graphqlServer.ExecuteAsync(GraphQLSerializer(), fun options ->
-                                                                options.Query <- IntrospectionQuery
-                                                                options.ThrowOnUnhandledException <- true)
+            graphqlServer.ExecuteAsync(GraphQLSerializer(), configureExecutionOptions)
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
@@ -43,8 +46,8 @@ let loadSchema (schema: string) =
             requestBody.Add(JProperty("query", IntrospectionQuery))
 
             let responseAsync = httpClient.PostAsync(schema, new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json"))
-            let reponse = Async.RunSynchronously (Async.AwaitTask responseAsync)
-            let content = Async.RunSynchronously (Async.AwaitTask (reponse.Content.ReadAsStringAsync()))
+            let response = Async.RunSynchronously (Async.AwaitTask responseAsync)
+            let content = Async.RunSynchronously (Async.AwaitTask (response.Content.ReadAsStringAsync()))
             Schema.parse content
         with
         | ex ->

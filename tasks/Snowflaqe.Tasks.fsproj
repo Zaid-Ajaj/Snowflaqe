@@ -11,8 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.4.1</Version>
-    <PackageReleaseNotes>Fixed issue with MSBuild Task bringing reference to FSharp.Core 5.0.1</PackageReleaseNotes>
+    <Version>1.4.2</Version>
+    <PackageReleaseNotes>Allow parser to read schema from SDL when it contains unions and interfaces</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">

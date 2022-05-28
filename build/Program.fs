@@ -518,6 +518,7 @@ let clear() =
     File.Delete(path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "SpotifyWithTasks.fsproj" ])
     Directory.Delete(path [ solutionRoot; "src"; "output" ], true)
+    printfn "Cleared build artifacts"
 
 let integration() =
     packMSBuildTask()
@@ -548,7 +549,7 @@ let main (args: string[]) =
         | [| "build-github" |] -> buildGitHub()
         | [| "build-github-dot-project" |] -> buildGitHubDotNet()
         | [| "build-github-fable" |] -> buildGitHubFable()
-
+        | [| "clear" |] -> clear()
         | _ -> printfn "Unknown args %A" args
         0
     with ex ->
