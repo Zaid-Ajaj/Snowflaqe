@@ -4,20 +4,32 @@ module Snowflaqe.Introspection
 open FSharp.Data.LiteralProviders
 open System.Text
 open System.Net.Http
+open GraphQL.Utilities
 open Newtonsoft.Json.Linq
 open System.IO
 open GraphQL
 open GraphQL.NewtonsoftJson
- 
+
 let private httpClient = new HttpClient()
 
 let [<Literal>] IntrospectionQuery = TextFile<"Introspection.gql">.Text
 
 let fromSchemaDefinition (definition: string) =
     try
-        let graphqlServer = GraphQL.Types.Schema.For(definition)
+        // graphql-dotnet will fail validation for unions and interfaces when executing a query
+        // if ResolveType or IsTypeOf are not present. This is not applicable in case of introspection query
+        // when no actual data is involved and there is nothing to resolve. We bypass the validation by
+        // always providing a dummy ResolveType. See https://github.com/Zaid-Ajaj/Snowflaqe/issues/70 for context.
+        let configureSchemaBuilder (schemaBuilder: SchemaBuilder) =
+            schemaBuilder.Types.ForAll(fun typeConfig -> typeConfig.ResolveType <- fun _ -> null) |> ignore
+
+        let configureExecutionOptions (options: ExecutionOptions) =
+            options.Query <- IntrospectionQuery
+            options.ThrowOnUnhandledException <- true
+
+        let graphqlServer = GraphQL.Types.Schema.For(definition, configureSchemaBuilder)
         let schemaJson =
-            graphqlServer.ExecuteAsync(GraphQLSerializer(), fun options -> options.Query <- IntrospectionQuery)
+            graphqlServer.ExecuteAsync(GraphQLSerializer(), configureExecutionOptions)
             |> Async.AwaitTask
             |> Async.RunSynchronously
 

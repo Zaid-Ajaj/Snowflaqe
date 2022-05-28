@@ -1201,6 +1201,47 @@ type Root =
             | Error error -> failwith error
             | Ok document -> Expect.equal true true "Query was parsed"
         }
+
+        test "Unions can be parsed" {
+            let schema = Introspection.fromSchemaDefinition """
+                union SearchResult = Book | Author
+                type Book {
+                  title: String!
+                }
+                type Author {
+                  name: String!
+                }
+                type Query {
+                  search(contains: String): [SearchResult!]
+                }
+            """
+
+            Expect.isOk schema "Schema with unions cannot be parsed"
+        }
+
+        test "Interfaces can be parsed" {
+            let schema = Introspection.fromSchemaDefinition """
+                interface Book {
+                  title: String!
+                }
+
+                type Textbook implements Book {
+                  title: String!
+                  exercises: [String!]!
+                }
+
+                type ColoringBook implements Book {
+                  title: String!
+                  colors: [String!]!
+                }
+
+                type Query {
+                  books: [Book!]!
+                }
+            """
+
+            Expect.isOk schema "Schema with interfaces cannot be parsed"
+        }
     ]
 
 let snowflakeTests = testList "Snowflaqe" [
