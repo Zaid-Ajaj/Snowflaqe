@@ -21,7 +21,8 @@ module CustomScalars =
        inherit GraphQL.Types.StringGraphType()
 
     let private findScalarNames (definition: string) =
-        let types = GraphQLParser.Parser.Parse(definition)
+        let types = GraphQLParser.Parser.Parse(GraphQLParser.ROM(definition.AsMemory()))
+
         types.Definitions
         |> Seq.filter (fun def -> def :? GraphQLScalarTypeDefinition)
         |> Seq.map (fun def -> (def :?> GraphQLScalarTypeDefinition).Name.StringValue)
