@@ -1242,10 +1242,58 @@ type Root =
 
             Expect.isOk schema "Schema with interfaces cannot be parsed"
         }
+
+        test "Custom scalars can be parsed" {
+            let schema = Introspection.fromSchemaDefinition """
+                "The `DateTime` scalar represents an ISO-8601 compliant date time type."
+                scalar DateTime @specifiedBy(url: "https:\/\/www.graphql-scalars.com\/date-time")
+                scalar ProductName
+
+                type Product {
+                    name: ProductName
+                    date: DateTime
+                }
+                type Query {
+                    products: [Product!]!
+                }
+
+                schema {
+                  query: Query
+                }
+            """
+
+            Expect.isOk schema "Schema with custom scalars cannot be parsed"
+        }
     ]
+
+let customScalarsTests =
+    testList "CustomScalarsIntrospection" [
+        test "Custom scalar names are extracted correctly from schema definition" {
+            let schemaDefinition = """
+                scalar DateTime
+                scalar AppVersion
+
+                type Query {
+                    version: AppVersion
+                    vector: Vector3
+                    duration: Long
+                }
+
+                schema {
+                  query: Query
+                }
+                scalar Long
+                scalar Vector3
+            """
+
+            let scalarsNames = Introspection.CustomScalars.findCustomScalarNames schemaDefinition
+            Expect.containsAll scalarsNames (seq { "AppVersion"; "Vector3" }) "Some custom scalars are not extracted"
+    }
+]
 
 let snowflakeTests = testList "Snowflaqe" [
     queryParsing
+    customScalarsTests
     SampleHasuraSchema.hasuraTests
     SampleGithubSchema.githubTests
     SampleCraftSchema.tests

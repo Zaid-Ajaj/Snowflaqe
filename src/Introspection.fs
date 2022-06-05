@@ -1,10 +1,12 @@
 ﻿[<RequireQualifiedAccess>]
 module Snowflaqe.Introspection
 
+open System
 open FSharp.Data.LiteralProviders
 open System.Text
 open System.Net.Http
 open GraphQL.Utilities
+open GraphQLParser.AST
 open Newtonsoft.Json.Linq
 open System.IO
 open GraphQL
@@ -13,6 +15,36 @@ open GraphQL.NewtonsoftJson
 let private httpClient = new HttpClient()
 
 let [<Literal>] IntrospectionQuery = TextFile<"Introspection.gql">.Text
+
+module CustomScalars =
+    type CustomScalarGraphType() =
+       inherit GraphQL.Types.StringGraphType()
+
+    let private findScalarNames (definition: string) =
+        let types = GraphQLParser.Parser.Parse(definition)
+        types.Definitions
+        |> Seq.filter (fun def -> def :? GraphQLScalarTypeDefinition)
+        |> Seq.map (fun def -> (def :?> GraphQLScalarTypeDefinition).Name.StringValue)
+
+    let private filterBuiltInScalars (scalarsNames: string seq) =
+        let builtInScalars =
+            GraphQL.Types.SchemaTypes.BuiltInScalarMappings.Values
+            |> Seq.map (fun scalarType -> (Activator.CreateInstance(scalarType) :?> GraphQL.Types.IGraphType))
+            |> Seq.filter (fun scalarObject -> scalarObject <> null)
+            |> Seq.map (fun scalarType -> scalarType.Name)
+            |> Set
+
+        Set.difference (scalarsNames |> Set) builtInScalars
+
+    let findCustomScalarNames = findScalarNames >> filterBuiltInScalars
+
+    let buildCustomScalarGraphTypes (scalarNames: string seq) =
+        let createCustomScalar scalarName =
+            let scalarType = CustomScalarGraphType()
+            scalarType.Name <- scalarName
+            scalarType
+
+        scalarNames |> Seq.map createCustomScalar
 
 let fromSchemaDefinition (definition: string) =
     try
@@ -29,6 +61,11 @@ let fromSchemaDefinition (definition: string) =
         )
 
         let graphqlServer = GraphQL.Types.Schema.For(definition, configureSchemaBuilder)
+
+        CustomScalars.findCustomScalarNames definition
+        |> CustomScalars.buildCustomScalarGraphTypes
+        |> Seq.iter graphqlServer.RegisterType
+
         let schemaJson =
             graphqlServer.ExecuteAsync(GraphQLSerializer(), configureExecutionOptions)
             |> Async.AwaitTask
