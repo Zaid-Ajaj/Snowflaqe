@@ -517,7 +517,7 @@ let clear() =
     File.Delete(path [ solutionRoot; "src"; "Spotify.DotNet.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "Spotify.Fable.fsproj" ])
     File.Delete(path [ solutionRoot; "src"; "SpotifyWithTasks.fsproj" ])
-    Directory.Delete(path [ solutionRoot; "src"; "output" ], true)
+    Shell.deleteDir (path [ solutionRoot; "src"; "output" ])
     printfn "Cleared build artifacts"
 
 let integration() =
@@ -545,6 +545,10 @@ let main (args: string[]) =
         | [| "publish" |] -> publish()
         | [| "publish-tasks" |] -> publishTasks()
         | [| "integration" |] -> integration()
+        | [| "fsproj-integration" |] -> 
+            clear()
+            fsprojIntegration()
+            clear()
         | [| "build-craft" |] -> buildCraftSchema()
         | [| "build-github" |] -> buildGitHub()
         | [| "build-github-dot-project" |] -> buildGitHubDotNet()
