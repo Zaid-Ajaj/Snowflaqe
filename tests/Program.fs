@@ -668,6 +668,51 @@ type Sort =
                 Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
         }
 
+        test "Enum types where all values are deprecated are omitted" {
+            let schema = Introspection.fromSchemaDefinition """
+                enum OldEnum {
+                    ASCENDING @deprecated,
+                    descending @deprecated
+                }
+                enum NewEnum {
+                    ASCENDING,
+                    DESCENDING
+                }
+
+                type Query {
+                    usesOldEnum: OldEnum @deprecated
+                    usesNewEnum: NewEnum
+                }
+
+                schema {
+                    query: Query
+                }
+            """
+
+
+
+            match schema with
+            | Error error -> failwith error
+            | Ok schema ->
+                let generated =
+                    let normalizeEnumCases = true
+                    let globalTypes = CodeGen.createGlobalTypes schema normalizeEnumCases
+                    let ns = CodeGen.createNamespace [ "Test" ] globalTypes
+                    let file = CodeGen.createFile typesFileName [ ns ]
+                    CodeGen.formatAst file typesFileName
+
+                let expected = """
+namespace rec Test
+
+[<Fable.Core.StringEnum; RequireQualifiedAccess>]
+type NewEnum =
+    | [<CompiledName "ASCENDING">] Ascending
+    | [<CompiledName "DESCENDING">] Descending
+"""
+
+                Expect.equal (trimContentEnd generated) (trimContentEnd expected) "The code is generated correctly"
+        }
+
         test "Enum cases with 'Tags' is escaped" {
             let schema = Introspection.fromSchemaDefinition """
                 enum Sort {

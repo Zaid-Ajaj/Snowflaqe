@@ -364,7 +364,10 @@ let createGlobalTypes (schema: GraphqlSchema) (normalizeEnumCases: bool) =
     let enums =
         schema.types
         |> List.choose (function
-            | GraphqlType.Enum enumType when not (enumType.name.StartsWith "__")  -> Some enumType
+            | GraphqlType.Enum ({ values = vs } as enumType)
+                when not (enumType.name.StartsWith "__")
+                && vs |> List.exists (fun v -> not v.deprecated) ->
+                    Some enumType
             | _ -> None)
         |> List.map (fun gqlType -> createEnumType gqlType normalizeEnumCases)
 
