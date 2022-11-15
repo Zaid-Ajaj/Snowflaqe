@@ -10,17 +10,17 @@ open System.Xml
 open System.Xml.Linq
 open FsAst
 open Fantomas
-open Fantomas.FormatConfig
-open FSharp.Compiler.SyntaxTree
+open Fantomas.Core
+open FSharp.Compiler.Syntax
+open FSharp.Compiler.SyntaxTrivia
 open FSharp.Compiler.Text
-open FSharp.Compiler.XmlDoc
+open FSharp.Compiler.Xml
 open GraphQLParser.AST
 open Newtonsoft.Json.Linq
 open LinqToXmlExtensions
 open System.Xml
 open System.Xml.Linq
 open StringBuffer
-open FSharp.Compiler.Text
 open Snowflaqe.Types
 
 type range = FSharp.Compiler.Text.Range
@@ -98,7 +98,7 @@ type SynAttribute with
            ArgExpr = SynExpr.Const (SynConst.Unit, Range.range0)
            Range = Range.range0
            Target = None
-           TypeName = LongIdentWithDots(List.map Ident.Create idents, [ ])
+           TypeName = SynLongIdent(List.map Ident.Create idents, [ ], [ ])
         }
 
 let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
@@ -113,7 +113,7 @@ let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
 
         Id = [ Ident.Create enumType.name ]
         XmlDoc = PreXmlDoc.Create enumType.description
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
         Range = Range.range0
@@ -130,21 +130,21 @@ let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
                 then normalizeEnumName value.name
                 else value.name
             // "Tags" cannot be used as a name for a union case
-            let enumCaseIdent = if enumCase = "Tags" then "TAGS"else enumCase
-            SynUnionCase.UnionCase(attrs, Ident.Create enumCaseIdent, SynUnionCaseType.UnionCaseFields [], docs, None, Range.range0)
+            let enumCaseIdent = if enumCase = "Tags" then "TAGS" else enumCase
+            SynUnionCase.SynUnionCase(attrs, SynIdent.Create enumCaseIdent, SynUnionCaseKind.Fields [], docs, None, Range.range0, { BarRange = None})
     ])
 
     let simpleType = SynTypeDefnSimpleReprRcd.Union(enumRepresentation)
     SynModuleDecl.CreateSimpleType(info, simpleType)
 
 let optionOfSystemDot id inner =
-    SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "Option" ]) [ (LongIdentWithDots.Create [ "System"; inner ]) ]
+    SynFieldRcd.CreateApp id (SynLongIdent.Create [ "Option" ]) [ (SynLongIdent.Create [ "System"; inner ]) ]
 
 let listOfSystemDot id inner =
-    SynFieldRcd.CreateApp id (LongIdentWithDots.Create [ "list" ]) [ (LongIdentWithDots.Create [ "System"; inner ]) ]
+    SynFieldRcd.CreateApp id (SynLongIdent.Create [ "list" ]) [ (SynLongIdent.Create [ "System"; inner ]) ]
 
 let systemDot id inner =
-    SynFieldRcd.Create(id, LongIdentWithDots([ Ident.Create "System"; Ident.Create inner ], []))
+    SynFieldRcd.Create(id, SynLongIdent.Create([ "System"; inner ]))
 
 
 type SynType with
@@ -157,19 +157,19 @@ type SynType with
             commaRanges = [ ],
             isPostfix = false,
             range=Range.range0,
-            greaterRange=None,
-            lessRange=None
+            greaterRange=Some Range.range0,
+            lessRange=Some Range.range0
         )
 
     static member Dictionary(key, value) =
         SynType.App(
-            typeName=SynType.LongIdent(LongIdentWithDots.Create [ "System"; "Collections"; "Generic"; "Dictionary" ]),
+            typeName=SynType.LongIdent(SynLongIdent.Create [ "System"; "Collections"; "Generic"; "Dictionary" ]),
             typeArgs=[ key; value ],
             commaRanges = [ ],
             isPostfix = false,
             range=Range.range0,
-            greaterRange=None,
-            lessRange=None
+            greaterRange=Some Range.range0,
+            lessRange=Some Range.range0
         )
 
     static member Option(inner: string) =
@@ -179,8 +179,8 @@ type SynType with
             commaRanges = [ ],
             isPostfix = false,
             range=Range.range0,
-            greaterRange=None,
-            lessRange=None
+            greaterRange=Some Range.range0,
+            lessRange=Some Range.range0
         )
 
     static member List(inner) =
@@ -190,8 +190,8 @@ type SynType with
             commaRanges = [ ],
             isPostfix = false,
             range=Range.range0,
-            greaterRange=None,
-            lessRange=None
+            greaterRange=Some Range.range0,
+            lessRange=Some Range.range0
         )
 
     static member List(inner: string) =
@@ -201,15 +201,15 @@ type SynType with
             commaRanges = [ ],
             isPostfix = false,
             range=Range.range0,
-            greaterRange=None,
-            lessRange=None
+            greaterRange=Some Range.range0,
+            lessRange=Some Range.range0
         )
 
     static member DateTimeOffset() =
-        SynType.LongIdent(LongIdentWithDots.Create [ "System"; "DateTimeOffset" ])
+        SynType.LongIdent(SynLongIdent.Create [ "System"; "DateTimeOffset" ])
 
     static member DateTime() =
-        SynType.LongIdent(LongIdentWithDots.Create [ "System"; "DateTime" ])
+        SynType.LongIdent(SynLongIdent.Create [ "System"; "DateTime" ])
 
     static member Int() =
         SynType.Create "int"
@@ -237,6 +237,7 @@ type SynFieldRcd with
             Range = Range.range0
             Type = fieldType
             XmlDoc= PreXmlDoc.Empty
+            Trivia = SynFieldTrivia.Zero
         }
 
     static member Create(name: string, fieldType: string) =
@@ -249,6 +250,7 @@ type SynFieldRcd with
             Range = Range.range0
             Type = SynType.Create fieldType
             XmlDoc= PreXmlDoc.Empty
+            Trivia = SynFieldTrivia.Zero
         }
 
 let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
@@ -339,7 +341,7 @@ let createInputRecord (input: GraphqlInputObject) =
         Attributes = [ ]
         Id = [ Ident.Create input.name ]
         XmlDoc = PreXmlDoc.Create input.description
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
         Range = Range.range0
@@ -450,7 +452,7 @@ let rec generateFields
         Attributes = [ ]
         Id = [ Ident.Create typeName ]
         XmlDoc = PreXmlDoc.Create description
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
         Range = Range.range0
@@ -538,8 +540,8 @@ let rec generateFields
 
                         let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                             for pair in localUnionCases  ->
-                                let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
-                                SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
+                                let unionCaseType = SynUnionCaseKind.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                                SynUnionCaseRcd.Create(SynIdent.Create (capitalize pair.Key), unionCaseType)
                         ]
 
                         let interfaceUnionsInfo : SynComponentInfoRcd = {
@@ -551,7 +553,7 @@ let rec generateFields
                             ]
                             Id = [ Ident.Create typeName ]
                             XmlDoc = PreXmlDoc.Create description
-                            Parameters = [ ]
+                            Parameters = None
                             Constraints = [ ]
                             PreferPostfix = false
                             Range = Range.range0
@@ -638,8 +640,8 @@ let rec generateFields
 
                         let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                             for pair in localUnionCases  ->
-                                let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
-                                SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
+                                let unionCaseType = SynUnionCaseKind.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                                SynUnionCaseRcd.Create(SynIdent.Create (capitalize pair.Key), unionCaseType)
                         ]
 
                         let interfaceUnionsInfo : SynComponentInfoRcd = {
@@ -647,7 +649,7 @@ let rec generateFields
                             Attributes = [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess() ] ]
                             Id = [ Ident.Create typeName ]
                             XmlDoc = PreXmlDoc.Create description
-                            Parameters = [ ]
+                            Parameters = None
                             Constraints = [ ]
                             PreferPostfix = false
                             Range = Range.range0
@@ -680,8 +682,8 @@ let rec generateFields
 
                     let interfaceUnions = SynTypeDefnSimpleReprUnionRcd.Create [
                         for pair in localUnionCases  ->
-                            let unionCaseType = SynUnionCaseType.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
-                            SynUnionCaseRcd.Create(Ident.Create (capitalize pair.Key), unionCaseType)
+                            let unionCaseType = SynUnionCaseKind.Create([ SynFieldRcd.Create(pair.Key.ToLowerInvariant(), pair.Value) ])
+                            SynUnionCaseRcd.Create(SynIdent.Create (capitalize pair.Key), unionCaseType)
                     ]
 
                     let interfaceUnionsInfo : SynComponentInfoRcd = {
@@ -693,7 +695,7 @@ let rec generateFields
                         ]
                         Id = [ Ident.Create typeName ]
                         XmlDoc = PreXmlDoc.Create description
-                        Parameters = [ ]
+                        Parameters = None
                         Constraints = [ ]
                         PreferPostfix = false
                         Range = Range.range0
@@ -786,7 +788,7 @@ let generateInputVariablesType (variables: GraphqlVariable list) (schema: Graphq
         Attributes = [ ]
         Id = [ Ident.Create "InputVariables" ]
         XmlDoc = PreXmlDoc.Empty
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
         Range = Range.range0
@@ -860,7 +862,7 @@ let createNamespace (names: seq<string>) declarations =
         )
 
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace,declarations,  xmlDoc, [ ], None, range0)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for name in nameParts -> Ident.Create name ], true, SynModuleOrNamespaceKind.DeclaredNamespace, declarations, xmlDoc, [ ], None, range0, { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Namespace range0})
 
 let createQualifiedModule (idens: seq<string>) declarations =
     let nameParts =
@@ -872,20 +874,20 @@ let createQualifiedModule (idens: seq<string>) declarations =
         )
 
     let xmlDoc = PreXmlDoc.Create [ ]
-    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range0)
+    SynModuleOrNamespace.SynModuleOrNamespace([ for ident in nameParts -> Ident.Create ident ], true, SynModuleOrNamespaceKind.NamedModule,declarations,  xmlDoc, [ SynAttributeList.Create [ SynAttribute.RequireQualifiedAccess()  ]  ], None, range0, { LeadingKeyword = SynModuleOrNamespaceLeadingKeyword.Module range0 })
 
 let createFile fileName modules =
     let qualfiedNameOfFile = QualifiedNameOfFile.QualifiedNameOfFile(Ident.Create fileName)
-    ParsedImplFileInput.ParsedImplFileInput(fileName, false, qualfiedNameOfFile, [], [], modules, (false, false))
+    ParsedImplFileInput.ParsedImplFileInput(fileName, false, qualfiedNameOfFile, [], [], modules, (false, false), { CodeComments = []; ConditionalDirectives = []})
 
 let private formatConfig =
     { FormatConfig.FormatConfig.Default with
-        EndOfLine = EndOfLineStyle.CRLF;
+        EndOfLine = FormatConfig.EndOfLineStyle.CRLF;
         NewlineBetweenTypeDefinitionAndMembers = true;
         StrictMode = true }
 
-let formatAst file fileName =
-    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, fileName, [], Some (SourceOrigin.SourceString file.ToRcd.File), formatConfig)
+let formatAst (file: ParsedImplFileInput) (fileName: string) =
+    CodeFormatter.FormatASTAsync (ParsedInput.ImplFile file, file.ToRcd.File, formatConfig)
     |> Async.RunSynchronously
 
 let defaultErrorType() =
@@ -894,7 +896,7 @@ let defaultErrorType() =
         Attributes = [ ]
         Id = [ Ident.Create "ErrorType" ]
         XmlDoc = PreXmlDoc.Create [ " The error returned by the GraphQL backend" ]
-        Parameters = [ ]
+        Parameters = None
         Constraints = [ ]
         PreferPostfix = false
         Range = Range.range0
@@ -938,7 +940,7 @@ let parseErrorType (typeInfo: JObject) =
             Attributes = [ ]
             Id = [ Ident.Create property.Name ]
             XmlDoc = PreXmlDoc.Create [ " The error returned by the GraphQL backend" ]
-            Parameters = [ ]
+            Parameters = None
             Constraints = [ ]
             PreferPostfix = false
             Range = Range.range0

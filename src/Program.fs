@@ -4,21 +4,24 @@ open System.IO
 open System.Text
 open System.Xml
 open System.Xml.Linq
-open FSharp.Compiler.SyntaxTree
+open FSharp.Compiler.Syntax
 open FSharp.Data.LiteralProviders
 open BlackFox.ColoredPrintf
 open Newtonsoft.Json.Linq
 open Snowflaqe
 open Snowflaqe.Types
 
-let [<Literal>] FableRemotingJsonVersion = "2.18.0"
-let [<Literal>] FableSimpleHttpVersion = "3.0.0"
-let [<Literal>] FableSimpleJsonVersion = "3.21.0"
-let [<Literal>] FSharpCoreVersion = "4.7.2"
-let [<Literal>] FSharpSystemTextJsonVersion = "0.17.4"
-let [<Literal>] NewtonsoftJsonVersion = "12.0.2"
-let [<Literal>] SystemTextJsonVersion = "4.6.0"
-let [<Literal>] SystemNetHttpJsonVersion = "5.0.0"
+
+let [<Literal>] SnowflaqeTasksVersion = "1.4.4"
+let [<Literal>] FantomasFCSVersion = "5.1.3"
+let [<Literal>] FableRemotingJsonVersion = "2.21.0"
+let [<Literal>] FableSimpleHttpVersion = "3.5.0"
+let [<Literal>] FableSimpleJsonVersion = "3.24.0"
+let [<Literal>] FSharpCoreVersion = "6.0.1"
+let [<Literal>] FSharpSystemTextJsonVersion = "1.0.6"
+let [<Literal>] NewtonsoftJsonVersion = "13.0.1"
+let [<Literal>] SystemTextJsonVersion = "6.0.7"
+let [<Literal>] SystemNetHttpJsonVersion = "6.0.0"
 let [<Literal>] PlyVersion = "0.3.1"
 
 type CustomErrorType = {
@@ -467,10 +470,11 @@ let generate (config: Config) =
 
         let packageReferences = [
             if config.generateAndRestoreTaskPackage then
-                yield MSBuildXElement.PackageReferenceInclude("Snowflaqe.Tasks", "1.0.0")
+                yield MSBuildXElement.PackageReferenceInclude("Snowflaqe.Tasks", SnowflaqeTasksVersion)
             // use a low version of FSharp.Core
             // for better compatibility
             yield MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
+            // yield MSBuildXElement.PackageReferenceInclude("Fantomas.FCS", FantomasFCSVersion)
         ]
 
         let useTasksForAsync = config.asyncReturnType = AsyncReturnType.Task
@@ -668,6 +672,7 @@ let generate (config: Config) =
                 MSBuildXElement.PackageReferenceUpdate("FSharp.Core", FSharpCoreVersion)
                 MSBuildXElement.PackageReferenceInclude("Fable.SimpleHttp", FableSimpleHttpVersion)
                 MSBuildXElement.PackageReferenceInclude("Fable.SimpleJson", FableSimpleJsonVersion)
+                // MSBuildXElement.PackageReferenceInclude("Fantomas.FCS", FantomasFCSVersion)
             ]
 
             let files =
