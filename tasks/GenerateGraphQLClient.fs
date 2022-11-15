@@ -83,7 +83,14 @@ type public GenerateGraphQLClient() =
                 | Error code -> code
                 | Ok files ->
                     this.GeneratedFiles <-
-                        files |> Seq.map (fun f -> Path.Combine(config.output, Path.GetFileName(f))) |> Seq.toArray
+                        files
+                        |> Seq.map
+                            (fun f ->
+                                Path.Combine(
+                                    config.output,
+                                    Path.GetFileName(f.Replace(@"\",Path.DirectorySeparatorChar.ToString()))))
+                        |> Seq.toArray
+                    this.GeneratedFiles |> Seq.iter (this.Log.LogMessage)
                     0
             else validationCode
 
