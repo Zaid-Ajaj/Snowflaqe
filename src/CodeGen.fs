@@ -253,6 +253,11 @@ type SynFieldRcd with
             Trivia = SynFieldTrivia.Zero
         }
 
+let ensureLegalFieldName (maybeIllegalFieldName: string) =
+    match maybeIllegalFieldName with
+    | "public" | "private" | "type" | "base" -> $"``{maybeIllegalFieldName}``"
+    | _ -> maybeIllegalFieldName
+
 let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
     match graphqlType with
     | GraphqlFieldType.NonNull(GraphqlFieldType.Scalar scalar) ->
@@ -352,7 +357,7 @@ let createInputRecord (input: GraphqlInputObject) =
     let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create [
         for field in fields ->
             let recordFieldType = createFSharpType None field.fieldType
-            let recordField = SynFieldRcd.Create(field.fieldName, recordFieldType)
+            let recordField = SynFieldRcd.Create(field.fieldName |> ensureLegalFieldName, recordFieldType)
             { recordField with XmlDoc = PreXmlDoc.Create field.description }
     ]
 
@@ -474,7 +479,7 @@ let rec generateFields
             | None ->
                 ()
             | Some fieldInfo when Query.fieldCanExpand fieldInfo.fieldType ->
-                let fieldName = field.alias |> Option.defaultValue field.name
+                let fieldName = field.alias |> Option.defaultValue field.name |> ensureLegalFieldName
                 let fieldTypeName = extractTypeName fieldInfo.fieldType
                 let nestedFieldType = Schema.findTypeByName fieldTypeName schema
 
@@ -717,7 +722,7 @@ let rec generateFields
                     ()
                 else
                     // a field that cannot expand which means it was a scalar
-                    let fieldName = field.alias |> Option.defaultValue field.name
+                    let fieldName =  field.alias |> Option.defaultValue field.name |> ensureLegalFieldName
                     let recordFieldType = createFSharpType None fieldInfo.fieldType
                     let recordField = SynFieldRcd.Create(fieldName, recordFieldType)
                     { recordField with XmlDoc = PreXmlDoc.Create fieldInfo.description }
