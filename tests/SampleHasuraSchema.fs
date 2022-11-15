@@ -100,16 +100,20 @@ type userOrderDetails =
 
 /// fetch data from the table: "userOrders"
 type userOrders =
-    { status: string
+    {
+      status: string
       id: int
       deliveryDate: System.DateTimeOffset
       /// An array relationship
-      userOrderDetails: list<userOrderDetails> }
+      userOrderDetails: list<userOrderDetails>
+    }
 
 /// query root
 type Root =
-    { /// fetch data from the table: "userOrders"
-      userOrders: list<userOrders> }
+    { 
+      /// fetch data from the table: "userOrders"
+      userOrders: list<userOrders>
+    }
 
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code is correct"
@@ -153,16 +157,20 @@ type userOrderDetails =
 
 /// fetch data from the table: "userOrders"
 type userOrders =
-    { status: string
+    {
+      status: string
       id: int
       deliveryDate: System.DateTimeOffset
       /// An array relationship
-      userOrderDetails: list<userOrderDetails> }
+      userOrderDetails: list<userOrderDetails>
+    }
 
 /// query root
 type Root =
-    { /// fetch data from the table: "userOrders"
-      userOrders: list<userOrders> }
+    { 
+      /// fetch data from the table: "userOrders"
+      userOrders: list<userOrders>
+    }
 
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
@@ -204,16 +212,20 @@ type userOrderDetails =
 
 /// fetch data from the table: "userOrders"
 type userOrders =
-    { status: string
+    {
+      status: string
       id: int
       deliveryDate: System.DateTimeOffset
       /// An array relationship
-      userOrderDetails: list<userOrderDetails> }
+      userOrderDetails: list<userOrderDetails>
+    }
 
 /// query root
 type Root =
-    { /// fetch data from the table: "userOrders"
-      userOrders: list<userOrders> }
+    {
+      /// fetch data from the table: "userOrders"
+      userOrders: list<userOrders>
+    }
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code correct"
     }

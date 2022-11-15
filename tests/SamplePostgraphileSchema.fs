@@ -80,20 +80,24 @@ type AggregatedMeterReading =
 
 /// Reads and enables pagination through a set of `AggregatedMeterReading`.
 type AggregatedMeterReadingsConnection =
-    { /// A list of `AggregatedMeterReading` objects.
-      nodes: list<Option<AggregatedMeterReading>> }
+    {
+      /// A list of `AggregatedMeterReading` objects.
+      nodes: list<Option<AggregatedMeterReading>>
+    }
 
 /// Reads a single `MeterType` that is related to this `Meter`.
 type MeterType = { description: string }
 
 /// Reads a single `Meter` that is related to this `Object`.
 type Meter =
-    { objectId: int
+    {
+      objectId: int
       ean: Option<string>
       importCode: Option<string>
       meterFunction: int
       /// Reads a single `MeterType` that is related to this `Meter`.
-      meterTypeByMeterTypeId: Option<MeterType> }
+      meterTypeByMeterTypeId: Option<MeterType>
+    }
 
 /// Reads a single `ObjectType` that is related to this `Object`.
 type ObjectType =
@@ -102,26 +106,32 @@ type ObjectType =
 
 /// A list of `Object` objects.
 type Object =
-    { name: string
+    {
+      name: string
       path: string
       /// Reads and enables pagination through a set of `AggregatedMeterReading`.
       aggregatedMeterReadingsByObjectId: AggregatedMeterReadingsConnection
       /// Reads a single `Meter` that is related to this `Object`.
       meterByObjectId: Option<Meter>
       /// Reads a single `ObjectType` that is related to this `Object`.
-      objectTypeByObjectTypeId: Option<ObjectType> }
+      objectTypeByObjectTypeId: Option<ObjectType>
+    }
 
 /// Reads and enables pagination through a set of `Object`.
 type ObjectsConnection =
-    { /// The count of *all* `Object` you could get from the connection.
+    {
+      /// The count of *all* `Object` you could get from the connection.
       totalCount: int
       /// A list of `Object` objects.
-      nodes: list<Option<Object>> }
+      nodes: list<Option<Object>>
+    }
 
 /// The root query type which gives access points into the data universe.
 type Root =
-    { /// Reads and enables pagination through a set of `Object`.
-      allObjects: Option<ObjectsConnection> }
+    {
+      /// Reads and enables pagination through a set of `Object`.
+      allObjects: Option<ObjectsConnection>
+    }
 """
                 Expect.equal (Utilities.trimContentEnd generated) (Utilities.trimContentEnd expected) "The generated code is correct"
 
