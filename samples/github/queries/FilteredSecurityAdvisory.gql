@@ -1,0 +1,14 @@
+query GetSecurityAdvisory($ident:SecurityAdvisoryIdentifierFilter!)  {
+  securityAdvisories(first: 10, identifier: $ident) {
+    nodes {
+      identifiers {
+        value
+      }
+      ghsaId
+      cvss {
+        vectorString
+      }
+      classification
+    }
+  }
+}

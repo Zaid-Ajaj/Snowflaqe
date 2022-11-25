@@ -4,7 +4,7 @@ open System;
 open System.IO;
 open System.Linq;
 open System.Reflection;
-#if NETCOREAPP2_0
+#if (NET || NETCOREAPP)
 open System.Runtime.Loader;
 #endif
 open Microsoft.Build.Framework;
@@ -20,7 +20,7 @@ type public ContextAwareTask () as cat =
     abstract ManagedDllDirectory : string with get
     default _.ManagedDllDirectory
         with get() =
-            let codeBase = typeInfo.Assembly.CodeBase
+            let codeBase = typeInfo.Assembly.Location
             let uri = new Uri(codeBase)
             Path.GetDirectoryName(uri.LocalPath)
 
@@ -30,8 +30,8 @@ type public ContextAwareTask () as cat =
     abstract member ExecuteInner: unit -> bool
 
     override this.Execute() =
-#if NETCOREAPP2_0
-        let taskAssemblyPath = Uri(typeInfo.Assembly.CodeBase).LocalPath
+#if (NET || NETCOREAPP)
+        let taskAssemblyPath = Uri(typeInfo.Assembly.Location).LocalPath
         let ctxt = CustomAssemblyLoader(this)
         let inContextAssembly = ctxt.LoadFromAssemblyPath(taskAssemblyPath)
         let innerTaskType = inContextAssembly.GetType(``type``.FullName)
@@ -41,7 +41,7 @@ type public ContextAwareTask () as cat =
         let innerProperties = innerTaskType.GetRuntimeProperties().ToDictionary(fun i -> i.Name);
         let propertiesDiscovery =
             outerProperties.Values
-            |> Seq.filter (fun outerProperty -> outerProperty.SetMethod != null && outerProperty.GetMethod != null)
+            |> Seq.filter (fun (outerProperty: PropertyInfo) -> not (isNull outerProperty.SetMethod || isNull outerProperty.GetMethod))
             |> Seq.map
                 (fun outerProperty ->
                     let innerProperty = innerProperties.[outerProperty.Name]
@@ -49,7 +49,7 @@ type public ContextAwareTask () as cat =
         let propertiesMap = propertiesDiscovery |> Seq.toArray
         let outputPropertiesMap =
             propertiesDiscovery
-            |> Seq.filter (fun (outerProperty, _) -> outerProperty.GetCustomAttribute<OutputAttribute>() != null)
+            |> Seq.filter (fun (outerProperty, _) -> not (isNull (outerProperty.GetCustomAttribute<OutputAttribute>())))
 
         let propertiesMap =
             propertiesMap
@@ -82,19 +82,21 @@ type public ContextAwareTask () as cat =
         this.ExecuteInner()
 #endif
 
-#if NETCOREAPP2_0
-type private CustomAssemblyLoader(loaderTask: ContextAwareTask) =
-    inherit AssemblyLoadContext
 
-    let loaderTask = loaderTask
+#if (NET || NETCOREAPP)
+
+and private CustomAssemblyLoader(loaderTask: ContextAwareTask) =
+    inherit AssemblyLoadContext()
+
+    member this.loaderTask = loaderTask
 
     override this.Load(assemblyName: AssemblyName) : Assembly =
         let assemblyPath = Path.Combine(this.loaderTask.ManagedDllDirectory, assemblyName.Name) + ".dll"
         if File.Exists(assemblyPath) then
-            LoadFromAssemblyPath(assemblyPath)
-        Default.LoadFromAssemblyName(assemblyName)
+            this.LoadFromAssemblyPath(assemblyPath) |> ignore
+        AssemblyLoadContext.Default.LoadFromAssemblyName(assemblyName)
 
-    override LoadUnmanagedDll(unmanagedDllName: string) : IntPtr =
+    override this.LoadUnmanagedDll(unmanagedDllName: string) : IntPtr =
         let unmanagedDllPath =
              Directory.EnumerateFiles(
                 this.loaderTask.UnmanagedDllDirectory,
@@ -104,8 +106,8 @@ type private CustomAssemblyLoader(loaderTask: ContextAwareTask) =
                         $"lib{unmanagedDllName}.*"))
                 .FirstOrDefault()
 
-        if unmanagedDllPath != null then
-            this.LoadUnmanagedDllFromPath(unmanagedDllPath)
+        if isNull unmanagedDllPath then
+            this.LoadUnmanagedDllFromPath(unmanagedDllPath) |> ignore
 
         base.LoadUnmanagedDll(unmanagedDllName)
 #endif

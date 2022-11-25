@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,12 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fake.Core.Environment" Version="5.20.4" />
-    <PackageReference Include="Fake.Core.Target" Version="5.20.4" />
+    <PackageReference Include="Fake.Core.Environment" Version="5.23.1" />
+    <PackageReference Include="Fake.Core.Target" Version="5.23.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="5.0.1" />
+    <PackageReference Update="FSharp.Core" Version="6.0.6" />
   </ItemGroup>
 
 	<ItemGroup>

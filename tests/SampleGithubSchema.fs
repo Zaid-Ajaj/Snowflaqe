@@ -5,11 +5,11 @@ open Expecto
 open Snowflaqe
 open Snowflaqe.Types
 
-let [<Literal>] githubSchema = TextFile<"./GitHubSchema.json">.Text
+let [<Literal>] githubSchema = TextFile<"./GithubSchema.json">.Text
 let [<Literal>] typesFileName = "Types.fs"
 
 let queryWithUnion = """
-query GitHubSearch {
+query GithubSearch {
   search(query:"Snowflaqe", type:REPOSITORY, first:10) {
     nodes {
       ... on Repository {
@@ -34,7 +34,7 @@ query GitHubSearch {
 """
 
 let queryWithUnionMissingTypeName = """
-query GitHubSearch {
+query GithubSearch {
   search(query:"Snowflaqe", type:REPOSITORY, first:10) {
     nodes {
       ... on Repository {
@@ -106,7 +106,7 @@ query GetPullRequests($org: String!) {
 }
 """
 
-let githubTests = testList "GitHub tests" [
+let githubTests = testList "Github tests" [
     test "Schema can be parsed" {
         match Schema.parse githubSchema with
         | Error error -> failwith error
@@ -393,7 +393,7 @@ let githubTests = testList "GitHub tests" [
 
             let name =
                 Query.findOperationName query
-                |> Option.defaultValue "GitHubSearch"
+                |> Option.defaultValue "GithubSearch"
                 |> CodeGen.normalizeName
 
             let generated =
