@@ -106,7 +106,7 @@ and private CustomAssemblyLoader(loaderTask: ContextAwareTask) =
                         $"lib{unmanagedDllName}.*"))
                 .FirstOrDefault()
 
-        if isNull unmanagedDllPath then
+        if not (isNull unmanagedDllPath) then
             this.LoadUnmanagedDllFromPath(unmanagedDllPath) |> ignore
 
         base.LoadUnmanagedDll(unmanagedDllName)
