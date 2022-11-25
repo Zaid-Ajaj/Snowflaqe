@@ -33,6 +33,11 @@ let capitalize (input: string) =
     then ""
     else input.First().ToString().ToUpper() + String.Join("", input.Skip(1))
 
+let camelCase (input: string) =
+    if String.IsNullOrWhiteSpace input
+    then ""
+    else input.First().ToString().ToLower() + String.Join("", input.Skip(1))
+
 let normalizeName (unionCase: string) =
     if not(unionCase.Contains "_") then
         capitalize unionCase
@@ -90,6 +95,15 @@ let normalizeModuleName (name: string) =
     |> Array.filter (String.IsNullOrEmpty >> not)
     |> Array.map capitalize
     |> String.concat ""
+
+/// Checks whether a selection of fields have conflicts when they are camel-cased. 
+/// For example `AnotherField` and `anotherField` are considered conflicting.
+/// In this case, we will add an attribute [<CLIMutable>] to the record type
+let fieldsHaveConflictingNames (fields: string list) =
+    fields
+    |> List.map (fun fieldName -> camelCase fieldName)
+    |> List.distinct
+    |> List.length <> fields.Length
 
 type SynAttribute with
     static member Create(idents: string list) : SynAttribute =
@@ -340,10 +354,16 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
     | GraphqlFieldType.NonNull(inner) ->
         createFSharpType name inner
 
-let createInputRecord (input: GraphqlInputObject) =
+let createInputRecord (input: GraphqlInputObject) =  
+    let attributes = SynAttributeList.Create [
+        let fieldNames = input.fields |> List.map (fun field -> field.fieldName)
+        if fieldsHaveConflictingNames fieldNames then 
+            SynAttribute.CLIMutable()
+    ]
+    
     let info : SynComponentInfoRcd = {
         Access = None
-        Attributes = [ ]
+        Attributes = [ attributes ]
         Id = [ Ident.Create input.name ]
         XmlDoc = PreXmlDoc.Create input.description
         Parameters = None
@@ -452,9 +472,23 @@ let rec generateFields
     (visitedTypes: ResizeArray<string>)
     (types: Dictionary<string,SynModuleDecl>)
     (skipTypeName: bool) =
+
+    let selectedFields =
+        selections.nodes
+        |> List.choose (function
+            | GraphqlNode.Field field -> Some field
+            | _ -> None)
+
+    let selectedFieldNames = selectedFields |> List.map (fun field -> field.alias |> Option.defaultValue field.name)
+
+    let attributes = SynAttributeList.Create [
+        if fieldsHaveConflictingNames selectedFieldNames then 
+            SynAttribute.CLIMutable()
+    ]
+
     let info : SynComponentInfoRcd = {
         Access = None
-        Attributes = [ ]
+        Attributes = [ attributes ]
         Id = [ Ident.Create typeName ]
         XmlDoc = PreXmlDoc.Create description
         Parameters = None
@@ -462,12 +496,6 @@ let rec generateFields
         PreferPostfix = false
         Range = Range.range0
     }
-
-    let selectedFields =
-        selections.nodes
-        |> List.choose (function
-            | GraphqlNode.Field field -> Some field
-            | _ -> None)
 
     let recordRepresentation = SynTypeDefnSimpleReprRecordRcd.Create [
         for field in selectedFields do

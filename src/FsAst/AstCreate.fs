@@ -726,6 +726,9 @@ type SynAttribute with
 
     static member RequireQualifiedAccess() =
         SynAttribute.Create("RequireQualifiedAccess")
+    
+    static member CLIMutable() =
+        SynAttribute.Create("CLIMutable")
 
     static member CompiledName(valueArg: string) =
         SynAttribute.Create("CompiledName", valueArg)

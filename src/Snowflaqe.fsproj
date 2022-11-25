@@ -9,8 +9,8 @@
     <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net6.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0;netcoreapp3.1;net6.0</TargetFrameworks>
-    <Version>1.40.0</Version>
-    <PackageReleaseNotes>Exclude enums where all cases are deprecated. Sanitize generated record fields that are preserved F# keywords</PackageReleaseNotes>
+    <Version>1.41.0</Version>
+    <PackageReleaseNotes>Use CLIMutable records when they contain conflicting fields, case-sensitive-wise.</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 

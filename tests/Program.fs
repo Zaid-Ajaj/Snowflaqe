@@ -1344,6 +1344,7 @@ let snowflakeTests = testList "Snowflaqe" [
     SampleCraftSchema.tests
     SamplePostgraphile.tests
     SampleSentiantSchema.tests
+    SampleSyntheticInputSchema.tests
 ]
 
 [<EntryPoint>]
