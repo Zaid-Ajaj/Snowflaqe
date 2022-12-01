@@ -14,7 +14,7 @@ open Snowflaqe.Types
 
 let [<Literal>] SnowflaqeTasksVersion = "1.4.4"
 let [<Literal>] FantomasFCSVersion = "5.1.3"
-let [<Literal>] FableRemotingJsonVersion = "2.22.0"
+let [<Literal>] FableRemotingJsonVersion = "2.23.0"
 let [<Literal>] FableSimpleHttpVersion = "3.5.0"
 let [<Literal>] FableSimpleJsonVersion = "3.24.0"
 let [<Literal>] FSharpCoreVersion = "6.0.1"
