@@ -1383,7 +1383,7 @@ type GraphqlErrorResponse = {{ errors: {errorType} list }}
 type {clientName} private (httpClient: HttpClient, url: string) =
 
     let fableJsonConverter = FableJsonConverter() :> JsonConverter
-    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, Converters = [| fableJsonConverter |])
+    let settings = JsonSerializerSettings(DateParseHandling=DateParseHandling.None, NullValueHandling=NullValueHandling.Ignore, Converters = [| fableJsonConverter |])
     let serializer = JsonSerializer.Create(settings)
 
     /// <summary>Creates {clientName} specifying <see href="T:System.Net.Http.HttpClient">HttpClient</see> instance</summary>
