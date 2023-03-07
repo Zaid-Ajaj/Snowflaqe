@@ -1,0 +1,34 @@
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>6.0</LangVersion>
+    <FSharpCoreVersion>6.0.*</FSharpCoreVersion>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <NoWarn>$(NoWarn);NU1504;NU1701</NoWarn>
+    <TreatWarningsAsErrors Condition="'$(Configuration)' != 'Debug'">true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+    <RepoRoot>$([System.IO.Path]::GetDirectoryName($([MSBuild]::GetPathOfFileAbove('.gitignore', '$(MSBuildThisFileDirectory)'))))</RepoRoot>
+    <RepositoryUrl>https://github.com/Zaid-Ajaj/Snowflaqe</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Version>1.43.0</Version>
+    <PackageTags>FSharp GraphQL CLI Fable Tool</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageProjectUrl>https://Zaid-Ajaj.github.io/Snowflaqe</PackageProjectUrl>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(RepoRoot)\icon.png" Pack="true" PackagePath="\" />
+    <None Include="$(RepoRoot)\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

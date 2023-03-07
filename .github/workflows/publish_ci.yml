@@ -1,0 +1,57 @@
+name: publish to GitHub
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set Build Version
+      run: |
+        $File = (
+          Select-Xml -XPath "/Project/PropertyGroup[@Label='NuGet']/Version" -Path "Directory.Build.targets"
+        )[0].Node
+        $version = "$($File.InnerText)-ci-$Env:GITHUB_RUN_ID"
+        $File.InnerText = $version
+        $File.OwnerDocument.Save((Join-Path $PWD.ProviderPath Directory.Build.targets))
+        echo "VERSION=$version" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
+      shell: pwsh
+
+    - name: Add the GitHub source
+      run: dotnet nuget add source --username USERNAME --password ${{secrets.GITHUB_TOKEN}} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/Zaid-Ajaj/index.json"
+
+    - name: Build Snowflaqe project
+      run: |
+        cd src
+        dotnet build --configuration Release
+    - name: Test Snowflaqe
+      run: |
+        cd tests
+        dotnet test
+
+    - name: Pack Snowflaqe project
+      run: |
+        cd src
+        dotnet pack --no-build --nologo --configuration Release -o ../../nuget
+    - name: Publish Snowflaqe project to GitHub
+      run: |
+        dotnet nuget push nuget/Snowflaqe*.nupkg -s "github" -k ${{secrets.GITHUB_TOKEN}}
+
+    - name: Build Snowflaqe.Tasks project
+      run: |
+        cd tasks
+        dotnet build --configuration Release
+    - name: Pack Snowflaqe.Tasks project
+      run: |
+        cd tasks
+        dotnet pack --no-build --nologo --configuration Release /p:IsNuget=true -o ../../nuget
+    - name: Publish Snowflaqe.Tasks project to GitHub
+      run: |
+        dotnet nuget push nuget/Snowflaqe.Tasks*.nupkg -s "github" -k ${{secrets.GITHUB_TOKEN}}

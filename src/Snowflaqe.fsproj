@@ -14,6 +14,12 @@
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 
+  <PropertyGroup Label="NuGet">
+    <Authors>Zaid Ajaj</Authors>
+    <Product>Snowflaqe</Product>
+    <Summary>A dotnet CLI tool to generate F# source code for Fable and F# projects as GraphQL clients based on the schema and input queries.</Summary>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="./FsAst/AstRcd.fs" />
     <Compile Include="./FsAst/AstCreate.fs" />
