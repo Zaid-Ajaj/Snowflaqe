@@ -8,6 +8,7 @@
     <TreatWarningsAsErrors Condition="'$(Configuration)' != 'Debug'">true</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <PropertyGroup Label="NuGet">
     <RepoRoot>$([System.IO.Path]::GetDirectoryName($([MSBuild]::GetPathOfFileAbove('.gitignore', '$(MSBuildThisFileDirectory)'))))</RepoRoot>
     <RepositoryUrl>https://github.com/Zaid-Ajaj/Snowflaqe</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

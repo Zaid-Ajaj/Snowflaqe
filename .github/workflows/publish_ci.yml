@@ -3,7 +3,7 @@ name: publish to GitHub
 on:
   push:
     branches:
-      - master
+      - github_workflows
 
 jobs:
   publish:
@@ -27,31 +27,32 @@ jobs:
     - name: Add the GitHub source
       run: dotnet nuget add source --username USERNAME --password ${{secrets.GITHUB_TOKEN}} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/Zaid-Ajaj/index.json"
 
-    - name: Build Snowflaqe project
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v3
+
+    - name: Build solution
       run: |
-        cd src
-        dotnet build --configuration Release
+        dotnet build --configuration Release /p:IsNuget=true
+
     - name: Test Snowflaqe
       run: |
         cd tests
-        dotnet test
+        dotnet test --configuration Release
 
     - name: Pack Snowflaqe project
       run: |
         cd src
-        dotnet pack --no-build --nologo --configuration Release -o ../../nuget
+        dotnet pack --no-build --nologo --configuration Release -o ../nuget
+
     - name: Publish Snowflaqe project to GitHub
       run: |
         dotnet nuget push nuget/Snowflaqe*.nupkg -s "github" -k ${{secrets.GITHUB_TOKEN}}
 
-    - name: Build Snowflaqe.Tasks project
-      run: |
-        cd tasks
-        dotnet build --configuration Release
     - name: Pack Snowflaqe.Tasks project
       run: |
         cd tasks
-        dotnet pack --no-build --nologo --configuration Release /p:IsNuget=true -o ../../nuget
+        dotnet pack --no-build --nologo --configuration Release -o ../nuget
+
     - name: Publish Snowflaqe.Tasks project to GitHub
       run: |
         dotnet nuget push nuget/Snowflaqe.Tasks*.nupkg -s "github" -k ${{secrets.GITHUB_TOKEN}}

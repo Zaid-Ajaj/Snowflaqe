@@ -6,10 +6,8 @@
     <ToolCommandName>snowflaqe</ToolCommandName>
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
-    <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net6.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0;netcoreapp3.1;net6.0</TargetFrameworks>
-    <Version>1.43.0</Version>
     <PackageReleaseNotes>Skip null fields from records when serializing to JSON using fsharp client on dotnet</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>

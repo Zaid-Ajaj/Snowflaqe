@@ -27,19 +27,20 @@ jobs:
         echo "VERSION=$version" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
       shell: pwsh
 
-    - name: Build Snowflaqe project
+    - name: Build solution
       run: |
-        cd src
-        dotnet build --configuration Release
+        dotnet build --configuration Release /p:IsNuget=true
+
     - name: Test Snowflaqe
       run: |
         cd tests
-        dotnet test
+        dotnet test --configuration Release
 
     - name: Pack Snowflaqe project
       run: |
         cd src
-        dotnet pack --no-build --nologo --configuration Release -o ../../nuget
+        dotnet pack --no-build --nologo --configuration Release -o ../nuget
+
     - name: Publish Snowflaqe project to NuGet
       run: |
         dotnet nuget push nuget/Snowflaqe*.nupkg -k ${{secrets.NUGET_SECRET}}
@@ -47,7 +48,8 @@ jobs:
     - name: Pack Snowflaqe.Tasks project
       run: |
         cd tasks
-        dotnet pack --no-build --nologo --configuration Release /p:IsNuget=true -o ../../nuget
+        dotnet pack --no-build --nologo --configuration Release -o ../nuget
+
     - name: Publish Snowflaqe.Tasks project to NuGet
       run: |
         dotnet nuget push nuget/Snowflaqe.Tasks*.nupkg -k ${{secrets.NUGET_SECRET}}
