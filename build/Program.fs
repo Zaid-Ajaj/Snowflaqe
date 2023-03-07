@@ -545,7 +545,7 @@ let main (args: string[]) =
         | [| "publish" |] -> publish()
         | [| "publish-tasks" |] -> publishTasks()
         | [| "integration" |] -> integration()
-        | [| "fsproj-integration" |] -> 
+        | [| "fsproj-integration" |] ->
             clear()
             fsprojIntegration()
             clear()

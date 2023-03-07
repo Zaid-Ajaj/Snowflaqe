@@ -13,6 +13,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: |
+          3.1.x
+
     - name: Set Build Version
       run: |
         $File = (
@@ -27,22 +33,19 @@ jobs:
     - name: Add the GitHub source
       run: dotnet nuget add source --username USERNAME --password ${{secrets.GITHUB_TOKEN}} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/Zaid-Ajaj/index.json"
 
-    - name: Install .NET Core
-      uses: actions/setup-dotnet@v3
-
     - name: Build solution
       run: |
-        dotnet build --configuration Release /p:IsNuget=true
+        dotnet build --configuration Release
 
     - name: Test Snowflaqe
       run: |
         cd tests
-        dotnet test --configuration Release
+        dotnet run
 
     - name: Pack Snowflaqe project
       run: |
         cd src
-        dotnet pack --no-build --nologo --configuration Release -o ../nuget
+        dotnet pack Snowflaqe.fsproj --no-build --nologo --configuration Release /p:IsNuget=true -o ../nuget
 
     - name: Publish Snowflaqe project to GitHub
       run: |

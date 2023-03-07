@@ -35,7 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="6.0.6" />
+    <PackageReference Update="FSharp.Core" Version="$(FSharpCoreVersion)" />
     <PackageReference Include="BlackFox.ColoredPrintf" Version="1.0.5" />
     <PackageReference Include="Fantomas.Core" Version="5.1.3" />
     <PackageReference Include="Fantomas.FCS" Version="5.1.3" />
