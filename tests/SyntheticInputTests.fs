@@ -29,7 +29,8 @@ namespace rec Test
 [<CLIMutable>]
 type SyntheticInput =
     { anotherType: Option<int>
-      AnotherType: Option<int> }
+      AnotherType: Option<int>
+      ``of``: Option<int> }
 """
             let trimmedGenerated = Utilities.trimContentEnd generated
             let trimmedExpected = Utilities.trimContentEnd expected
