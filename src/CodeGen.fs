@@ -96,7 +96,7 @@ let normalizeModuleName (name: string) =
     |> Array.map capitalize
     |> String.concat ""
 
-/// Checks whether a selection of fields have conflicts when they are camel-cased. 
+/// Checks whether a selection of fields have conflicts when they are camel-cased.
 /// For example `AnotherField` and `anotherField` are considered conflicting.
 /// In this case, we will add an attribute [<CLIMutable>] to the record type
 let fieldsHaveConflictingNames (fields: string list) =
@@ -139,7 +139,7 @@ let createEnumType (enumType: GraphqlEnum) (normalizeEnumCases: bool) =
         for value in values ->
             let attrs = [ SynAttributeList.Create(compiledName value.name) ]
             let docs = PreXmlDoc.Create value.description
-            let enumCase = 
+            let enumCase =
                 if normalizeEnumCases
                 then normalizeEnumName value.name
                 else value.name
@@ -268,9 +268,7 @@ type SynFieldRcd with
         }
 
 let ensureLegalFieldName (maybeIllegalFieldName: string) =
-    match maybeIllegalFieldName with
-    | "public" | "private" | "type" | "base" -> $"``{maybeIllegalFieldName}``"
-    | _ -> maybeIllegalFieldName
+    PrettyNaming.NormalizeIdentifierBackticks maybeIllegalFieldName
 
 let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
     match graphqlType with
@@ -354,13 +352,13 @@ let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
     | GraphqlFieldType.NonNull(inner) ->
         createFSharpType name inner
 
-let createInputRecord (input: GraphqlInputObject) =  
+let createInputRecord (input: GraphqlInputObject) =
     let attributes = SynAttributeList.Create [
         let fieldNames = input.fields |> List.map (fun field -> field.fieldName)
-        if fieldsHaveConflictingNames fieldNames then 
+        if fieldsHaveConflictingNames fieldNames then
             SynAttribute.CLIMutable()
     ]
-    
+
     let info : SynComponentInfoRcd = {
         Access = None
         Attributes = [ attributes ]
@@ -482,7 +480,7 @@ let rec generateFields
     let selectedFieldNames = selectedFields |> List.map (fun field -> field.alias |> Option.defaultValue field.name)
 
     let attributes = SynAttributeList.Create [
-        if fieldsHaveConflictingNames selectedFieldNames then 
+        if fieldsHaveConflictingNames selectedFieldNames then
             SynAttribute.CLIMutable()
     ]
 
