@@ -1,0 +1,43 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+    - master
+    - dev
+  pull_request:
+    branches:
+    - master
+    - dev
+
+jobs:
+  build:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        dotnet: [6.0.400]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build solution
+      run: |
+        dotnet build --configuration Release /p:IsNuget=true
+
+    - name: Test Snowflaqe
+      run: |
+        cd tests
+        dotnet test --configuration Release
+
+    - name: Pack Snowflaqe project
+      run: |
+        cd src
+        dotnet pack --no-build --nologo --configuration Release
+
+    - name: Pack Snowflaqe.Tasks project
+      run: |
+        cd tasks
+        dotnet pack --no-build --nologo --configuration Release

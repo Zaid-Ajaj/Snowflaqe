@@ -2,8 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>net6.0;netcoreapp3.1;netstandard2.0</TargetFrameworks>
-    <LangVersion>latest</LangVersion>
-
+    <Description>Draft.</Description>
     <NoPackageAnalysis>true</NoPackageAnalysis>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackBuildOutputs</TargetsForTfmSpecificContentInPackage>
@@ -11,8 +10,13 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.4.4</Version>
     <PackageReleaseNotes>Allow parser to read schema from SDL when it contains custom scalars</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <PropertyGroup Label="NuGet">
+    <Authors>Zaid Ajaj</Authors>
+    <Product>Snowflaqe.Tasks</Product>
+    <Summary>Draft.</Summary>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
@@ -77,7 +81,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="6.0.6">
+    <PackageReference Update="FSharp.Core" Version="$(FSharpCoreVersion)">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; compile; build; native; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
