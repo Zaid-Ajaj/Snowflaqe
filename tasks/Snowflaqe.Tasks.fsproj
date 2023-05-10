@@ -11,8 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.4.4</Version>
-    <PackageReleaseNotes>Allow parser to read schema from SDL when it contains custom scalars</PackageReleaseNotes>
+    <Version>1.4.5</Version>
+    <PackageReleaseNotes>Fix field name normalization</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
