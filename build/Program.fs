@@ -81,7 +81,7 @@ let publish() =
                 |> Seq.head
                 |> Path.GetFullPath
 
-            if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, src) <> 0
+            if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s https://api.nuget.org/v3/index.json -k %s" nugetPath nugetKey, src) <> 0
             then failwith "Publish failed"
     else
         failwith "Failed to restore Snowflaqe.fsproj"
@@ -104,7 +104,7 @@ let publishTasks() =
                 |> Seq.head
                 |> Path.GetFullPath
 
-            if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s nuget.org -k %s" nugetPath nugetKey, tasks) <> 0
+            if Shell.Exec(Tools.dotnet, sprintf "nuget push %s -s https://api.nuget.org/v3/index.json -k %s" nugetPath nugetKey, tasks) <> 0
             then failwith "Publishing Snowflaqe.Tasks failed"
     else
         failwith "Building Snowflaqe.Tasks failed"
