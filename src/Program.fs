@@ -281,8 +281,12 @@ let runConfig (config: Config) =
         printfn "✔️  Schema loaded successfully"
         colorprintfn "⏳ Validating queries within $green[%s]" config.queries
         let mutable errorCount = 0
-        let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
-        for queryFile in queryFiles do
+        let queryFiles = seq {
+            yield! Directory.GetFiles(config.queries, "*.gql")
+            yield! Directory.GetFiles(config.queries, "*.graphql")
+        }
+
+        for queryFile in Seq.map Path.GetFullPath queryFiles do
             let query = File.ReadAllText queryFile
             match Query.parse query with
             | Error parseError ->
@@ -316,8 +320,12 @@ let generate (config: Config) =
         Error 1
     | Ok schema ->
         let mutable invalidQuery = false
-        let queryFiles = Directory.GetFiles(config.queries, "*.gql") |> Seq.map Path.GetFullPath
-        for queryFile in queryFiles do
+        let queryFiles = seq {
+            yield! Directory.GetFiles(config.queries, "*.gql")
+            yield! Directory.GetFiles(config.queries, "*.graphql")
+        }
+
+        for queryFile in Seq.map Path.GetFullPath queryFiles do
             if not invalidQuery then
                 let query = File.ReadAllText queryFile
                 match Query.parse query with
@@ -359,7 +367,7 @@ let generate (config: Config) =
             yield! (CodeGen.createGlobalTypes schema config.normalizeEnumCases)
             yield config.errorType.typeDefinition
         ]
- 
+
         let typesFileName = "Types.fs"
         let globalTypesModule = CodeGen.createNamespace [ config.project ] globalTypes
         let file = CodeGen.createFile typesFileName [ globalTypesModule ]

@@ -40,7 +40,7 @@ Where
    - A URL to the GraphQL backend
    - A relative path to another JSON file containing the output of the [standard Introspection](https://github.com/Zaid-Ajaj/Snowflaqe/blob/master/src/Introspection.gql) query which you can execute against the backend yourself (this allows for offline verification and type-checking)
    - A relative path to a file with extension `.gql` or `.graphql` containing the schema definitions and types
- - `<queries>` is an absolute or relative path to a directory that contains `*.gql` files that contain individual GraphQL queries that `snowflaqe` will run the verification against.
+ - `<queries>` is an absolute or relative path to a directory that contains `*.gql` or `*.graphql`  files that contain individual GraphQL queries that `snowflaqe` will run the verification against.
  - `<project>` is the name of the project will be generated.
  - `<output>` is an absolute or relative path to a directory where the project will be generated. It is recommended to use an empty directory relative to configuration file because each time you generate and regenarate the project, this directory is cleaned.
  - `<errorType>` optional custom error type to be generated. See below to learn more.
