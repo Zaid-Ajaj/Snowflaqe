@@ -931,6 +931,186 @@
                             "ofType": null
                           },
                           "description": null
+                        },
+                        {
+                          "name": "break",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "checked",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "component",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "const",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "constraint",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "continue",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "event",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "external",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "include",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "mixin",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "parallel",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "process",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "protected",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "pure",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "sealed",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "tailcall",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "trait",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
+                        },
+                        {
+                          "name": "virtual",
+                          "defaultValue": null,
+                          "type": {
+                            "kind": "SCALAR",
+                            "name": "Int",
+                            "ofType": null
+                          },
+                          "description": null
                         }
                     ],
                     "kind": "INPUT_OBJECT",

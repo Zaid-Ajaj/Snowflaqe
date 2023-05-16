@@ -268,7 +268,17 @@ type SynFieldRcd with
         }
 
 let ensureLegalFieldName (maybeIllegalFieldName: string) =
-    PrettyNaming.NormalizeIdentifierBackticks maybeIllegalFieldName
+    /// Taken from https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/keyword-reference
+    let reservedKeywords =
+        ["break"; "checked"; "component"; "const"; "constraint"; "continue";
+         "event"; "external"; "include"; "mixin"; "parallel"; "process";
+         "protected"; "pure"; "sealed"; "tailcall"; "trait"; "virtual"]
+
+    let containsReservedKeyword keyword = List.contains keyword reservedKeywords
+
+    if containsReservedKeyword maybeIllegalFieldName
+    then $"``{maybeIllegalFieldName}``"
+    else PrettyNaming.NormalizeIdentifierBackticks maybeIllegalFieldName
 
 let rec createFSharpType (name: string option) (graphqlType: GraphqlFieldType) =
     match graphqlType with
