@@ -30,7 +30,25 @@ namespace rec Test
 type SyntheticInput =
     { anotherType: Option<int>
       AnotherType: Option<int>
-      ``of``: Option<int> }
+      ``of``: Option<int>
+      ``break``: Option<int>
+      ``checked``: Option<int>
+      ``component``: Option<int>
+      ``const``: Option<int>
+      ``constraint``: Option<int>
+      ``continue``: Option<int>
+      ``event``: Option<int>
+      ``external``: Option<int>
+      ``include``: Option<int>
+      ``mixin``: Option<int>
+      ``parallel``: Option<int>
+      ``process``: Option<int>
+      ``protected``: Option<int>
+      ``pure``: Option<int>
+      ``sealed``: Option<int>
+      ``tailcall``: Option<int>
+      ``trait``: Option<int>
+      ``virtual``: Option<int> }
 """
             let trimmedGenerated = Utilities.trimContentEnd generated
             let trimmedExpected = Utilities.trimContentEnd expected
