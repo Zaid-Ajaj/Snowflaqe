@@ -272,7 +272,7 @@ let ensureLegalFieldName (maybeIllegalFieldName: string) =
     let reservedKeywords =
         ["break"; "checked"; "component"; "const"; "constraint"; "continue";
          "event"; "external"; "include"; "mixin"; "parallel"; "process";
-         "protected"; "pure"; "sealed"; "tailcall"; "trait"; "virtual"]
+         "protected"; "pure"; "sealed"; "tailcall"; "trait"; "virtual"; "fixed"]
 
     let containsReservedKeyword keyword = List.contains keyword reservedKeywords
 
