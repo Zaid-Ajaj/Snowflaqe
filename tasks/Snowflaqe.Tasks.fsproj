@@ -11,8 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.6.0</Version>
-    <PackageReleaseNotes>Escape keywords reserved for future use in field names</PackageReleaseNotes>
+    <Version>1.7.0</Version>
+    <PackageReleaseNotes>Escape keyword 'fixed' and normalize enum description</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">

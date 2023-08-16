@@ -9,8 +9,8 @@
     <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net6.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0;netcoreapp3.1;net6.0</TargetFrameworks>
-    <Version>1.46.0</Version>
-    <PackageReleaseNotes>Escape keywords reserved for future use in field names</PackageReleaseNotes>
+    <Version>1.47.0</Version>
+    <PackageReleaseNotes>Escape keyword 'fixed' and normalize enum description</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 
