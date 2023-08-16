@@ -28,7 +28,7 @@ let (|Enum|_|) (typeJson: JToken) =
     match typeJson.["kind"].ToString() with
     | "ENUM" ->
         let name = typeJson.["name"].ToString()
-        let description = stringOrNone typeJson "description"
+        let description = stringOrNone typeJson "description" |> normalizeComment
         let values = [
             for enumValue in typeJson.["enumValues"] ->
                 {
