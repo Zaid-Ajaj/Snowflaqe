@@ -9,8 +9,8 @@
     <RollForward>Major</RollForward>
     <TargetFramework Condition=" '$(IsNuget)' != '' ">net6.0</TargetFramework>
     <TargetFrameworks Condition=" '$(IsNuget)' == '' ">netstandard2.0;netcoreapp3.1;net6.0</TargetFrameworks>
-    <Version>1.47.0</Version>
-    <PackageReleaseNotes>Escape keyword 'fixed' and normalize enum description</PackageReleaseNotes>
+    <Version>1.48.0</Version>
+    <PackageReleaseNotes>Add warning-generating keyword 'params' to reserved keywords list</PackageReleaseNotes>
     <AutoGenerateBindingRedirects Condition=" '$(IsNuget)' == '' ">true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 

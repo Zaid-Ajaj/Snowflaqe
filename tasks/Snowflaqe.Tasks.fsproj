@@ -11,8 +11,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <DevelopmentDependency>true</DevelopmentDependency>
     <MinClientVersion>2.8</MinClientVersion>
-    <Version>1.7.0</Version>
-    <PackageReleaseNotes>Escape keyword 'fixed' and normalize enum description</PackageReleaseNotes>
+    <Version>1.8.0</Version>
+    <PackageReleaseNotes>Add warning-generating keyword 'params' to reserved keywords list</PackageReleaseNotes>
   </PropertyGroup>
 
   <Target Name="PackBuildOutputs" DependsOnTargets="SatelliteDllsProjectOutputGroup;DebugSymbolsProjectOutputGroup">
